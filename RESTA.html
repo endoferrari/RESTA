@@ -223,6 +223,43 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .rejilla-emojis button{font-size:1.5rem;padding:8px 4px;border:1.5px solid transparent;background:#fbfaf7;border-radius:9px}
 .rejilla-emojis button:hover{border-color:var(--ambar);background:#fef3c7}
 
+/* ---------- familias y submenú de opciones ---------- */
+.familias-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.familias-bar button{border:1.5px solid var(--linea);background:#fff;border-radius:99px;padding:9px 16px;font-weight:700;font-size:.92rem;color:var(--tinta-suave)}
+.familias-bar button:hover{border-color:var(--tinta-suave)}
+.familias-bar button.activo{background:var(--verde-oscuro);border-color:var(--verde-oscuro);color:#fff}
+.prod-tile{position:relative}
+.submenu-flecha{position:absolute;top:6px;right:9px;font-size:.75rem;font-weight:800;opacity:.6}
+#modalOpciones .modal{max-width:540px}
+.grupo-op{margin-bottom:18px}
+.grupo-op .titulo-grupo{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px}
+.grupo-op .ops{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.op-btn{padding:14px 10px;border-radius:11px;border:2px solid var(--linea);background:#fff;font-weight:700;font-size:.98rem}
+.op-btn:hover{border-color:var(--tinta-suave)}
+.op-btn.elegido{border-color:var(--ambar);background:#fef3c7;color:#92400e}
+.linea .desc .det{font-size:.8rem;color:var(--ambar-oscuro);font-weight:700}
+.tag-submenu{font-size:.7rem;font-weight:800;background:var(--verde-claro);color:var(--verde-oscuro);border-radius:99px;padding:2px 8px;white-space:nowrap;vertical-align:middle}
+.etiqueta-familia{grid-column:1/-1;padding:12px 4px 2px;font-weight:800;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta-suave)}
+
+/* ---------- teclado numérico en pantalla ---------- */
+.teclado-num{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:340px;margin:14px auto}
+.teclado-num button{padding:14px 0;font-size:1.3rem;font-weight:800;border-radius:11px;border:1.5px solid var(--linea);background:#fff}
+.teclado-num button:hover{border-color:var(--tinta-suave)}
+.teclado-num button:active{transform:scale(.96)}
+.teclado-num .tecla-borrar{color:var(--peligro)}
+.teclado-num .tecla-ok{grid-column:span 2;background:var(--exito);border-color:var(--exito);color:#fff;font-size:1.05rem}
+
+/* ---------- cobro con tarjeta ---------- */
+.fila-tarjeta{display:flex;gap:10px;flex-wrap:wrap}
+.fila-tarjeta .campo-grande{flex:1;min-width:150px}
+.fila-tarjeta input{font-size:1.1rem;font-weight:600}
+
+/* select y textarea del formulario de productos */
+.campo select{padding:12px 14px;border:1.5px solid var(--linea);border-radius:10px;font-size:1.05rem;background:#fff;font-family:inherit}
+.campo-ancho{flex:1 1 100%}
+.campo-ancho textarea{width:100%;padding:10px 14px;border:1.5px solid var(--linea);border-radius:10px;font-size:.95rem;font-family:inherit;resize:vertical;background:#fff}
+.campo-ancho label i{font-weight:600;text-transform:none;letter-spacing:0}
+
 /* aviso flotante */
 #aviso{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--verde-oscuro);color:#fff;padding:12px 22px;border-radius:99px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:99;transition:opacity .25s}
 #aviso.oculto{opacity:0;pointer-events:none}
@@ -288,9 +325,13 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         </div>
         <div class="resumen-dia" id="resumenDia"></div>
       </div>
-      <div class="abrir-cuenta tarjeta" style="padding:16px 18px;margin-bottom:22px">
-        <input id="nuevaCuenta" placeholder="Número de mesa o nombre del cliente…" autocomplete="off">
-        <button class="btn btn-ambar" data-accion="crear-cuenta">+ Abrir cuenta</button>
+      <div class="tarjeta" style="padding:16px 18px;margin-bottom:22px">
+        <div class="abrir-cuenta">
+          <input id="nuevaCuenta" placeholder="Número de mesa o nombre del cliente…" autocomplete="off">
+          <button class="btn btn-ambar" data-accion="crear-cuenta">+ Abrir cuenta</button>
+          <button class="btn btn-borde" data-accion="toggle-teclado" title="Mostrar u ocultar el teclado numérico en pantalla">🔢 Teclado</button>
+        </div>
+        <div class="teclado-num" id="tecladoMesas" data-defecto="nuevaCuenta" data-objetivos="nuevaCuenta"></div>
       </div>
       <div id="listaCuentas"></div>
     </section>
@@ -307,6 +348,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
       <div class="detalle">
         <div class="panel-productos">
           <input id="buscador" placeholder="Escribe para buscar un producto y agrégalo con Enter…" autocomplete="off">
+          <div class="familias-bar" id="familiasBar"></div>
           <div id="mosaico"></div>
         </div>
         <div class="panel-ticket tarjeta">
@@ -324,7 +366,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
     <!-- PRODUCTOS -->
     <section id="pantalla-productos">
       <h1>Productos</h1>
-      <p class="sub">Captura tu menú una sola vez: icono, nombre y precio. Con Enter pasas de un dato al otro y se guarda.</p>
+      <p class="sub">Captura tu menú una sola vez: icono, nombre, precio y familia. Si el producto se pide con opciones (mezcla, salsa, talla…), escríbelas en el submenú y el mesero las elegirá con botones.</p>
       <div id="avisoDemo"></div>
       <div class="form-producto tarjeta">
         <div class="campo">
@@ -339,8 +381,21 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
           <label for="prodPrecio">Precio</label>
           <input id="prodPrecio" placeholder="0.00" inputmode="decimal" autocomplete="off">
         </div>
+        <div class="campo">
+          <label for="prodFamilia">Familia</label>
+          <select id="prodFamilia">
+            <option>Comida</option>
+            <option>Refrescos</option>
+            <option>Bebidas</option>
+            <option>Souvenirs</option>
+          </select>
+        </div>
         <button class="btn btn-ambar" id="btnGuardarProd" data-accion="guardar-producto">Agregar</button>
         <button class="btn btn-borde" id="btnCancelarEdicion" data-accion="cancelar-edicion" style="display:none">Cancelar</button>
+        <div class="campo campo-ancho">
+          <label for="prodOpciones">Submenú de opciones (opcional) — un grupo por renglón: <i>Grupo: opción, opción, opción</i></label>
+          <textarea id="prodOpciones" rows="2" placeholder="Ej.&#10;Mezcla: Con Coca, Coca Light, Divorciado&#10;Hielo: Con hielo, Sin hielo"></textarea>
+        </div>
       </div>
       <div id="listaProductos"></div>
     </section>
@@ -381,6 +436,11 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
     <div class="modal-cabeza"><div class="titulo">Elige el dibujo del producto <button class="cerrar" data-accion="cerrar-emojis">×</button></div></div>
     <div class="rejilla-emojis" id="rejillaEmojis"></div>
   </div>
+</div>
+
+<!-- MODAL SUBMENÚ DE OPCIONES -->
+<div id="modalOpciones" class="modal-fondo oculto">
+  <div class="modal" id="modalOpcionesCaja"></div>
 </div>
 
 <div id="aviso" class="oculto"></div>
@@ -424,25 +484,49 @@ function guardar(){
   catch(e){ puedeGuardar = false; memoriaLocal = D; }
 }
 
+const FAMILIAS = ['Comida','Refrescos','Bebidas','Souvenirs'];
+const EMOJI_FAMILIA = { Comida:'🍔', Refrescos:'🥤', Bebidas:'🍹', Souvenirs:'🎁' };
+
+/* menú de ejemplo: [familia, icono, nombre, precio, submenú de opciones] */
 const MENU_EJEMPLO = [
-  ['🌮','Orden de tacos',7500],['🧀','Quesadilla',4500],['🥩','Carne asada',18000],
-  ['🍗','Pollo a la plancha',14000],['🍤','Camarones al mojo',19500],['🐟','Filete de pescado',16000],
-  ['🍲','Sopa del día',6000],['🥗','Ensalada',7000],['🍔','Hamburguesa',9500],
-  ['🍟','Papas a la francesa',5500],['🥪','Torta',6500],['🥑','Guacamole',6500],
-  ['🍚','Arroz',3500],['🥤','Refresco',3000],['🧃','Agua fresca',2500],
-  ['🍺','Cerveza',4500],['🍹','Michelada',7000],['☕','Café',3000],['🍮','Flan',4000]
+  ['Comida','🍔','Hamburguesa',9500,[['Tipo',['Sencilla','Con queso','Doble']],['Papas',['Con papas','Sin papas']]]],
+  ['Comida','🍗','Alitas de pollo',11500,[['Salsa',['BBQ','Búfalo','Mango habanero','Naturales']]]],
+  ['Comida','🧀','Dedos de queso',8500,null],
+  ['Comida','🍤','Nuggets de pollo',8000,null],
+  ['Comida','🍖','Boneless de pollo',12500,[['Salsa',['BBQ','Búfalo','Mango habanero']]]],
+  ['Comida','🍟','Papas botana',4000,null],
+  ['Comida','🥜','Cacahuates',2500,null],
+  ['Comida','🍪','Galletas',2000,null],
+  ['Refrescos','🥤','Refresco',3000,[['Sabor',['Coca','Coca Light','Coca Zero','Sprite','Agua mineral']],['Hielo',['Con hielo','Sin hielo']]]],
+  ['Refrescos','🧃','Agua fresca',2500,null],
+  ['Refrescos','💧','Agua embotellada',2000,null],
+  ['Refrescos','☕','Café',3000,null],
+  ['Bebidas','🍺','Cerveza',4500,null],
+  ['Bebidas','🍹','Michelada',7000,[['Preparado',['Clásica','Cubana','Con Clamato']]]],
+  ['Bebidas','🥃','Copa Bacardí blanco',8500,[['Mezcla',['Con Coca','Coca Light','Coca Zero','Agua mineral','Divorciado']],['Hielo',['Con hielo','Sin hielo']]]],
+  ['Bebidas','🥃','Copa tequila',9000,[['Mezcla',['Derecho','Con refresco','Paloma']],['Hielo',['Con hielo','Sin hielo']]]],
+  ['Bebidas','🍸','Copa vodka',8500,[['Mezcla',['Con jugo','Con refresco','Agua mineral']],['Hielo',['Con hielo','Sin hielo']]]],
+  ['Souvenirs','👕','Playera',18000,[['Talla',['Chica','Mediana','Grande','Extra grande']]]],
+  ['Souvenirs','🧢','Gorra',12000,null],
+  ['Souvenirs','☕','Taza',8000,null],
+  ['Souvenirs','🔑','Llavero',5000,null]
 ];
+function productosEjemplo(){
+  return MENU_EJEMPLO.map(p => {
+    const prod = {id:nid(), familia:p[0], icono:p[1], nombre:p[2], precio:p[3]};
+    if(p[4]) prod.opciones = p[4].map(o => ({g:o[0], ops:o[1]}));
+    return prod;
+  });
+}
 
 let D = leerDatos();
 if(!D){
-  D = {
-    negocio: 'Mi Restaurante',
-    esDemo: true,
-    seq: 1,
-    productos: MENU_EJEMPLO.map(p => ({id:nid(), icono:p[0], nombre:p[1], precio:p[2]})),
-    cuentas: [],
-    tickets: []
-  };
+  D = { negocio:'Mi Restaurante', esDemo:true, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
+  guardar();
+} else {
+  // datos guardados con la versión anterior: renovar el menú de ejemplo y asignar familia
+  if(D.esDemo && !D.productos.some(p=>p.familia)) D.productos = productosEjemplo();
+  D.productos.forEach(p => { if(!FAMILIAS.includes(p.familia)) p.familia = 'Comida'; });
   guardar();
 }
 
@@ -452,6 +536,11 @@ let edicionProdId = null;
 let iconoElegido = '🍽️';
 let cobro = null; // {cuentaId, metodo, seleccion:Set, modoSeleccion, personas, ticketFinal}
 let alConfirmar = null;
+let familiaActiva = 'todo';
+let submenu = null; // {prodId, elec:{grupo: opción elegida}}
+let tecladoVisible = true;
+try{ tecladoVisible = localStorage.getItem('resta_teclado')!=='0'; }catch(e){}
+let tecladoTarget = null; // id del campo donde escribe el teclado en pantalla
 
 /* ============ cuentas: cálculos ============ */
 const buscarCuenta = id => D.cuentas.find(c => c.id===id);
@@ -523,13 +612,26 @@ function pintarCuenta(){
   if(!c){ irA('mesas'); return; }
   $('tituloCuenta').textContent = c.nombre;
   $('horaCuenta').textContent = 'abierta a las ' + c.creada;
+  pintarFamilias();
   pintarMosaico();
   pintarTicket();
 }
 
+function pintarFamilias(){
+  const presentes = FAMILIAS.filter(f => D.productos.some(p => p.familia===f));
+  const barra = $('familiasBar');
+  if(presentes.length < 2){ barra.innerHTML=''; familiaActiva='todo'; return; }
+  if(familiaActiva!=='todo' && !presentes.includes(familiaActiva)) familiaActiva='todo';
+  barra.innerHTML = ['todo', ...presentes].map(f =>
+    '<button data-accion="familia" data-f="'+f+'" class="'+(familiaActiva===f?'activo':'')+'">'+
+    (f==='todo' ? '✳️ Todo' : EMOJI_FAMILIA[f]+' '+f)+'</button>').join('');
+}
+
 function pintarMosaico(){
   const filtro = normal($('buscador').value.trim());
-  const lista = filtro ? D.productos.filter(p => normal(p.nombre).includes(filtro)) : D.productos;
+  let lista = D.productos;
+  if(filtro) lista = lista.filter(p => normal(p.nombre).includes(filtro));
+  else if(familiaActiva!=='todo') lista = lista.filter(p => p.familia===familiaActiva);
   const caja = $('mosaico');
   if(D.productos.length===0){
     caja.innerHTML = '<div class="vacio tarjeta" style="grid-column:1/-1"><div class="icono">📋</div>'+
@@ -543,7 +645,10 @@ function pintarMosaico(){
   caja.innerHTML = lista.map(p => {
     const idx = D.productos.indexOf(p) % COLORES_TILE.length;
     const [bg, fg] = COLORES_TILE[idx];
-    return '<button class="prod-tile" data-accion="agregar-item" data-id="'+p.id+'" style="background:'+bg+';color:'+fg+'">'+
+    const tieneOps = p.opciones && p.opciones.length;
+    return '<button class="prod-tile" data-accion="agregar-item" data-id="'+p.id+'" style="background:'+bg+';color:'+fg+'"'+
+      (tieneOps ? ' title="Al tocarlo se abre su submenú de opciones"' : '')+'>'+
+      (tieneOps ? '<span class="submenu-flecha">▾</span>' : '')+
       '<span class="ic">'+esc(p.icono)+'</span><span class="nm">'+esc(p.nombre)+'</span>'+
       '<span class="pr dinero">'+fmt(p.precio)+'</span></button>';
   }).join('');
@@ -559,7 +664,9 @@ function pintarTicket(){
     caja.innerHTML = c.items.map(i =>
       '<div class="linea'+(i.pagado?' pagada':'')+'">'+
         '<span class="cant">'+i.cant+'</span>'+
-        '<span class="desc"><span class="n">'+esc(i.nombre)+'</span><br><span class="u dinero">'+fmt(i.precio)+' c/u</span></span>'+
+        '<span class="desc"><span class="n">'+esc(i.nombre)+'</span>'+
+        (i.detalle ? '<br><span class="det">'+esc(i.detalle)+'</span>' : '')+
+        '<br><span class="u dinero">'+fmt(i.precio)+' c/u</span></span>'+
         '<span class="importe dinero">'+(i.pagado?'✓ ':'')+fmt(i.precio*i.cant)+'</span>'+
         (i.pagado ? '' :
         '<span class="btns">'+
@@ -583,13 +690,63 @@ function pintarTicket(){
 }
 
 function agregarItem(prodId){
-  const c = buscarCuenta(vista.cuentaId); if(!c) return;
   const p = D.productos.find(x=>x.id===prodId); if(!p) return;
-  const linea = c.items.find(i => i.prodId===p.id && !i.pagado);
+  if(p.opciones && p.opciones.length){ abrirOpciones(p); return; }
+  anotarItem(p, '');
+}
+
+function anotarItem(p, detalle){
+  const c = buscarCuenta(vista.cuentaId); if(!c) return;
+  const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado);
   if(linea) linea.cant++;
-  else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, precio:p.precio, cant:1, pagado:false});
+  else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, detalle:detalle||'', precio:p.precio, cant:1, pagado:false});
   guardar(); pintarTicket();
-  avisar(p.icono+' '+p.nombre+' anotado');
+  avisar(p.icono+' '+p.nombre+(detalle?' ('+detalle+')':'')+' anotado');
+}
+
+/* ============ submenú de opciones ============ */
+function abrirOpciones(p){
+  submenu = { prodId:p.id, elec:{} };
+  $('modalOpciones').classList.remove('oculto');
+  pintarOpciones();
+}
+
+function cerrarOpciones(){
+  $('modalOpciones').classList.add('oculto');
+  submenu = null;
+}
+
+function pintarOpciones(){
+  const p = D.productos.find(x=>x.id===submenu.prodId);
+  if(!p){ cerrarOpciones(); return; }
+  $('modalOpcionesCaja').innerHTML =
+    '<div class="modal-cabeza"><div class="titulo">'+
+      '<span>'+esc(p.icono+' '+p.nombre)+' · <span class="dinero">'+fmt(p.precio)+'</span></span>'+
+      '<button class="cerrar" data-accion="cerrar-opciones" title="Cerrar sin anotar">×</button></div></div>'+
+    '<div class="modal-cuerpo">'+
+      '<p class="sub" style="margin-top:0">Elige cómo lo pidió el cliente; al completar se anota solo:</p>'+
+      p.opciones.map(o =>
+        '<div class="grupo-op"><div class="titulo-grupo">'+esc(o.g)+'</div><div class="ops">'+
+        o.ops.map(v =>
+          '<button class="op-btn'+(submenu.elec[o.g]===v?' elegido':'')+'" data-accion="op-elegir" data-g="'+esc(o.g)+'" data-v="'+esc(v)+'">'+esc(v)+'</button>'
+        ).join('')+
+        '</div></div>').join('')+
+    '</div>';
+}
+
+function elegirOpcion(g, v){
+  if(!submenu) return;
+  const p = D.productos.find(x=>x.id===submenu.prodId);
+  if(!p){ cerrarOpciones(); return; }
+  submenu.elec[g] = v;
+  const completo = p.opciones.every(o => submenu.elec[o.g]);
+  if(completo){
+    const detalle = p.opciones.map(o => submenu.elec[o.g]).join(' · ');
+    cerrarOpciones();
+    anotarItem(p, detalle);
+  } else {
+    pintarOpciones();
+  }
 }
 
 function cambiarCant(itemId, delta){
@@ -627,35 +784,63 @@ function pintarProductos(){
       '<b>Tu menú está vacío.</b><br>Escribe arriba el nombre y el precio; con Enter se guarda y sigues con el siguiente.</div>';
     return;
   }
-  caja.innerHTML = D.productos.map((p,ix) => {
-    const [bg,fg] = COLORES_TILE[ix % COLORES_TILE.length];
-    return '<div class="prod-fila tarjeta">'+
-      '<span class="ic" style="background:'+bg+'">'+esc(p.icono)+'</span>'+
-      '<span class="nm">'+esc(p.nombre)+'</span>'+
-      '<span class="pr dinero">'+fmt(p.precio)+'</span>'+
-      '<span class="acciones">'+
-        '<button data-accion="editar-producto" data-id="'+p.id+'" title="Cambiar nombre o precio">✏️</button>'+
-        '<button data-accion="borrar-producto" data-id="'+p.id+'" title="Borrar del menú">🗑️</button>'+
-      '</span></div>';
+  let ix = 0;
+  caja.innerHTML = FAMILIAS.map(f => {
+    const del = D.productos.filter(p => p.familia===f);
+    if(del.length===0) return '';
+    return '<div class="etiqueta-familia">'+EMOJI_FAMILIA[f]+' '+f+'</div>'+
+      del.map(p => {
+        const [bg,fg] = COLORES_TILE[(ix++) % COLORES_TILE.length];
+        return '<div class="prod-fila tarjeta">'+
+          '<span class="ic" style="background:'+bg+'">'+esc(p.icono)+'</span>'+
+          '<span class="nm">'+esc(p.nombre)+
+            (p.opciones && p.opciones.length ? ' <span class="tag-submenu">▾ submenú</span>' : '')+'</span>'+
+          '<span class="pr dinero">'+fmt(p.precio)+'</span>'+
+          '<span class="acciones">'+
+            '<button data-accion="editar-producto" data-id="'+p.id+'" title="Cambiar nombre, precio u opciones">✏️</button>'+
+            '<button data-accion="borrar-producto" data-id="'+p.id+'" title="Borrar del menú">🗑️</button>'+
+          '</span></div>';
+      }).join('');
   }).join('');
 }
+
+/* el submenú se captura como texto: un grupo por renglón «Grupo: opción, opción» */
+function parseOpciones(txt){
+  const lineas = String(txt).split('\n').map(l=>l.trim()).filter(Boolean);
+  const lista = [];
+  for(const l of lineas){
+    const i = l.indexOf(':');
+    if(i < 1) return null;
+    const g = l.slice(0,i).trim();
+    const ops = l.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean);
+    if(!g || ops.length===0) return null;
+    lista.push({g, ops});
+  }
+  return lista;
+}
+const textoOpciones = ops => (ops||[]).map(o => o.g+': '+o.ops.join(', ')).join('\n');
 
 function guardarProducto(){
   const nombre = $('prodNombre').value.trim();
   const precio = aCentavos($('prodPrecio').value);
+  const familia = $('prodFamilia').value;
   if(!nombre){ avisar('Falta el nombre del producto', true); $('prodNombre').focus(); return; }
   if(precio===null){ avisar('El precio no es válido; escribe solo números, ej. 45.50', true); $('prodPrecio').focus(); return; }
+  const opciones = parseOpciones($('prodOpciones').value);
+  if(opciones===null){ avisar('Revisa el submenú: cada renglón debe ser «Grupo: opción, opción»', true); $('prodOpciones').focus(); return; }
   if(edicionProdId){
     const p = D.productos.find(x=>x.id===edicionProdId);
-    if(p){ p.nombre=nombre; p.precio=precio; p.icono=iconoElegido; }
+    if(p){ p.nombre=nombre; p.precio=precio; p.icono=iconoElegido; p.familia=familia; p.opciones = opciones.length ? opciones : undefined; }
     edicionProdId = null;
     avisar('Producto actualizado');
   } else {
-    D.productos.push({id:nid(), nombre, precio, icono:iconoElegido});
+    const p = {id:nid(), nombre, precio, icono:iconoElegido, familia};
+    if(opciones.length) p.opciones = opciones;
+    D.productos.push(p);
     avisar(iconoElegido+' '+nombre+' agregado al menú');
   }
   guardar();
-  $('prodNombre').value=''; $('prodPrecio').value='';
+  $('prodNombre').value=''; $('prodPrecio').value=''; $('prodOpciones').value='';
   iconoElegido='🍽️'; $('btnIcono').textContent='🍽️';
   $('btnGuardarProd').textContent='Agregar';
   $('btnCancelarEdicion').style.display='none';
@@ -668,6 +853,8 @@ function editarProducto(id){
   edicionProdId = id;
   $('prodNombre').value = p.nombre;
   $('prodPrecio').value = (p.precio/100).toFixed(2);
+  $('prodFamilia').value = p.familia || 'Comida';
+  $('prodOpciones').value = textoOpciones(p.opciones);
   iconoElegido = p.icono; $('btnIcono').textContent = p.icono;
   $('btnGuardarProd').textContent = 'Guardar cambios';
   $('btnCancelarEdicion').style.display = '';
@@ -676,7 +863,7 @@ function editarProducto(id){
 
 function cancelarEdicion(){
   edicionProdId = null;
-  $('prodNombre').value=''; $('prodPrecio').value='';
+  $('prodNombre').value=''; $('prodPrecio').value=''; $('prodOpciones').value='';
   iconoElegido='🍽️'; $('btnIcono').textContent='🍽️';
   $('btnGuardarProd').textContent='Agregar';
   $('btnCancelarEdicion').style.display='none';
@@ -732,15 +919,16 @@ function pintarCobro(){
 
   const pagosHtml = c.pagos.length ? '<div class="pagos-hechos"><b style="font-size:.85rem">Pagos recibidos:</b>'+
     c.pagos.map(p =>
-      '<div class="pago-linea"><span>'+(p.metodo==='efectivo'?'💵 Efectivo':'💳 Tarjeta')+' a las '+p.hora+
+      '<div class="pago-linea"><span>'+(p.metodo==='efectivo'?'💵 Efectivo':'💳 Tarjeta'+(p.digitos?' •••• '+esc(p.digitos):''))+' a las '+p.hora+
       (p.metodo==='efectivo' && p.cambio>0 ? ' (recibí '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')' : '')+
+      (p.metodo==='tarjeta' && p.nombreTarjeta ? ' — '+esc(p.nombreTarjeta) : '')+
       '</span><b>'+fmt(p.monto)+'</b></div>').join('') + '</div>' : '';
 
   const seleccionHtml = cobro.modoSeleccion ?
     '<div id="listaSeleccion">'+ c.items.filter(i=>!i.pagado).map(i =>
       '<label class="sel-linea"><input type="checkbox" data-accion="marcar-sel" data-id="'+i.id+'" '+
       (cobro.seleccion.has(i.id)?'checked':'')+'>'+
-      '<span class="nm">'+i.cant+' × '+esc(i.icono+' '+i.nombre)+'</span>'+
+      '<span class="nm">'+i.cant+' × '+esc(i.icono+' '+i.nombre)+(i.detalle?' <small>('+esc(i.detalle)+')</small>':'')+'</span>'+
       '<span class="im dinero">'+fmt(i.precio*i.cant)+'</span></label>').join('')+
     '</div>' : '';
 
@@ -763,6 +951,7 @@ function pintarCobro(){
       '<div class="ayudas">'+
         '<button data-accion="monto-todo">Cobrar todo lo que falta</button>'+
         '<button data-accion="modo-seleccion" class="'+(cobro.modoSeleccion?'encendido':'')+'">☑ Elegir productos (cada quien lo suyo)</button>'+
+        '<button data-accion="toggle-teclado" class="'+(tecladoVisible?'encendido':'')+'">🔢 Teclado</button>'+
       '</div>'+
       seleccionHtml+
       '<div class="divisor-personas">'+
@@ -787,10 +976,20 @@ function pintarCobro(){
         '</div>'+
         '<div id="cajaCambio"></div>'+
       '</div>'+
+      '<div id="zonaTarjeta" style="display:'+(cobro.metodo==='tarjeta'?'block':'none')+'">'+
+        '<div class="fila-tarjeta">'+
+          '<div class="campo-grande"><label for="tarjetaNombre">Nombre en la tarjeta (opcional)</label>'+
+          '<input id="tarjetaNombre" autocomplete="off" placeholder="Como aparece en la tarjeta"></div>'+
+          '<div class="campo-grande" style="max-width:180px"><label for="tarjeta4">Últimos 4 dígitos</label>'+
+          '<input id="tarjeta4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1234"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="teclado-num" data-defecto="montoCobrar" data-objetivos="montoCobrar,recibido,tarjeta4">'+teclasHtml()+'</div>'+
       '<button class="btn btn-ambar" id="btnRegistrarPago" data-accion="registrar-pago" style="width:100%;font-size:1.2rem;padding:15px"></button>'+
       pagosHtml+
     '</div>';
 
+  aplicarTeclados();
   actualizarBotonCobro();
   const monto = $('montoCobrar');
   monto.addEventListener('input', ()=>{ actualizarCambio(); actualizarBotonCobro(); });
@@ -802,6 +1001,13 @@ function pintarCobro(){
     rec.addEventListener('input', actualizarCambio);
     rec.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); registrarPago(); } });
   }
+  const tn = $('tarjetaNombre'), t4 = $('tarjeta4');
+  if(tn) tn.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); t4.focus(); } });
+  if(t4){
+    t4.addEventListener('input', ()=>{ t4.value = t4.value.replace(/\D/g,'').slice(0,4); });
+    t4.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); registrarPago(); } });
+  }
+  tecladoTarget = 'montoCobrar';
   setTimeout(()=>{ monto.focus(); monto.select(); }, 60);
 }
 
@@ -844,7 +1050,13 @@ function registrarPago(){
       recibido = rec; cambio = rec - monto;
     }
   }
-  c.pagos.push({id:nid(), monto, metodo:cobro.metodo, recibido, cambio, hora:horaAhora()});
+  let nombreTarjeta = '', digitos = '';
+  if(cobro.metodo==='tarjeta'){
+    nombreTarjeta = $('tarjetaNombre') ? $('tarjetaNombre').value.trim() : '';
+    digitos = $('tarjeta4') ? $('tarjeta4').value.trim() : '';
+    if(digitos && !/^\d{4}$/.test(digitos)){ avisar('Los dígitos de la tarjeta deben ser 4 números', true); $('tarjeta4').focus(); return; }
+  }
+  c.pagos.push({id:nid(), monto, metodo:cobro.metodo, recibido, cambio, nombreTarjeta, digitos, hora:horaAhora()});
   // marcar productos elegidos como pagados si coincide el importe
   if(cobro.modoSeleccion && cobro.seleccion.size>0){
     const montoSel = [...cobro.seleccion].reduce((s,id)=>{
@@ -869,8 +1081,8 @@ function finalizarCuenta(c){
   const ticket = {
     id: nid(), folio: D.seq++,
     nombre: c.nombre, fecha: hoyISO(), hora: horaAhora(),
-    items: c.items.map(i=>({icono:i.icono, nombre:i.nombre, precio:i.precio, cant:i.cant})),
-    pagos: c.pagos.map(p=>({monto:p.monto, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, hora:p.hora})),
+    items: c.items.map(i=>({icono:i.icono, nombre:i.nombre, detalle:i.detalle||'', precio:i.precio, cant:i.cant})),
+    pagos: c.pagos.map(p=>({monto:p.monto, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, nombreTarjeta:p.nombreTarjeta||'', digitos:p.digitos||'', hora:p.hora})),
     total: totalCuenta(c)
   };
   D.tickets.push(ticket);
@@ -902,10 +1114,11 @@ function imprimir(html){
 
 function htmlTicket(t){
   const lineas = t.items.map(i =>
-    '<tr><td>'+i.cant+' '+esc(i.nombre)+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
+    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
   const pagos = t.pagos.map(p =>
-    '<tr><td>'+(p.metodo==='efectivo'?'Efectivo':'Tarjeta')+
-    (p.metodo==='efectivo'&&p.cambio>0?' (recibido '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')':'')+
+    '<tr><td>'+(p.metodo==='efectivo'
+      ? 'Efectivo'+(p.cambio>0?' (recibido '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')':'')
+      : 'Tarjeta'+(p.digitos?' •'+esc(p.digitos):'')+(p.nombreTarjeta?' '+esc(p.nombreTarjeta):''))+
     '</td><td class="der">'+fmt(p.monto)+'</td></tr>').join('');
   return '<h3>'+esc(D.negocio)+'</h3>'+
     '<div class="centrado">'+esc(t.nombre)+' · Folio '+String(t.folio).padStart(4,'0')+'<br>'+
@@ -1077,6 +1290,16 @@ const acciones = {
     rec.focus();
   },
   'registrar-pago': () => registrarPago(),
+  'familia': d => { familiaActiva = d.f; pintarFamilias(); pintarMosaico(); },
+  'op-elegir': d => elegirOpcion(d.g, d.v),
+  'cerrar-opciones': () => cerrarOpciones(),
+  'tecla': (d, el) => tecla(d.k, el),
+  'toggle-teclado': () => {
+    tecladoVisible = !tecladoVisible;
+    try{ localStorage.setItem('resta_teclado', tecladoVisible?'1':'0'); }catch(e){}
+    aplicarTeclados();
+    if(cobro) pintarCobroConservando();
+  },
   'imprimir-ticket-final': () => { if(cobro && cobro.ticketFinal) imprimir(htmlTicket(cobro.ticketFinal)); },
   'terminar-cobro': () => { cerrarCobro(); irA('mesas'); },
   'guardar-producto': () => guardarProducto(),
@@ -1105,15 +1328,48 @@ function refrescarMetodo(){
   $('segEfectivo').classList.toggle('activo', cobro.metodo==='efectivo');
   $('segTarjeta').classList.toggle('activo', cobro.metodo==='tarjeta');
   $('zonaEfectivo').style.display = cobro.metodo==='efectivo' ? 'block' : 'none';
+  $('zonaTarjeta').style.display = cobro.metodo==='tarjeta' ? 'block' : 'none';
 }
 
 function pintarCobroConservando(){
-  const m = $('montoCobrar') ? $('montoCobrar').value : null;
-  const r = $('recibido') ? $('recibido').value : null;
+  const valores = {};
+  ['montoCobrar','recibido','tarjetaNombre','tarjeta4'].forEach(id => { const el=$(id); if(el) valores[id]=el.value; });
   pintarCobro();
-  if(m!==null) $('montoCobrar').value = m;
-  if(r!==null && $('recibido')) $('recibido').value = r;
+  Object.keys(valores).forEach(id => { const el=$(id); if(el) el.value = valores[id]; });
   actualizarCambio(); actualizarBotonCobro();
+}
+
+/* ============ teclado numérico en pantalla ============ */
+function teclasHtml(){
+  return ['7','8','9','4','5','6','1','2','3','.','0','⌫'].map(k =>
+    '<button type="button" data-accion="tecla" data-k="'+k+'"'+(k==='⌫'?' class="tecla-borrar" title="Borrar el último número"':'')+'>'+k+'</button>').join('')+
+    '<button type="button" data-accion="tecla" data-k="C" class="tecla-borrar" title="Borrar todo">C</button>'+
+    '<button type="button" data-accion="tecla" data-k="OK" class="tecla-ok">✔ Entrar</button>';
+}
+
+function aplicarTeclados(){
+  document.querySelectorAll('.teclado-num').forEach(t => t.style.display = tecladoVisible ? 'grid' : 'none');
+}
+
+function tecla(k, el){
+  const teclado = el.closest('.teclado-num');
+  const permitidos = (teclado.dataset.objetivos||'').split(',');
+  let campo = (tecladoTarget && permitidos.includes(tecladoTarget)) ? $(tecladoTarget) : null;
+  if(!campo) campo = $(teclado.dataset.defecto);
+  if(!campo) return;
+  if(k==='OK'){ entrarEn(campo.id); return; }
+  if(k==='C') campo.value = '';
+  else if(k==='⌫') campo.value = campo.value.slice(0,-1);
+  else campo.value += k;
+  campo.dispatchEvent(new Event('input',{bubbles:true}));
+  campo.focus();
+}
+
+/* lo que haría Enter en ese campo */
+function entrarEn(id){
+  if(id==='nuevaCuenta') crearCuenta();
+  else if(id==='montoCobrar' && cobro && cobro.metodo==='efectivo'){ const r=$('recibido'); if(r) r.focus(); }
+  else registrarPago();
 }
 
 document.addEventListener('click', e => {
@@ -1132,6 +1388,12 @@ $('btnConfirmarSi').addEventListener('click', () => {
 });
 $('negocioNombre').addEventListener('click', e => { if(e.target.id!=='negocioEditor') editarNegocio(); });
 $('archivoRespaldo').addEventListener('change', e => recuperarRespaldo(e.target));
+
+/* teclado en pantalla: recordar en qué campo escribe y no robarle el foco */
+document.addEventListener('focusin', e => {
+  if(['nuevaCuenta','montoCobrar','recibido','tarjeta4'].includes(e.target.id)) tecladoTarget = e.target.id;
+});
+document.addEventListener('mousedown', e => { if(e.target.closest('.teclado-num')) e.preventDefault(); });
 
 /* teclado: Enter navega */
 $('nuevaCuenta').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); crearCuenta(); } });
@@ -1152,7 +1414,8 @@ $('prodPrecio').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preven
 $('fechaCorte').addEventListener('change', pintarCorte);
 document.addEventListener('keydown', e => {
   if(e.key==='Escape'){
-    if(!$('modalEmojis').classList.contains('oculto')) $('modalEmojis').classList.add('oculto');
+    if(!$('modalOpciones').classList.contains('oculto')) cerrarOpciones();
+    else if(!$('modalEmojis').classList.contains('oculto')) $('modalEmojis').classList.add('oculto');
     else if(!$('modalConfirmar').classList.contains('oculto')){ $('modalConfirmar').classList.add('oculto'); alConfirmar=null; }
     else if(!$('modalCobro').classList.contains('oculto')) cerrarCobro();
   }
@@ -1171,6 +1434,8 @@ function tictac(){
 tictac(); setInterval(tictac, 15000);
 
 /* arranque */
+$('tecladoMesas').innerHTML = teclasHtml();
+aplicarTeclados();
 pintarNegocio();
 irA('mesas');
 if(!puedeGuardar) avisar('Ojo: en esta vista previa los datos no se guardan al cerrar; descarga el archivo para usarlo de verdad', true);
