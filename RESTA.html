@@ -263,6 +263,15 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .fila-tarjeta .campo-grande{flex:1;min-width:150px}
 .fila-tarjeta input{font-size:1.1rem;font-weight:600}
 
+/* ---------- impresión: ajustes ---------- */
+#modalImpresion .modal{max-width:560px}
+.logo-caja{background:#fbfaf7;border:1.5px dashed var(--linea);border-radius:11px;padding:14px;text-align:center;margin-bottom:14px}
+.logo-caja img{max-width:220px;max-height:120px;background:#fff;border:1px solid var(--linea)}
+.ajuste-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.ayuda-impresora{background:#fbfaf7;border:1px solid var(--linea);border-radius:11px;padding:12px 14px;font-size:.88rem;margin-top:14px}
+.ayuda-impresora summary{cursor:pointer;font-weight:700}
+.ayuda-impresora ol{margin:10px 0 0;padding-left:20px;line-height:1.55}
+
 /* select y textarea del formulario de productos */
 .campo select{padding:12px 14px;border:1.5px solid var(--linea);border-radius:10px;font-size:1.05rem;background:#fff;font-family:inherit}
 .campo-ancho{flex:1 1 100%}
@@ -320,6 +329,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <div class="respaldo">
           <button data-accion="respaldo" title="Descarga una copia de todos tus datos">💾 Respaldo</button>
           <button data-accion="abrir-recuperar" title="Recupera tus datos de una copia">📂 Recuperar</button>
+          <button data-accion="abrir-impresion" title="Logo y ajustes de la impresora térmica">🖨️ Ticket</button>
           <input type="file" id="archivoRespaldo" accept=".json" hidden>
         </div>
         <button class="respaldo-auto" data-accion="carpeta-respaldo" title="Elige una carpeta y todo se guardará solo, una carpeta por turno">🛟 Respaldo automático: <b id="autoEstado">…</b></button>
@@ -460,8 +470,17 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
   <div class="modal" id="modalOpcionesCaja"></div>
 </div>
 
+<!-- MODAL IMPRESIÓN -->
+<div id="modalImpresion" class="modal-fondo oculto">
+  <div class="modal">
+    <div class="modal-cabeza"><div class="titulo">🖨️ Impresión de tickets <button class="cerrar" data-accion="cerrar-impresion">×</button></div></div>
+    <div class="modal-cuerpo" id="impresionCuerpo"></div>
+  </div>
+</div>
+
 <div id="aviso" class="oculto"></div>
 <div id="zona-impresion"></div>
+<style id="estiloImpresion"></style>
 
 <script>
 'use strict';
@@ -566,6 +585,7 @@ if(!D){
   guardar();
 }
 if(!D.turno){ D.turno = { fecha:hoyISO(), hora:horaConSegundos() }; guardar(); }
+if(!D.impresion){ D.impresion = { ancho:80, logo:null, pie:'¡Gracias por su visita!' }; guardar(); }
 
 /* ============ estado de la vista ============ */
 let vista = { pantalla:'mesas', cuentaId:null };
@@ -1234,11 +1254,103 @@ function finalizarCuenta(c){
 }
 
 /* ============ impresión ============ */
+/* pensado para miniprinter térmica de rollo (p. ej. XPRINTER XP-Q200II de 80 mm):
+   el tamaño de página se ajusta al ancho del rollo y sin márgenes */
+function aplicarEstiloImpresion(){
+  const mm = (D.impresion && D.impresion.ancho===58) ? 58 : 80;
+  const util = mm===58 ? 48 : 72; // ancho imprimible real del rollo
+  $('estiloImpresion').textContent =
+    '@page{size:'+mm+'mm auto;margin:0}'+
+    '@media print{'+
+      '#zona-impresion{width:'+util+'mm;max-width:'+util+'mm;padding:0 2mm;font-size:'+(mm===58?10:12)+'px}'+
+      '#zona-impresion h3{font-size:'+(mm===58?13:15)+'px}'+
+      '#zona-impresion img{max-width:75%;height:auto}'+
+    '}';
+}
+
+const logoHtml = () => (D.impresion && D.impresion.logo)
+  ? '<div class="centrado"><img src="'+D.impresion.logo+'" alt=""></div>' : '';
+
 function imprimir(html){
-  $('zona-impresion').innerHTML = html;
+  $('zona-impresion').innerHTML = html + '<div style="height:10mm"></div>';
   document.body.classList.add('imprimiendo');
   window.print();
   setTimeout(()=>document.body.classList.remove('imprimiendo'), 400);
+}
+
+/* el logo se convierte a blanco y negro puro, que es como imprime la térmica */
+function cargarLogo(input){
+  const f = input.files[0]; if(!f) return;
+  const img = new Image();
+  const url = URL.createObjectURL(f);
+  img.onload = () => {
+    const w = Math.min(400, img.width || 400);
+    const h = Math.max(1, Math.round((img.height || 1) * w / (img.width || 1)));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+    cx.drawImage(img, 0, 0, w, h);
+    const px = cx.getImageData(0, 0, w, h);
+    for(let i = 0; i < px.data.length; i += 4){
+      const gris = px.data[i]*.299 + px.data[i+1]*.587 + px.data[i+2]*.114;
+      const v = gris < 160 ? 0 : 255;
+      px.data[i] = px.data[i+1] = px.data[i+2] = v; px.data[i+3] = 255;
+    }
+    cx.putImageData(px, 0, 0);
+    D.impresion.logo = cv.toDataURL('image/png');
+    guardar(); pintarImpresion();
+    URL.revokeObjectURL(url);
+    avisar('Logo listo; saldrá arriba de cada ticket');
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); avisar('No pude leer esa imagen', true); };
+  img.src = url;
+  input.value = '';
+}
+
+function ticketPrueba(){
+  return { folio:D.seq, nombre:'Prueba de impresión', fecha:hoyISO(), hora:horaAhora(),
+    items:[
+      {icono:'🍔', nombre:'Hamburguesa', detalle:'Con queso · Con papas', precio:9500, cant:1},
+      {icono:'🥤', nombre:'Refresco', detalle:'Coca · Con hielo', precio:3000, cant:2}
+    ],
+    pagos:[{monto:15500, metodo:'efectivo', recibido:20000, cambio:4500, hora:horaAhora()}],
+    total:15500 };
+}
+
+function pintarImpresion(){
+  const imp = D.impresion;
+  $('impresionCuerpo').innerHTML =
+    '<div class="logo-caja">'+
+      (imp.logo ? '<img src="'+imp.logo+'" alt="logo"><br>'
+        : '<div style="color:var(--tinta-suave);margin-bottom:6px">Sin logo — sube la imagen de tu negocio y saldrá arriba de cada ticket.</div>')+
+      '<div style="display:flex;gap:8px;justify-content:center;margin-top:8px">'+
+        '<button class="btn btn-borde btn-mini" data-accion="subir-logo">📷 '+(imp.logo?'Cambiar logo':'Subir logo')+'</button>'+
+        (imp.logo ? '<button class="btn btn-rojo btn-mini" data-accion="quitar-logo">Quitar</button>' : '')+
+      '</div>'+
+      '<input type="file" id="archivoLogo" accept="image/*" hidden>'+
+      '<div style="font-size:.78rem;color:var(--tinta-suave);margin-top:8px">La imagen se convierte a blanco y negro nítido, tal como imprime la térmica.</div>'+
+    '</div>'+
+    '<div class="ajuste-fila"><b>Ancho del rollo:</b>'+
+      '<button class="btn btn-mini '+(imp.ancho!==58?'btn-ambar':'btn-borde')+'" data-accion="ancho-ticket" data-mm="80">80 mm (XP-Q200II)</button>'+
+      '<button class="btn btn-mini '+(imp.ancho===58?'btn-ambar':'btn-borde')+'" data-accion="ancho-ticket" data-mm="58">58 mm</button>'+
+    '</div>'+
+    '<div class="campo-grande" style="margin-bottom:14px"><label for="pieTicket">Mensaje al pie del ticket</label>'+
+      '<input id="pieTicket" maxlength="60" style="font-size:1rem;font-weight:600" value="'+esc(imp.pie||'')+'" autocomplete="off"></div>'+
+    '<button class="btn btn-verde" data-accion="imprimir-prueba" style="width:100%;font-size:1.1rem;padding:13px">🖨️ Imprimir ticket de prueba</button>'+
+    '<details class="ayuda-impresora"><summary>📖 Instalar la XPRINTER XP-Q200II en Windows 10/11</summary>'+
+      '<ol>'+
+        '<li>Conecta la impresora por <b>USB</b>, ponle rollo y enciéndela.</li>'+
+        '<li>Descarga el controlador oficial «Xprinter Windows Driver» en <b>xprintertech.com/download.html</b>.</li>'+
+        '<li>Descomprime el ZIP y ejecuta <b>setup.exe como administrador</b>; elige el modelo <b>XP-Q200II</b> y el puerto <b>USB</b>.</li>'+
+        '<li>En Windows: Configuración → Bluetooth y dispositivos → Impresoras → XP-Q200II → <b>establecer como predeterminada</b>.</li>'+
+        '<li>En «Preferencias de impresión» del controlador elige papel <b>80(72) mm</b> y corte de papel al terminar (Feed &amp; Cut).</li>'+
+        '<li>Para imprimir <b>directo, sin ventanas</b>: crea un acceso directo de Chrome o Edge, y en «Destino» agrega al final <b>--kiosk-printing</b>; abre RESTA.html siempre con ese acceso directo.</li>'+
+        '<li>Prueba con el botón verde de arriba: debe salir el ticket completo con tu logo.</li>'+
+      '</ol></details>';
+  const archivo = $('archivoLogo');
+  archivo.addEventListener('change', e => cargarLogo(e.target));
+  const pie = $('pieTicket');
+  pie.addEventListener('input', () => { D.impresion.pie = pie.value; guardar(); });
 }
 
 function htmlTicket(t){
@@ -1249,12 +1361,12 @@ function htmlTicket(t){
       ? 'Efectivo'+(p.cambio>0?' (recibido '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')':'')
       : 'Tarjeta'+(p.digitos?' •'+esc(p.digitos):'')+(p.nombreTarjeta?' '+esc(p.nombreTarjeta):''))+
     '</td><td class="der">'+fmt(p.monto)+'</td></tr>').join('');
-  return '<h3>'+esc(D.negocio)+'</h3>'+
+  return logoHtml()+'<h3>'+esc(D.negocio)+'</h3>'+
     '<div class="centrado">'+esc(t.nombre)+' · Folio '+String(t.folio).padStart(4,'0')+'<br>'+
     fechaBonita(t.fecha)+' '+t.hora+'</div><hr>'+
     '<table>'+lineas+'</table><hr>'+
     '<table><tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(t.total)+'</td></tr>'+pagos+'</table>'+
-    '<hr><div class="centrado">¡Gracias por su visita!</div>';
+    '<hr><div class="centrado">'+esc((D.impresion && D.impresion.pie) || '¡Gracias por su visita!')+'</div>';
 }
 
 /* ============ pantalla: corte ============ */
@@ -1321,7 +1433,7 @@ function imprimirCorte(){
   let efectivo=0, tarjeta=0;
   del.forEach(t=>t.pagos.forEach(p=>{ if(p.metodo==='efectivo') efectivo+=p.monto; else tarjeta+=p.monto; }));
   const filas = del.map(t=>'<tr><td>'+String(t.folio).padStart(4,'0')+' '+t.hora+' '+esc(t.nombre)+'</td><td class="der">'+fmt(t.total)+'</td></tr>').join('');
-  imprimir('<h3>'+esc(D.negocio)+'</h3><div class="centrado">CORTE DEL DÍA<br>'+fechaBonita(fecha)+'</div><hr>'+
+  imprimir(logoHtml()+'<h3>'+esc(D.negocio)+'</h3><div class="centrado">CORTE DEL DÍA<br>'+fechaBonita(fecha)+'</div><hr>'+
     '<table>'+
     '<tr class="total-linea"><td>TOTAL COBRADO</td><td class="der">'+fmt(total)+'</td></tr>'+
     '<tr><td>Efectivo en caja</td><td class="der">'+fmt(efectivo)+'</td></tr>'+
@@ -1542,6 +1654,12 @@ const acciones = {
     elegirCarpetaRespaldo();
   },
   'cerrar-turno': () => cerrarTurno(),
+  'abrir-impresion': () => { $('modalImpresion').classList.remove('oculto'); pintarImpresion(); },
+  'cerrar-impresion': () => $('modalImpresion').classList.add('oculto'),
+  'subir-logo': () => $('archivoLogo').click(),
+  'quitar-logo': () => { D.impresion.logo = null; guardar(); pintarImpresion(); avisar('Logo quitado'); },
+  'ancho-ticket': d => { D.impresion.ancho = Number(d.mm); guardar(); aplicarEstiloImpresion(); pintarImpresion(); },
+  'imprimir-prueba': () => imprimir(htmlTicket(ticketPrueba())),
   'anotar-opciones': () => {
     if(!submenu) return;
     const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
@@ -1674,6 +1792,7 @@ document.addEventListener('keydown', e => {
     if(!$('modalOpciones').classList.contains('oculto')) cerrarOpciones();
     else if(!$('modalEmojis').classList.contains('oculto')) $('modalEmojis').classList.add('oculto');
     else if(!$('modalConfirmar').classList.contains('oculto')){ $('modalConfirmar').classList.add('oculto'); alConfirmar=null; }
+    else if(!$('modalImpresion').classList.contains('oculto')) $('modalImpresion').classList.add('oculto');
     else if(!$('modalCobro').classList.contains('oculto')) cerrarCobro();
   }
 });
@@ -1693,6 +1812,7 @@ tictac(); setInterval(tictac, 15000);
 /* arranque */
 $('tecladoMesas').innerHTML = teclasHtml();
 aplicarTeclados();
+aplicarEstiloImpresion();
 pintarNegocio();
 conectarRespaldoGuardado();
 irA('mesas');
