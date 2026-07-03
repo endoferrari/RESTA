@@ -31,6 +31,8 @@ input,select{font-family:inherit;font-size:1rem}
 .marca-icono{width:44px;height:44px;border-radius:12px;background:var(--ambar);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .marca-nombre{font-size:1.45rem;font-weight:800;letter-spacing:.14em}
 .marca-sub{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:#9fb5a8;margin-top:-2px}
+.marca-logo{background:#fff;border-radius:12px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.marca-logo img{width:100%;display:block}
 #lateral nav{display:flex;flex-direction:column;gap:6px}
 .nav-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#cfdcd2;padding:12px 12px;border-radius:10px;font-size:1rem;font-weight:600;transition:background .15s}
 .nav-btn span{font-size:1.2rem;width:26px;text-align:center}
@@ -323,9 +325,9 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 
 <div id="app">
   <aside id="lateral">
-    <div class="marca">
-      <div class="marca-icono">🍽️</div>
-      <div><div class="marca-nombre">RESTA</div><div class="marca-sub">punto de venta</div></div>
+    <div>
+      <div class="marca-logo"><img id="logoMarca" alt="ONCE Social Lounge"></div>
+      <div class="marca-sub" style="text-align:center;margin-top:7px">RESTA · punto de venta</div>
     </div>
     <nav>
       <button class="nav-btn activo" id="nav-mesas" data-accion="ir" data-pantalla="mesas"><span>🪑</span> Mesas y cuentas</button>
@@ -394,6 +396,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
             <div class="ticket-pagado" id="ticketPagado" style="display:none"></div>
             <div class="ticket-total"><span class="et">TOTAL</span><span class="tt dinero" id="ticketTotal">$0.00</span></div>
             <button class="btn btn-borde" id="btnComanda" data-accion="imprimir-comanda" style="width:100%;margin-bottom:8px;display:none">🧑‍🍳 Imprimir comanda</button>
+            <button class="btn btn-borde" id="btnCuenta" data-accion="imprimir-cuenta" style="width:100%;margin-bottom:8px;display:none">🧾 Imprimir cuenta</button>
             <button class="btn btn-ambar" id="btnCobrar" data-accion="abrir-cobro">💵 COBRAR</button>
           </div>
         </div>
@@ -541,6 +544,24 @@ function guardar(){
   programarRespaldo(); // además, respaldo automático a la carpeta del turno
 }
 
+/* logo de ONCE Social Lounge recreado en vectorial: nítido en pantalla y en la térmica */
+function svgOnce(azul, amarillo, oscuro, fondo, puntos){
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 450">'+
+    '<rect width="1000" height="450" fill="'+fondo+'"/>'+
+    '<circle cx="150" cy="168" r="100" stroke="'+azul+'" stroke-width="42" fill="none"/>'+
+    '<rect x="112" y="18" width="76" height="114" fill="'+fondo+'"/>'+
+    '<text x="150" y="124" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="108" fill="'+amarillo+'">11</text>'+
+    '<text x="292" y="285" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="330" fill="'+azul+'" textLength="670" lengthAdjust="spacingAndGlyphs">NCE</text>'+
+    '<rect x="88" y="337" width="100" height="9" fill="'+amarillo+'"/>'+
+    '<rect x="812" y="337" width="100" height="9" fill="'+amarillo+'"/>'+
+    '<text x="500" y="360" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="56" fill="'+amarillo+'" textLength="590" lengthAdjust="spacingAndGlyphs">SOCIAL LOUNGE</text>'+
+    '<rect x="190" y="382" width="620" height="60" rx="8" fill="'+oscuro+'"/>'+
+    '<text x="500" y="425" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="40" fill="#FFFFFF" textLength="560" lengthAdjust="spacingAndGlyphs">DRINKS <tspan fill="'+puntos+'">•</tspan> SPORTS <tspan fill="'+puntos+'">•</tspan> FRIENDS</text>'+
+    '</svg>';
+}
+const LOGO_ONCE_COLOR  = 'data:image/svg+xml;utf8,'+encodeURIComponent(svgOnce('#3079DF','#C6D530','#3D4653','#FFFFFF','#C6D530'));
+const LOGO_ONCE_TICKET = 'data:image/svg+xml;utf8,'+encodeURIComponent(svgOnce('#000000','#000000','#000000','#FFFFFF','#FFFFFF'));
+
 const FAMILIAS = ['Comida','Refrescos','Bebidas','Souvenirs'];
 const EMOJI_FAMILIA = { Comida:'🍔', Refrescos:'🥤', Bebidas:'🍹', Souvenirs:'🎁' };
 
@@ -590,17 +611,20 @@ function productosEjemplo(){
 
 let D = leerDatos();
 if(!D){
-  D = { negocio:'Mi Restaurante', esDemo:true, demoV:DEMO_VERSION, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
+  D = { negocio:'ONCE Social Lounge', esDemo:true, demoV:DEMO_VERSION, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
   guardar();
 } else {
   // datos de versiones anteriores: renovar el menú de ejemplo y asignar familia
   if(D.esDemo && D.demoV!==DEMO_VERSION){ D.productos = productosEjemplo(); D.demoV = DEMO_VERSION; }
+  if(D.negocio==='Mi Restaurante') D.negocio = 'ONCE Social Lounge';
   D.productos.forEach(p => { if(!FAMILIAS.includes(p.familia)) p.familia = 'Comida'; });
   guardar();
 }
 if(!D.turno){ D.turno = { fecha:hoyISO(), hora:horaConSegundos() }; guardar(); }
-if(!D.impresion){ D.impresion = { ancho:80, logo:null, pie:'¡Gracias por su visita!', comanda:false }; guardar(); }
+if(!D.impresion){ D.impresion = { ancho:80, logo:LOGO_ONCE_TICKET, pie:'¡Gracias por su visita!', comanda:false }; guardar(); }
 if(D.impresion.comanda===undefined){ D.impresion.comanda = false; guardar(); }
+// logo de fábrica: solo si nunca se ha puesto uno («''» significa que lo quitaron a propósito)
+if(D.impresion.logo===null || D.impresion.logo===undefined){ D.impresion.logo = LOGO_ONCE_TICKET; guardar(); }
 
 /* ============ estado de la vista ============ */
 let vista = { pantalla:'mesas', cuentaId:null };
@@ -656,6 +680,7 @@ function pintarMesas(){
       '<div class="meta">Desde las '+c.creada+' · '+arts+' artículo'+(arts===1?'':'s')+'</div>'+
       '<div class="total dinero">'+fmt(tot)+'</div>'+
       (pag>0 ? '<div class="badge-parcial">Ya pagó '+fmt(pag)+' · falta '+fmt(tot-pag)+'</div>' : '')+
+      (c.cuentaImpresa ? '<div class="badge-parcial">🧾 Pidió la cuenta · '+c.cuentaImpresa+'</div>' : '')+
     '</div>';
   }).join('');
 }
@@ -765,6 +790,35 @@ function pintarTicket(){
     bc.style.display = 'block';
     bc.textContent = pend>0 ? '🧑‍🍳 Imprimir comanda · '+pend+' nuevo'+(pend===1?'':'s') : '🧑‍🍳 Reimprimir comanda';
   } else bc.style.display = 'none';
+  const bq = $('btnCuenta');
+  bq.style.display = c.items.length>0 ? 'block' : 'none';
+  bq.textContent = c.cuentaImpresa ? '🧾 Reimprimir la cuenta (salió a las '+c.cuentaImpresa+')' : '🧾 Imprimir cuenta · la revisa el cliente';
+}
+
+/* ============ la cuenta para el cliente ============ */
+/* el flujo del bar: el cliente pide la cuenta → se imprime y se le lleva →
+   la revisa y manda el dinero → se cuenta → hasta entonces se presiona COBRAR */
+function htmlCuentaCliente(c){
+  const lineas = c.items.map(i =>
+    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
+  const tot = totalCuenta(c), pag = pagadoCuenta(c);
+  return logoHtml()+'<h3>'+esc(D.negocio)+'</h3>'+
+    '<div class="centrado">— CUENTA —<br>'+esc(c.nombre)+' · '+fechaBonita(hoyISO())+' '+horaAhora()+'</div><hr>'+
+    '<table>'+lineas+'</table><hr>'+
+    '<table><tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(tot)+'</td></tr>'+
+    (pag>0 ? '<tr><td>Ya pagado</td><td class="der">'+fmt(pag)+'</td></tr>'+
+      '<tr class="total-linea"><td>POR PAGAR</td><td class="der total-linea">'+fmt(tot-pag)+'</td></tr>' : '')+
+    '</table>'+
+    '<hr><div class="centrado">'+esc((D.impresion && D.impresion.pie) || '¡Gracias por su visita!')+'</div>';
+}
+
+function imprimirCuentaCliente(){
+  const c = buscarCuenta(vista.cuentaId); if(!c || c.items.length===0) return;
+  c.cuentaImpresa = horaAhora();
+  guardar();
+  imprimir(htmlCuentaCliente(c));
+  pintarTicket();
+  avisar('Cuenta impresa; llévasela al cliente para que la revise');
 }
 
 /* ============ comanda para barra y cocina ============ */
@@ -1732,11 +1786,12 @@ const acciones = {
   'abrir-impresion': () => { $('modalImpresion').classList.remove('oculto'); pintarImpresion(); },
   'cerrar-impresion': () => $('modalImpresion').classList.add('oculto'),
   'subir-logo': () => $('archivoLogo').click(),
-  'quitar-logo': () => { D.impresion.logo = null; guardar(); pintarImpresion(); avisar('Logo quitado'); },
+  'quitar-logo': () => { D.impresion.logo = ''; guardar(); pintarImpresion(); avisar('Logo quitado'); },
   'ancho-ticket': d => { D.impresion.ancho = Number(d.mm); guardar(); aplicarEstiloImpresion(); pintarImpresion(); },
   'imprimir-prueba': () => imprimir(htmlTicket(ticketPrueba())),
   'comanda-toggle': d => { D.impresion.comanda = d.on==='1'; guardar(); pintarImpresion(); if(vista.pantalla==='cuenta') pintarTicket(); },
   'imprimir-comanda': () => imprimirComanda(),
+  'imprimir-cuenta': () => imprimirCuentaCliente(),
   'anotar-opciones': () => {
     if(!submenu) return;
     const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
@@ -1887,6 +1942,7 @@ function tictac(){
 tictac(); setInterval(tictac, 15000);
 
 /* arranque */
+$('logoMarca').src = LOGO_ONCE_COLOR;
 $('tecladoMesas').innerHTML = teclasHtml();
 aplicarTeclados();
 aplicarEstiloImpresion();
