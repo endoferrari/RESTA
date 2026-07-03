@@ -1,0 +1,9 @@
+Descarga el controlador oficial "Xprinter Windows Driver" desde:
+  https://www.xprintertech.com/download.html
+
+Descomprime el ZIP DENTRO de esta carpeta "driver" (que quede el
+setup.exe aquí). Luego ejecútalo COMO ADMINISTRADOR en la PC del bar:
+  - Modelo: XP-Q200II
+  - Puerto: USB
+
+Detalles completos en GUIA-IMPRESORA.md (carpeta principal de la USB).
