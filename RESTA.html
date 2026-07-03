@@ -47,6 +47,10 @@ input,select{font-family:inherit;font-size:1rem}
 .respaldo{display:flex;gap:6px}
 .respaldo button{flex:1;background:none;border:1px solid #3c5a4f;color:#b9cabf;border-radius:8px;padding:7px 4px;font-size:.74rem}
 .respaldo button:hover{background:var(--verde-medio);color:#fff}
+.respaldo-auto{width:100%;background:none;border:1px solid #3c5a4f;color:#b9cabf;border-radius:8px;padding:7px 8px;font-size:.72rem;text-align:left;margin-top:6px;cursor:pointer}
+.respaldo-auto:hover{background:var(--verde-medio);color:#fff}
+.respaldo-auto b{color:#fff}
+.auto-detalle{font-size:.66rem;color:#8fa79a;margin-top:4px;line-height:1.35;word-break:break-word}
 
 /* ---------- zona principal ---------- */
 main{flex:1;padding:26px 30px;min-width:0}
@@ -238,6 +242,10 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .op-btn{padding:14px 10px;border-radius:11px;border:2px solid var(--linea);background:#fff;font-weight:700;font-size:.98rem}
 .op-btn:hover{border-color:var(--tinta-suave)}
 .op-btn.elegido{border-color:var(--ambar);background:#fef3c7;color:#92400e}
+.op-btn.otra{border-style:dashed;color:var(--tinta-suave)}
+.otra-caja{grid-column:1/-1;display:flex;gap:6px}
+.otra-caja input{flex:1;min-width:0;padding:10px 12px;border:2px solid var(--ambar);border-radius:11px;font-size:.95rem}
+.otra-caja .ok{background:var(--exito);border-color:var(--exito);color:#fff;min-width:56px}
 .linea .desc .det{font-size:.8rem;color:var(--ambar-oscuro);font-weight:700}
 .tag-submenu{font-size:.7rem;font-weight:800;background:var(--verde-claro);color:var(--verde-oscuro);border-radius:99px;padding:2px 8px;white-space:nowrap;vertical-align:middle}
 .etiqueta-familia{grid-column:1/-1;padding:12px 4px 2px;font-weight:800;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta-suave)}
@@ -308,10 +316,14 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <div id="negocioNombre" title="Haz clic para cambiar el nombre"></div>
       </div>
       <div id="reloj"><div id="relojHora">--:--</div><div id="relojFecha"></div></div>
-      <div class="respaldo">
-        <button data-accion="respaldo" title="Descarga una copia de todos tus datos">💾 Respaldo</button>
-        <button data-accion="abrir-recuperar" title="Recupera tus datos de una copia">📂 Recuperar</button>
-        <input type="file" id="archivoRespaldo" accept=".json" hidden>
+      <div>
+        <div class="respaldo">
+          <button data-accion="respaldo" title="Descarga una copia de todos tus datos">💾 Respaldo</button>
+          <button data-accion="abrir-recuperar" title="Recupera tus datos de una copia">📂 Recuperar</button>
+          <input type="file" id="archivoRespaldo" accept=".json" hidden>
+        </div>
+        <button class="respaldo-auto" data-accion="carpeta-respaldo" title="Elige una carpeta y todo se guardará solo, una carpeta por turno">🛟 Respaldo automático: <b id="autoEstado">…</b></button>
+        <div class="auto-detalle" id="autoDetalle"></div>
       </div>
     </div>
   </aside>
@@ -410,6 +422,9 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <label for="fechaCorte" style="font-weight:700">Día:</label>
         <input type="date" id="fechaCorte">
         <button class="btn btn-borde" data-accion="imprimir-corte">🖨️ Imprimir corte</button>
+        <span style="flex:1"></span>
+        <span id="turnoInfo" class="sub" style="margin:0"></span>
+        <button class="btn btn-borde" data-accion="cerrar-turno" title="Guarda el respaldo final de este turno y empieza una carpeta nueva">🔒 Cerrar turno</button>
       </div>
       <div id="contenidoCorte"></div>
     </section>
@@ -465,6 +480,7 @@ function aCentavos(txt){
 const dos = n => String(n).padStart(2,'0');
 function hoyISO(){ const d=new Date(); return d.getFullYear()+'-'+dos(d.getMonth()+1)+'-'+dos(d.getDate()); }
 function horaAhora(){ const d=new Date(); return dos(d.getHours())+':'+dos(d.getMinutes()); }
+function horaConSegundos(){ const d=new Date(); return dos(d.getHours())+':'+dos(d.getMinutes())+':'+dos(d.getSeconds()); }
 function fechaBonita(iso){
   const [a,m,d] = iso.split('-').map(Number);
   const f = new Date(a, m-1, d);
@@ -477,6 +493,11 @@ const nid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7
 const CLAVE = 'resta_datos_v1';
 let memoriaLocal = null; // por si el navegador no deja guardar (p. ej. vista previa)
 let puedeGuardar = true;
+const respaldoSoportado = 'showDirectoryPicker' in window;
+let dirRespaldo = null;        // carpeta elegida para el respaldo automático
+let respaldoPendiente = false; // hay carpeta pero falta volver a dar permiso
+let respaldoTimer = null;
+let ultimoRespaldo = '';
 function leerDatos(){
   try{ const t = localStorage.getItem(CLAVE); return t ? JSON.parse(t) : null; }
   catch(e){ puedeGuardar = false; return memoriaLocal; }
@@ -484,6 +505,7 @@ function leerDatos(){
 function guardar(){
   try{ localStorage.setItem(CLAVE, JSON.stringify(D)); }
   catch(e){ puedeGuardar = false; memoriaLocal = D; }
+  programarRespaldo(); // además, respaldo automático a la carpeta del turno
 }
 
 const FAMILIAS = ['Comida','Refrescos','Bebidas','Souvenirs'];
@@ -543,6 +565,7 @@ if(!D){
   D.productos.forEach(p => { if(!FAMILIAS.includes(p.familia)) p.familia = 'Comida'; });
   guardar();
 }
+if(!D.turno){ D.turno = { fecha:hoyISO(), hora:horaConSegundos() }; guardar(); }
 
 /* ============ estado de la vista ============ */
 let vista = { pantalla:'mesas', cuentaId:null };
@@ -774,12 +797,38 @@ function pintarOpciones(){
           o.ops.map(v =>
             '<button class="op-btn'+(marcada(v)?' elegido':'')+'" data-accion="op-elegir" data-g="'+esc(o.g)+'" data-v="'+esc(v)+'">'+esc(v)+'</button>'
           ).join('')+
+          (submenu.otraGrupo===o.g ?
+            '<span class="otra-caja"><input id="opOtra" maxlength="60" placeholder="Escribe la petición especial y Enter…" autocomplete="off">'+
+            '<button class="op-btn ok" data-accion="op-otra-ok" data-g="'+esc(o.g)+'" title="Agregar">✔</button></span>'
+            : '<button class="op-btn otra" data-accion="op-otra" data-g="'+esc(o.g)+'" title="Algo que no está en la lista; queda guardado para la próxima">＋ Otra…</button>')+
           '</div></div>';
       }).join('')+
       (hayMulti ?
         '<button class="btn btn-verde" data-accion="anotar-opciones" style="width:100%;font-size:1.15rem;padding:14px"'+(completo?'':' disabled')+'>✔ Anotar como va</button>'
         : '')+
     '</div>';
+  const otra = $('opOtra');
+  if(otra){
+    otra.addEventListener('keydown', e => {
+      if(e.key==='Enter'){ e.preventDefault(); confirmarOtra(submenu.otraGrupo); }
+      if(e.key==='Escape'){ e.stopPropagation(); submenu.otraGrupo=null; pintarOpciones(); }
+    });
+    setTimeout(()=>otra.focus(), 40);
+  }
+}
+
+/* petición especial del cliente: se anota y queda guardada como opción del producto */
+function confirmarOtra(g){
+  if(!submenu) return;
+  const campo = $('opOtra'); if(!campo) return;
+  const v = campo.value.trim();
+  if(!v){ campo.focus(); return; }
+  const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
+  const grupo = p.opciones.find(o => o.g===g); if(!grupo) return;
+  const existente = grupo.ops.find(x => normal(x)===normal(v));
+  if(!existente){ grupo.ops.push(v); guardar(); }
+  submenu.otraGrupo = null;
+  elegirOpcion(g, existente || v);
 }
 
 function elegirOpcion(g, v){
@@ -1210,6 +1259,7 @@ function htmlTicket(t){
 
 /* ============ pantalla: corte ============ */
 function pintarCorte(){
+  $('turnoInfo').textContent = 'Turno abierto: '+D.turno.fecha+' '+String(D.turno.hora).slice(0,5);
   const fecha = $('fechaCorte').value || hoyISO();
   const del = D.tickets.filter(t=>t.fecha===fecha);
   const caja = $('contenidoCorte');
@@ -1278,6 +1328,114 @@ function imprimirCorte(){
     '<tr><td>Con tarjeta</td><td class="der">'+fmt(tarjeta)+'</td></tr>'+
     '<tr><td>Cuentas cobradas</td><td class="der">'+del.length+'</td></tr>'+
     '</table><hr><table>'+filas+'</table>');
+}
+
+/* ============ respaldo automático por turno ============ */
+/* La carpeta elegida se recuerda en IndexedDB; cada turno escribe en su propia
+   subcarpeta «Turno FECHA HORA» el archivo con todos los datos, tras cada cambio. */
+function abrirBD(){
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('resta_fs', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function guardarHandle(h){
+  try{
+    const db = await abrirBD();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('handles','readwrite');
+      tx.objectStore('handles').put(h, 'carpeta');
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){}
+}
+async function leerHandle(){
+  try{
+    const db = await abrirBD();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction('handles','readonly');
+      const rq = tx.objectStore('handles').get('carpeta');
+      rq.onsuccess = () => res(rq.result || null);
+      rq.onerror = () => rej(rq.error);
+    });
+  }catch(e){ return null; }
+}
+
+const nombreTurno = () => 'Turno '+D.turno.fecha+' '+String(D.turno.hora).replace(/:/g,'-');
+
+function programarRespaldo(){
+  if(!dirRespaldo || respaldoPendiente) return;
+  clearTimeout(respaldoTimer);
+  respaldoTimer = setTimeout(respaldarAhora, 1200);
+}
+
+async function respaldarAhora(){
+  if(!dirRespaldo || respaldoPendiente) return;
+  try{
+    const carpeta = await dirRespaldo.getDirectoryHandle(nombreTurno(), {create:true});
+    const archivo = await carpeta.getFileHandle('RESTA datos.json', {create:true});
+    const w = await archivo.createWritable();
+    await w.write(JSON.stringify(D, null, 1));
+    await w.close();
+    ultimoRespaldo = horaAhora();
+    pintarRespaldoAuto();
+  }catch(e){
+    respaldoPendiente = true; // se movió la carpeta o falta permiso
+    pintarRespaldoAuto();
+  }
+}
+
+async function elegirCarpetaRespaldo(){
+  if(!respaldoSoportado){
+    avisar('Este navegador no puede guardar en carpeta; abre RESTA.html en Chrome o Edge', true);
+    return;
+  }
+  try{
+    dirRespaldo = await window.showDirectoryPicker({mode:'readwrite'});
+    respaldoPendiente = false;
+    await guardarHandle(dirRespaldo);
+    pintarRespaldoAuto();
+    await respaldarAhora();
+    avisar('Listo: todo se guardará solo en esa carpeta, un folder por turno');
+  }catch(e){
+    if(e && e.name==='AbortError') return; // canceló la ventana
+    avisar('Aquí no se pudo usar la carpeta; abre el archivo RESTA.html directamente en Chrome o Edge', true);
+  }
+}
+
+async function conectarRespaldoGuardado(){
+  if(!respaldoSoportado){ pintarRespaldoAuto(); return; }
+  dirRespaldo = await leerHandle();
+  if(dirRespaldo){
+    let permiso = 'prompt';
+    try{ permiso = await dirRespaldo.queryPermission({mode:'readwrite'}); }catch(e){}
+    if(permiso==='granted') respaldarAhora();
+    else respaldoPendiente = true;
+  }
+  pintarRespaldoAuto();
+}
+
+function pintarRespaldoAuto(){
+  const est = $('autoEstado'), det = $('autoDetalle');
+  if(!est) return;
+  if(!respaldoSoportado){ est.textContent='no disponible aquí'; det.textContent='Para guardar en carpeta abre RESTA.html en Chrome o Edge; tus datos igual se guardan en el navegador.'; return; }
+  if(!dirRespaldo){ est.textContent='apagado'; det.textContent='Toca para elegir la carpeta donde todo se guardará solo.'; return; }
+  if(respaldoPendiente){ est.textContent='toca para reconectar'; det.textContent='La carpeta ya está elegida; solo falta confirmar el permiso.'; return; }
+  est.textContent = 'activo ✓';
+  det.textContent = '📁 '+nombreTurno()+(ultimoRespaldo ? ' · guardado a las '+ultimoRespaldo : '');
+}
+
+function cerrarTurno(){
+  confirmar('¿Cerrar el turno?<br><small>Se guarda el respaldo final de este turno y a partir de ahora todo se guardará en una carpeta nueva con la fecha y hora de este momento.</small>', async () => {
+    await respaldarAhora(); // respaldo final del turno que termina
+    D.turno = { fecha:hoyISO(), hora:horaConSegundos() };
+    guardar();
+    pintarRespaldoAuto();
+    pintarCorte();
+    avisar('Turno cerrado; empezó uno nuevo');
+  });
 }
 
 /* ============ respaldo ============ */
@@ -1372,6 +1530,18 @@ const acciones = {
   'registrar-pago': () => registrarPago(),
   'familia': d => { familiaActiva = d.f; pintarFamilias(); pintarMosaico(); },
   'op-elegir': d => elegirOpcion(d.g, d.v),
+  'op-otra': d => { if(submenu){ submenu.otraGrupo = d.g; pintarOpciones(); } },
+  'op-otra-ok': d => confirmarOtra(d.g),
+  'carpeta-respaldo': async () => {
+    if(dirRespaldo && respaldoPendiente){
+      try{
+        const permiso = await dirRespaldo.requestPermission({mode:'readwrite'});
+        if(permiso==='granted'){ respaldoPendiente=false; pintarRespaldoAuto(); respaldarAhora(); avisar('Respaldo automático reconectado'); return; }
+      }catch(e){}
+    }
+    elegirCarpetaRespaldo();
+  },
+  'cerrar-turno': () => cerrarTurno(),
   'anotar-opciones': () => {
     if(!submenu) return;
     const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
@@ -1524,6 +1694,7 @@ tictac(); setInterval(tictac, 15000);
 $('tecladoMesas').innerHTML = teclasHtml();
 aplicarTeclados();
 pintarNegocio();
+conectarRespaldoGuardado();
 irA('mesas');
 if(!puedeGuardar) avisar('Ojo: en esta vista previa los datos no se guardan al cerrar; descarga el archivo para usarlo de verdad', true);
 </script>
