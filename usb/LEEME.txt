@@ -1,0 +1,52 @@
+══════════════════════════════════════════════════════
+ USB DE INSTALACIÓN — RESTA · ONCE Social Lounge
+══════════════════════════════════════════════════════
+
+QUÉ DEBE TRAER ESTA USB (cópialo antes de salir):
+
+  [ ] RESTA.html          ← el programa completo, con los
+                            productos y el logo ya cargados
+  [ ] INSTALAR.bat        ← instalador automático
+  [ ] GUIA-IMPRESORA.md   ← guía de la impresora térmica
+  [ ] driver\             ← carpeta con el ZIP del driver
+                            "Xprinter Windows Driver"
+                            descargado de:
+                            https://www.xprintertech.com/download.html
+
+INSTALACIÓN EN LA PC DEL CLIENTE (10 minutos):
+
+  1. Conecta la impresora XP-Q200II por USB, con rollo,
+     y enciéndela.
+
+  2. Instala el driver: carpeta driver → descomprimir →
+     setup.exe COMO ADMINISTRADOR → modelo XP-Q200II →
+     puerto USB. Al terminar, en Configuración → Impresoras:
+       · márcala como PREDETERMINADA
+       · Preferencias: papel 80(72), corte automático
+
+  3. Doble clic a INSTALAR.bat (de esta USB). Eso:
+       · copia el programa a C:\RESTA
+       · crea la carpeta C:\RESTA\Respaldos
+       · crea el acceso directo "ONCE POS" en el escritorio
+         (abre como aplicación e imprime SIN ventanas)
+
+  4. Abre "ONCE POS" desde el escritorio:
+       · botón 🛟 Respaldo automático → elegir C:\RESTA\Respaldos
+       · botón 🖨️ Ticket → "Imprimir ticket de prueba"
+         (debe salir el ticket con el logo, completo y cortado)
+       · 🖨️ Ticket → activa la Comanda si van a usar
+         comandas para barra/cocina
+
+  5. Haz una venta de prueba completa: abrir mesa → anotar →
+     comanda → imprimir cuenta → cobrar → ver el corte.
+     Cuando todo esté bien: Corte del día → 🧹 Borrar ventas
+     para entregar la caja en ceros.
+
+IMPORTANTE:
+  · Usa SIEMPRE el acceso directo "ONCE POS". Los datos viven
+    en el navegador de esa PC y en C:\RESTA\Respaldos.
+  · No muevas ni renombres C:\RESTA\RESTA.html después de
+    instalado (los datos están ligados a esa ruta).
+  · Respaldo manual extra: botón 💾 Respaldo descarga un
+    archivo .json con todo.
+══════════════════════════════════════════════════════

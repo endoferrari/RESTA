@@ -457,6 +457,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <span style="flex:1"></span>
         <span id="turnoInfo" class="sub" style="margin:0"></span>
         <button class="btn btn-borde" data-accion="cerrar-turno" title="Guarda el respaldo final de este turno y empieza una carpeta nueva">🔒 Cerrar turno</button>
+        <button class="btn btn-rojo btn-mini" data-accion="borrar-ventas" title="Borra TODAS las ventas y cuentas para empezar de cero; los productos y ajustes no se tocan">🧹 Borrar ventas</button>
       </div>
       <div id="contenidoCorte"></div>
     </section>
@@ -657,7 +658,7 @@ function productosIniciales(){
 
 let D = leerDatos();
 if(!D){
-  D = { negocio:'ONCE Social Lounge', esDemo:false, demoV:MENU_VERSION, seq:1, productos:productosIniciales(), cuentas:[], tickets:[] };
+  D = { negocio:'ONCE Social Lounge', esDemo:false, demoV:MENU_VERSION, produccion:true, seq:1, productos:productosIniciales(), cuentas:[], tickets:[] };
   guardar();
 } else {
   // datos con el menú de prueba de versiones anteriores: cambiarlo por el menú real
@@ -671,6 +672,13 @@ if(!D.impresion){ D.impresion = { ancho:80, logo:LOGO_ONCE_TICKET, pie:'¡Gracia
 if(D.impresion.comanda===undefined){ D.impresion.comanda = false; guardar(); }
 // logo de fábrica: solo si nunca se ha puesto uno («''» significa que lo quitaron a propósito)
 if(D.impresion.logo===null || D.impresion.logo===undefined){ D.impresion.logo = LOGO_ONCE_TICKET; guardar(); }
+// pase a producción (una sola vez): se borran las ventas y cuentas de prueba; productos y ajustes se quedan
+if(!D.produccion){
+  D.cuentas = []; D.tickets = []; D.seq = 1;
+  D.turno = { fecha:hoyISO(), hora:horaConSegundos() };
+  D.produccion = true;
+  guardar();
+}
 
 /* ============ estado de la vista ============ */
 let vista = { pantalla:'mesas', cuentaId:null };
@@ -1866,6 +1874,14 @@ const acciones = {
     elegirCarpetaRespaldo();
   },
   'cerrar-turno': () => cerrarTurno(),
+  'borrar-ventas': () => confirmar(
+    '¿Borrar TODAS las ventas y cuentas abiertas para empezar de cero?<br>'+
+    '<small>Los productos, el logo y los ajustes NO se tocan. Útil después de hacer pruebas. Esto no se puede deshacer.</small>', () => {
+    D.cuentas = []; D.tickets = []; D.seq = 1;
+    D.turno = { fecha:hoyISO(), hora:horaConSegundos() };
+    guardar(); pintarCorte(); pintarRespaldoAuto();
+    avisar('Listo: caja en cero, sin cuentas abiertas');
+  }),
   'abrir-impresion': () => { $('modalImpresion').classList.remove('oculto'); pintarImpresion(); },
   'cerrar-impresion': () => $('modalImpresion').classList.add('oculto'),
   'subir-logo': () => $('archivoLogo').click(),
