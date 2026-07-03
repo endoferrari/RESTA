@@ -68,6 +68,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .btn-rojo{background:none;border:1.5px solid #ebc9c9;color:var(--peligro)}
 .btn-rojo:hover{background:var(--peligro-fondo)}
 .btn-mini{padding:6px 12px;font-size:.85rem;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
 .dinero{font-variant-numeric:tabular-nums}
 
 /* ---------- pantalla mesas ---------- */
@@ -394,7 +395,8 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <button class="btn btn-borde" id="btnCancelarEdicion" data-accion="cancelar-edicion" style="display:none">Cancelar</button>
         <div class="campo campo-ancho">
           <label for="prodOpciones">Submenú de opciones (opcional) — un grupo por renglón: <i>Grupo: opción, opción, opción</i></label>
-          <textarea id="prodOpciones" rows="2" placeholder="Ej.&#10;Mezcla: Con Coca, Coca Light, Divorciado&#10;Hielo: Con hielo, Sin hielo"></textarea>
+          <textarea id="prodOpciones" rows="2" placeholder="Ej.&#10;Mezcla: Puesto, Campechano, Pintado, Divorciado, Derecho&#10;Refresco [si: Puesto, Campechano, Pintado]: Coca, Sprite, Squirt"></textarea>
+          <small style="color:var(--tinta-suave)">Trucos: <b>[varias]</b> deja elegir varias opciones a la vez; <b>[si: Valor, Valor]</b> hace que el grupo solo aparezca cuando se eligió alguno de esos valores antes.</small>
         </div>
       </div>
       <div id="listaProductos"></div>
@@ -487,45 +489,57 @@ function guardar(){
 const FAMILIAS = ['Comida','Refrescos','Bebidas','Souvenirs'];
 const EMOJI_FAMILIA = { Comida:'🍔', Refrescos:'🥤', Bebidas:'🍹', Souvenirs:'🎁' };
 
-/* menú de ejemplo: [familia, icono, nombre, precio, submenú de opciones] */
+/* submenú típico de una copa en el bar:
+   derecho (caballito solo) · puesto (servida en el vaso) · campechano (mitad agua
+   mineral, mitad refresco) · pintado (agua mineral con un chorrito de refresco) ·
+   divorciado (todo aparte: caballito + vaso con hielo + sus aguas/refresco) */
+const OPS_COPA =
+  'Mezcla: Puesto, Campechano, Pintado, Divorciado, Derecho\n'+
+  'Con qué va [si: Puesto]: Agua mineral, Refresco, Agua y refresco (pintado)\n'+
+  'Aparte [varias] [si: Divorciado]: Agua mineral, Agua natural, Refresco\n'+
+  'Refresco [si: Refresco, Agua y refresco (pintado), Campechano, Pintado]: Coca, Coca Light, Coca Zero, Sprite, Squirt\n'+
+  'Hielo: Con hielo, Sin hielo';
+
+/* menú de ejemplo: [familia, icono, nombre, precio, submenú en texto] */
 const MENU_EJEMPLO = [
-  ['Comida','🍔','Hamburguesa',9500,[['Tipo',['Sencilla','Con queso','Doble']],['Papas',['Con papas','Sin papas']]]],
-  ['Comida','🍗','Alitas de pollo',11500,[['Salsa',['BBQ','Búfalo','Mango habanero','Naturales']]]],
+  ['Comida','🍔','Hamburguesa',9500,'Tipo: Sencilla, Con queso, Doble\nPapas: Con papas, Sin papas'],
+  ['Comida','🍗','Alitas de pollo',11500,'Salsa: BBQ, Búfalo, Mango habanero, Naturales'],
   ['Comida','🧀','Dedos de queso',8500,null],
   ['Comida','🍤','Nuggets de pollo',8000,null],
-  ['Comida','🍖','Boneless de pollo',12500,[['Salsa',['BBQ','Búfalo','Mango habanero']]]],
+  ['Comida','🍖','Boneless de pollo',12500,'Salsa: BBQ, Búfalo, Mango habanero'],
   ['Comida','🍟','Papas botana',4000,null],
   ['Comida','🥜','Cacahuates',2500,null],
   ['Comida','🍪','Galletas',2000,null],
-  ['Refrescos','🥤','Refresco',3000,[['Sabor',['Coca','Coca Light','Coca Zero','Sprite','Agua mineral']],['Hielo',['Con hielo','Sin hielo']]]],
+  ['Refrescos','🥤','Refresco',3000,'Sabor: Coca, Coca Light, Coca Zero, Sprite, Squirt\nHielo: Con hielo, Sin hielo'],
   ['Refrescos','🧃','Agua fresca',2500,null],
   ['Refrescos','💧','Agua embotellada',2000,null],
   ['Refrescos','☕','Café',3000,null],
   ['Bebidas','🍺','Cerveza',4500,null],
-  ['Bebidas','🍹','Michelada',7000,[['Preparado',['Clásica','Cubana','Con Clamato']]]],
-  ['Bebidas','🥃','Copa Bacardí blanco',8500,[['Mezcla',['Con Coca','Coca Light','Coca Zero','Agua mineral','Divorciado']],['Hielo',['Con hielo','Sin hielo']]]],
-  ['Bebidas','🥃','Copa tequila',9000,[['Mezcla',['Derecho','Con refresco','Paloma']],['Hielo',['Con hielo','Sin hielo']]]],
-  ['Bebidas','🍸','Copa vodka',8500,[['Mezcla',['Con jugo','Con refresco','Agua mineral']],['Hielo',['Con hielo','Sin hielo']]]],
-  ['Souvenirs','👕','Playera',18000,[['Talla',['Chica','Mediana','Grande','Extra grande']]]],
+  ['Bebidas','🍹','Michelada',7000,'Preparado: Clásica, Cubana, Con Clamato'],
+  ['Bebidas','🥃','Copa Bacardí blanco',8500,OPS_COPA],
+  ['Bebidas','🥃','Copa tequila',9000,OPS_COPA],
+  ['Bebidas','🍸','Copa vodka',8500,OPS_COPA],
+  ['Souvenirs','👕','Playera',18000,'Talla: Chica, Mediana, Grande, Extra grande'],
   ['Souvenirs','🧢','Gorra',12000,null],
   ['Souvenirs','☕','Taza',8000,null],
   ['Souvenirs','🔑','Llavero',5000,null]
 ];
+const DEMO_VERSION = 2;
 function productosEjemplo(){
   return MENU_EJEMPLO.map(p => {
     const prod = {id:nid(), familia:p[0], icono:p[1], nombre:p[2], precio:p[3]};
-    if(p[4]) prod.opciones = p[4].map(o => ({g:o[0], ops:o[1]}));
+    if(p[4]) prod.opciones = parseOpciones(p[4]);
     return prod;
   });
 }
 
 let D = leerDatos();
 if(!D){
-  D = { negocio:'Mi Restaurante', esDemo:true, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
+  D = { negocio:'Mi Restaurante', esDemo:true, demoV:DEMO_VERSION, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
   guardar();
 } else {
-  // datos guardados con la versión anterior: renovar el menú de ejemplo y asignar familia
-  if(D.esDemo && !D.productos.some(p=>p.familia)) D.productos = productosEjemplo();
+  // datos de versiones anteriores: renovar el menú de ejemplo y asignar familia
+  if(D.esDemo && D.demoV!==DEMO_VERSION){ D.productos = productosEjemplo(); D.demoV = DEMO_VERSION; }
   D.productos.forEach(p => { if(!FAMILIAS.includes(p.familia)) p.familia = 'Comida'; });
   guardar();
 }
@@ -716,21 +730,55 @@ function cerrarOpciones(){
   submenu = null;
 }
 
+/* un grupo con [si: ...] solo aparece cuando ya se eligió alguno de esos valores
+   en un grupo anterior; así se arman preguntas encadenadas (puesto → refresco → cuál) */
+function gruposVisibles(p){
+  const visibles = [];
+  for(const o of p.opciones){
+    if(!o.si){ visibles.push(o); continue; }
+    const elegidos = [];
+    visibles.forEach(v => {
+      const e = submenu.elec[v.g];
+      if(Array.isArray(e)) elegidos.push(...e);
+      else if(e) elegidos.push(e);
+    });
+    const norm = elegidos.map(normal);
+    if(o.si.some(s => norm.includes(normal(s)))) visibles.push(o);
+  }
+  return visibles;
+}
+
+const grupoElegido = o => {
+  const e = submenu.elec[o.g];
+  return o.multi ? Array.isArray(e) && e.length>0 : !!e;
+};
+
 function pintarOpciones(){
   const p = D.productos.find(x=>x.id===submenu.prodId);
   if(!p){ cerrarOpciones(); return; }
+  const visibles = gruposVisibles(p);
+  const hayMulti = visibles.some(o => o.multi);
+  const completo = visibles.every(grupoElegido);
   $('modalOpcionesCaja').innerHTML =
     '<div class="modal-cabeza"><div class="titulo">'+
       '<span>'+esc(p.icono+' '+p.nombre)+' · <span class="dinero">'+fmt(p.precio)+'</span></span>'+
       '<button class="cerrar" data-accion="cerrar-opciones" title="Cerrar sin anotar">×</button></div></div>'+
     '<div class="modal-cuerpo">'+
-      '<p class="sub" style="margin-top:0">Elige cómo lo pidió el cliente; al completar se anota solo:</p>'+
-      p.opciones.map(o =>
-        '<div class="grupo-op"><div class="titulo-grupo">'+esc(o.g)+'</div><div class="ops">'+
-        o.ops.map(v =>
-          '<button class="op-btn'+(submenu.elec[o.g]===v?' elegido':'')+'" data-accion="op-elegir" data-g="'+esc(o.g)+'" data-v="'+esc(v)+'">'+esc(v)+'</button>'
-        ).join('')+
-        '</div></div>').join('')+
+      '<p class="sub" style="margin-top:0">Elige cómo lo pidió el cliente'+(hayMulti ? ':' : '; al completar se anota solo:')+'</p>'+
+      visibles.map(o => {
+        const e = submenu.elec[o.g];
+        const marcada = v => o.multi ? (Array.isArray(e) && e.includes(v)) : e===v;
+        return '<div class="grupo-op"><div class="titulo-grupo">'+esc(o.g)+
+          (o.multi ? ' <span style="text-transform:none;letter-spacing:0;font-weight:600">(puedes elegir varias)</span>' : '')+
+          '</div><div class="ops">'+
+          o.ops.map(v =>
+            '<button class="op-btn'+(marcada(v)?' elegido':'')+'" data-accion="op-elegir" data-g="'+esc(o.g)+'" data-v="'+esc(v)+'">'+esc(v)+'</button>'
+          ).join('')+
+          '</div></div>';
+      }).join('')+
+      (hayMulti ?
+        '<button class="btn btn-verde" data-accion="anotar-opciones" style="width:100%;font-size:1.15rem;padding:14px"'+(completo?'':' disabled')+'>✔ Anotar como va</button>'
+        : '')+
     '</div>';
 }
 
@@ -738,15 +786,30 @@ function elegirOpcion(g, v){
   if(!submenu) return;
   const p = D.productos.find(x=>x.id===submenu.prodId);
   if(!p){ cerrarOpciones(); return; }
-  submenu.elec[g] = v;
-  const completo = p.opciones.every(o => submenu.elec[o.g]);
-  if(completo){
-    const detalle = p.opciones.map(o => submenu.elec[o.g]).join(' · ');
-    cerrarOpciones();
-    anotarItem(p, detalle);
+  const grupo = p.opciones.find(o => o.g===g); if(!grupo) return;
+  if(grupo.multi){
+    const arr = Array.isArray(submenu.elec[g]) ? submenu.elec[g] : [];
+    const ix = arr.indexOf(v);
+    if(ix>=0) arr.splice(ix,1); else arr.push(v);
+    submenu.elec[g] = arr;
   } else {
-    pintarOpciones();
+    submenu.elec[g] = v;
   }
+  const visibles = gruposVisibles(p);
+  // limpiar elecciones de grupos que dejaron de aplicar (p. ej. cambió la mezcla)
+  Object.keys(submenu.elec).forEach(k => { if(!visibles.some(o => o.g===k)) delete submenu.elec[k]; });
+  const completo = visibles.every(grupoElegido);
+  if(completo && !visibles.some(o => o.multi)) anotarSubmenu(p, visibles);
+  else pintarOpciones();
+}
+
+function anotarSubmenu(p, visibles){
+  const detalle = visibles.map(o => {
+    const e = submenu.elec[o.g];
+    return Array.isArray(e) ? e.join(' + ') : e;
+  }).join(' · ');
+  cerrarOpciones();
+  anotarItem(p, detalle);
 }
 
 function cambiarCant(itemId, delta){
@@ -804,21 +867,38 @@ function pintarProductos(){
   }).join('');
 }
 
-/* el submenú se captura como texto: un grupo por renglón «Grupo: opción, opción» */
+/* el submenú se captura como texto: un grupo por renglón «Grupo: opción, opción».
+   Directivas entre corchetes en el nombre del grupo:
+   [varias] = se pueden elegir varias opciones · [si: Valor, Valor] = el grupo
+   solo aparece cuando ya se eligió alguno de esos valores en un grupo anterior */
 function parseOpciones(txt){
   const lineas = String(txt).split('\n').map(l=>l.trim()).filter(Boolean);
   const lista = [];
   for(const l of lineas){
-    const i = l.indexOf(':');
+    let multi = false, si = null;
+    const limpia = l.replace(/\[([^\]]*)\]/g, (m, dentro) => {
+      const d = dentro.trim();
+      if(normal(d)==='varias') multi = true;
+      else if(/^si\b/.test(normal(d))){
+        si = d.replace(/^si\s*:?\s*/i,'').split(',').map(s=>s.trim()).filter(Boolean);
+        if(si.length===0) si = null;
+      }
+      return '';
+    });
+    const i = limpia.indexOf(':');
     if(i < 1) return null;
-    const g = l.slice(0,i).trim();
-    const ops = l.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean);
+    const g = limpia.slice(0,i).trim();
+    const ops = limpia.slice(i+1).split(',').map(s=>s.trim()).filter(Boolean);
     if(!g || ops.length===0) return null;
-    lista.push({g, ops});
+    const grupo = {g, ops};
+    if(multi) grupo.multi = true;
+    if(si) grupo.si = si;
+    lista.push(grupo);
   }
   return lista;
 }
-const textoOpciones = ops => (ops||[]).map(o => o.g+': '+o.ops.join(', ')).join('\n');
+const textoOpciones = ops => (ops||[]).map(o =>
+  o.g + (o.multi?' [varias]':'') + (o.si?' [si: '+o.si.join(', ')+']':'') + ': ' + o.ops.join(', ')).join('\n');
 
 function guardarProducto(){
   const nombre = $('prodNombre').value.trim();
@@ -1292,6 +1372,13 @@ const acciones = {
   'registrar-pago': () => registrarPago(),
   'familia': d => { familiaActiva = d.f; pintarFamilias(); pintarMosaico(); },
   'op-elegir': d => elegirOpcion(d.g, d.v),
+  'anotar-opciones': () => {
+    if(!submenu) return;
+    const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
+    const visibles = gruposVisibles(p);
+    if(!visibles.every(grupoElegido)) return;
+    anotarSubmenu(p, visibles);
+  },
   'cerrar-opciones': () => cerrarOpciones(),
   'tecla': (d, el) => tecla(d.k, el),
   'toggle-teclado': () => {
