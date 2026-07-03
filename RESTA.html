@@ -588,7 +588,7 @@ let ultimoRespaldo = '';
 /* APP_VERSION = versión de ESTE archivo. La "última" disponible se configura en
    version.json dentro del repositorio; el botón «Actualizar» la compara y, si hay
    una nueva, descarga el RESTA.html nuevo desde GitHub y lo instala. */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const REPO_RAW = 'https://raw.githubusercontent.com/endoferrari/RESTA/master';
 let dirInstalacion = null;      // carpeta donde está instalado RESTA (p. ej. C:\RESTA)
 let buscandoActualizacion = false;
@@ -1719,7 +1719,7 @@ async function enviarAlAgente(u8){
 /* codifica texto a CP850 (la página de la térmica): acentos, ñ, ¡¿, etc. */
 const MAPA_CP850 = {'á':160,'é':130,'í':161,'ó':162,'ú':163,'ñ':164,'Ñ':165,'ü':129,'Ü':154,
   'Á':181,'É':144,'Í':214,'Ó':224,'Ú':233,'¡':173,'¿':168,'°':248,'ª':166,'º':167,'·':250,
-  '×':158,'“':34,'”':34,'‘':39,'’':39,'–':45,'—':45,'•':42,'€':213};
+  '×':120,'“':34,'”':34,'‘':39,'’':39,'–':45,'—':45,'•':42,'€':213};
 function byteCP850(ch){
   const c = ch.codePointAt(0);
   if(c===10) return 10;
@@ -1734,7 +1734,9 @@ function EscPos(){
   const meter = (...xs)=>{ for(const x of xs) b.push(x & 0xFF); };
   const escribir = (s)=>{ for(const ch of String(s)){ const v = byteCP850(ch); if(v!==null) b.push(v); } };
   const api = {
-    init(){ meter(0x1B,0x40, 0x1B,0x74,0x02); return api; },
+    // FS . (1C 2E) cancela el modo chino multibyte de las térmicas clonadas:
+    // sin esto, "¡" + la letra siguiente se imprimen como un carácter chino.
+    init(){ meter(0x1B,0x40, 0x1C,0x2E, 0x1B,0x74,0x02); return api; },
     izq(){ meter(0x1B,0x61,0x00); return api; },
     centro(){ meter(0x1B,0x61,0x01); return api; },
     negrita(on){ meter(0x1B,0x45, on?1:0); return api; },
@@ -1748,6 +1750,10 @@ function EscPos(){
 }
 
 const anchoColumnas = () => (D.impresion && D.impresion.ancho===58) ? 32 : 48;
+
+/* quita lo que la térmica no sabe imprimir (emojis) y los espacios dobles que dejan */
+const soloImprimible = s => Array.from(String(s)).filter(ch => byteCP850(ch)!==null)
+  .join('').replace(/ {2,}/g,' ').trim();
 
 /* línea de dos columnas: concepto a la izquierda, importe a la derecha */
 function dosColumnas(izq, der, W){
@@ -1773,7 +1779,7 @@ function rasterDeImagen(img){
   try{
     const puntos = (D.impresion && D.impresion.ancho===58) ? 384 : 576;
     const wBytes = puntos/8;
-    const anchoLogo = Math.round(puntos*0.85);
+    const anchoLogo = Math.round(puntos*0.62); // proporción del logo como en el ticket original
     const nw = img.naturalWidth || img.width || 1;
     const nh = img.naturalHeight || img.height || 1;
     let h = Math.round(anchoLogo * nh / nw); if(h<1) h=1;
@@ -1808,15 +1814,24 @@ function ticketAEscPos(){
       return;
     }
     if(el.tagName==='H3'){
-      p.centro().negrita(true).tam(1,2);
+      // la cabecera de la COMANDA va extra grande para barra y cocina;
+      // el nombre del negocio en el ticket del cliente se queda como está
+      const esComanda = textoNodo(el).indexOf('***') !== -1;
+      p.centro().negrita(true).tam(esComanda?2:1,2);
       textoNodo(el).split('\n').forEach(l=>{ if(l.trim()!=='') p.linea(l.trim()); });
       p.tam(1,1).negrita(false).izq();
       return;
     }
     if(el.tagName==='HR'){ p.izq().linea('-'.repeat(W)); return; }
     if(el.classList.contains('centrado')){
+      // el logo viene dentro de un div.centrado: hay que buscarlo adentro
+      const img = el.querySelector('img');
+      if(img){
+        const r = rasterDeImagen(img);
+        if(r){ p.centro().raster(r.bytes, r.wBytes, r.h).izq(); }
+      }
       p.centro();
-      textoNodo(el).split('\n').forEach(l=> p.linea(l.trim()));
+      textoNodo(el).split('\n').forEach(l=>{ if(l.trim()!=='') p.linea(l.trim()); });
       p.izq();
       return;
     }
@@ -1837,15 +1852,15 @@ function ticketAEscPos(){
       return;
     }
     if(el.classList.contains('com-sec')){
-      p.negrita(true).tam(1,2).linea(textoNodo(el).replace(/\n/g,' ').trim()).tam(1,1).negrita(false);
+      p.negrita(true).tam(2,2).linea(soloImprimible(textoNodo(el).replace(/\n/g,' '))).tam(1,1).negrita(false);
       return;
     }
     if(el.classList.contains('com-item')){
-      p.negrita(true).linea(textoNodo(el).replace(/\n/g,' ').trim()).negrita(false);
+      p.negrita(true).tam(2,2).linea(soloImprimible(textoNodo(el).replace(/\n/g,' '))).tam(1,1).negrita(false);
       return;
     }
     if(el.classList.contains('com-det')){
-      p.linea('  '+textoNodo(el).replace(/\n/g,' ').replace(/^\s*>\s*/,'').trim());
+      p.tam(1,2).linea('  '+soloImprimible(textoNodo(el).replace(/\n/g,' ').replace(/^\s*>\s*/,''))).tam(1,1);
       return;
     }
     textoNodo(el).split('\n').forEach(l=>{ p.linea(l.trim()); });
@@ -1892,9 +1907,17 @@ function imprimirNavegador(html){
   // alto y el driver lo gire "de lado" (lo interpreta como horizontal).
   const alto = Math.max(90, medirAltoTicketMm());
   aplicarEstiloImpresion(alto);
+  // sin título mientras se imprime: si Chrome tiene activados «Encabezados y
+  // pies de página», no sale "RESTA — Punto de venta" ni la fecha en el ticket
+  const tituloOriginal = document.title;
+  document.title = ' ';
   document.body.classList.add('imprimiendo');
   window.print();
-  setTimeout(()=>{ document.body.classList.remove('imprimiendo'); aplicarEstiloImpresion(); }, 500);
+  setTimeout(()=>{
+    document.body.classList.remove('imprimiendo');
+    document.title = tituloOriginal;
+    aplicarEstiloImpresion();
+  }, 500);
 }
 
 /* el logo se convierte a blanco y negro puro, que es como imprime la térmica */
