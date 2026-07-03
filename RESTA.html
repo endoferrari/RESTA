@@ -129,6 +129,10 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .ticket-pagado{display:flex;justify-content:space-between;font-size:.9rem;color:var(--exito);font-weight:700;margin-bottom:8px}
 #btnCobrar{width:100%;font-size:1.25rem;padding:15px}
 #btnCobrar:disabled{background:#d8d5cb;color:#8f8d84;box-shadow:none;cursor:not-allowed}
+.historial{margin-top:10px;font-size:.82rem;color:var(--tinta-suave)}
+.historial summary{cursor:pointer;font-weight:700}
+.historial .ev{padding:3px 0;border-bottom:1px dashed var(--linea)}
+.historial .ev span{font-variant-numeric:tabular-nums;font-weight:700;margin-right:7px}
 
 /* ---------- pantalla productos ---------- */
 .form-producto{padding:20px;margin-bottom:22px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
@@ -398,6 +402,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
             <button class="btn btn-borde" id="btnComanda" data-accion="imprimir-comanda" style="width:100%;margin-bottom:8px;display:none">🧑‍🍳 Imprimir comanda</button>
             <button class="btn btn-borde" id="btnCuenta" data-accion="imprimir-cuenta" style="width:100%;margin-bottom:8px;display:none">🧾 Imprimir cuenta</button>
             <button class="btn btn-ambar" id="btnCobrar" data-accion="abrir-cobro">💵 COBRAR</button>
+            <details class="historial" id="historialCuenta"><summary>📜 Historial de la cuenta</summary><div id="historialLista"></div></details>
           </div>
         </div>
       </div>
@@ -644,6 +649,11 @@ const totalCuenta = c => c.items.reduce((s,i)=> s + i.precio*i.cant, 0);
 const pagadoCuenta = c => c.pagos.reduce((s,p)=> s + p.monto, 0);
 const restanteCuenta = c => totalCuenta(c) - pagadoCuenta(c);
 
+/* bitácora de la cuenta: cada movimiento queda registrado con fecha y hora */
+function anotarEvento(c, texto){
+  (c.eventos = c.eventos || []).push({ fecha:hoyISO(), hora:horaAhora(), texto });
+}
+
 /* ============ navegación ============ */
 function irA(pantalla, cuentaId){
   vista.pantalla = pantalla;
@@ -692,7 +702,8 @@ function crearCuenta(){
   if(/^\d+$/.test(nombre)) nombre = 'Mesa ' + nombre;
   const repetida = D.cuentas.find(c => normal(c.nombre)===normal(nombre));
   if(repetida){ campo.value=''; irA('cuenta', repetida.id); avisar('Esa cuenta ya estaba abierta; aquí la tienes'); return; }
-  const c = { id:nid(), nombre, creada:horaAhora(), fecha:hoyISO(), items:[], pagos:[] };
+  const c = { id:nid(), nombre, creada:horaAhora(), fecha:hoyISO(), items:[], pagos:[], eventos:[] };
+  anotarEvento(c, 'Cuenta abierta');
   D.cuentas.push(c); guardar();
   campo.value = '';
   irA('cuenta', c.id);
@@ -793,6 +804,10 @@ function pintarTicket(){
   const bq = $('btnCuenta');
   bq.style.display = c.items.length>0 ? 'block' : 'none';
   bq.textContent = c.cuentaImpresa ? '🧾 Reimprimir la cuenta (salió a las '+c.cuentaImpresa+')' : '🧾 Imprimir cuenta · la revisa el cliente';
+  const evs = c.eventos || [];
+  $('historialLista').innerHTML = evs.length
+    ? evs.map(e => '<div class="ev"><span>'+e.hora+'</span>'+esc(e.texto)+'</div>').join('')
+    : '<div class="ev">Sin movimientos todavía</div>';
 }
 
 /* ============ la cuenta para el cliente ============ */
@@ -814,6 +829,7 @@ function htmlCuentaCliente(c){
 
 function imprimirCuentaCliente(){
   const c = buscarCuenta(vista.cuentaId); if(!c || c.items.length===0) return;
+  anotarEvento(c, c.cuentaImpresa ? '🧾 Cuenta reimpresa para el cliente' : '🧾 Pidió la cuenta; se imprimió para revisión');
   c.cuentaImpresa = horaAhora();
   guardar();
   imprimir(htmlCuentaCliente(c));
@@ -851,9 +867,12 @@ function imprimirComanda(){
   imprimir(htmlComanda(c, renglones, esReimpresion));
   if(!esReimpresion){
     c.items.forEach(i => i.comandadoCant = i.cant);
+    anotarEvento(c, '🧑‍🍳 Comanda a barra/cocina · '+renglones.length+' '+(renglones.length===1?'renglón':'renglones'));
     guardar(); pintarTicket();
     avisar('Comanda impresa para barra y cocina');
   } else {
+    anotarEvento(c, '🧑‍🍳 Comanda reimpresa completa');
+    guardar(); pintarTicket();
     avisar('Comanda reimpresa completa');
   }
 }
@@ -1325,7 +1344,9 @@ function registrarPago(){
     digitos = $('tarjeta4') ? $('tarjeta4').value.trim() : '';
     if(digitos && !/^\d{4}$/.test(digitos)){ avisar('Los dígitos de la tarjeta deben ser 4 números', true); $('tarjeta4').focus(); return; }
   }
-  c.pagos.push({id:nid(), monto, metodo:cobro.metodo, recibido, cambio, nombreTarjeta, digitos, hora:horaAhora()});
+  c.pagos.push({id:nid(), fecha:hoyISO(), monto, metodo:cobro.metodo, recibido, cambio, nombreTarjeta, digitos, hora:horaAhora()});
+  anotarEvento(c, (cobro.metodo==='efectivo'?'💵':'💳')+' Pago de '+fmt(monto)+
+    (restanteCuenta(c)>0 ? ' · queda por pagar '+fmt(restanteCuenta(c)) : ' · con esto se liquida'));
   // marcar productos elegidos como pagados si coincide el importe
   if(cobro.modoSeleccion && cobro.seleccion.size>0){
     const montoSel = [...cobro.seleccion].reduce((s,id)=>{
@@ -1347,11 +1368,13 @@ function registrarPago(){
 }
 
 function finalizarCuenta(c){
+  anotarEvento(c, 'Cuenta liquidada y cerrada; se libera '+c.nombre);
   const ticket = {
     id: nid(), folio: D.seq++,
-    nombre: c.nombre, fecha: hoyISO(), hora: horaAhora(),
+    nombre: c.nombre, abierta: c.creada, fecha: hoyISO(), hora: horaAhora(),
     items: c.items.map(i=>({icono:i.icono, nombre:i.nombre, detalle:i.detalle||'', precio:i.precio, cant:i.cant})),
-    pagos: c.pagos.map(p=>({monto:p.monto, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, nombreTarjeta:p.nombreTarjeta||'', digitos:p.digitos||'', hora:p.hora})),
+    pagos: c.pagos.map(p=>({fecha:p.fecha||hoyISO(), monto:p.monto, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, nombreTarjeta:p.nombreTarjeta||'', digitos:p.digitos||'', hora:p.hora})),
+    eventos: c.eventos || [],
     total: totalCuenta(c)
   };
   D.tickets.push(ticket);
@@ -1500,9 +1523,26 @@ function pintarCorte(){
   const fecha = $('fechaCorte').value || hoyISO();
   const del = D.tickets.filter(t=>t.fecha===fecha);
   const caja = $('contenidoCorte');
+
+  // pagos parciales de cuentas TODAVÍA abiertas: dinero que ya está en caja
+  const anticipos = [];
+  D.cuentas.forEach(cta => (cta.pagos||[]).forEach(p => {
+    if((p.fecha||cta.fecha)===fecha) anticipos.push({cta, p});
+  }));
+  const antTotal = anticipos.reduce((s,a)=>s+a.p.monto,0);
+  const anticiposHtml = antTotal>0 ?
+    '<div class="col-top tarjeta">'+
+      '<div class="cabecera-bloque">💰 Anticipos de cuentas abiertas</div>'+
+      anticipos.map(a =>
+        '<div class="top-item"><span class="nm">'+esc(a.cta.nombre)+' · '+a.p.hora+' '+(a.p.metodo==='efectivo'?'💵':'💳')+'</span>'+
+        '<span class="veces dinero">'+fmt(a.p.monto)+'</span></div>').join('')+
+      '<div style="padding:10px 14px;font-size:.8rem;color:var(--tinta-suave)">Este dinero ya está en caja; se sumará al total del día en que esas cuentas se cierren.</div>'+
+    '</div>' : '';
+
   if(del.length===0){
     caja.innerHTML = '<div class="vacio tarjeta"><div class="icono">📊</div><b>No hay cuentas cobradas el '+
-      fechaBonita(fecha)+'.</b><br>Aquí aparecerá el resumen cuando cobres.</div>';
+      fechaBonita(fecha)+'.</b><br>Aquí aparecerá el resumen cuando cobres.</div>'+
+      (antTotal>0 ? '<div class="dos-columnas" style="margin-top:16px">'+anticiposHtml+'</div>' : '');
     return;
   }
   const total = del.reduce((s,t)=>s+t.total,0);
@@ -1524,6 +1564,7 @@ function pintarCorte(){
       '<div class="tile tarjeta"><div class="et">💳 Con tarjeta</div><div class="valor dinero">'+fmt(tarjeta)+'</div></div>'+
       '<div class="tile tarjeta"><div class="et">Cuentas cobradas</div><div class="valor">'+del.length+'</div></div>'+
       '<div class="tile tarjeta"><div class="et">Consumo promedio</div><div class="valor dinero">'+fmt(promedio)+'</div></div>'+
+      (antTotal>0 ? '<div class="tile tarjeta"><div class="et">💰 Anticipos (cuentas abiertas)</div><div class="valor dinero">'+fmt(antTotal)+'</div></div>' : '')+
     '</div>'+
     '<div class="dos-columnas">'+
       '<div class="col-tickets tarjeta">'+
@@ -1547,6 +1588,7 @@ function pintarCorte(){
           return '<div class="top-item"><span class="ic">'+esc(ic)+'</span><span class="nm">'+esc(nm)+'</span><span class="veces">'+v+'</span></div>';
         }).join('')+
       '</div>'+
+      anticiposHtml+
     '</div>';
 }
 
