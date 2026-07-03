@@ -263,6 +263,16 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .fila-tarjeta .campo-grande{flex:1;min-width:150px}
 .fila-tarjeta input{font-size:1.1rem;font-weight:600}
 
+/* ---------- cobro a una sola vista (dos columnas) ---------- */
+#modalCobro .modal{max-width:960px}
+.cobro-cuerpo{display:flex;gap:20px;align-items:flex-start}
+.cobro-col-izq{flex:1.15;min-width:0}
+.cobro-col-der{flex:1;min-width:280px}
+.cobro-col-der .teclado-num{margin:0 0 4px}
+.billetes button{font-size:.95rem;padding:10px 14px;font-weight:800}
+.mini-titulo{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave);margin:14px 0 8px}
+@media (max-width:920px){.cobro-cuerpo{flex-direction:column}.cobro-col-der{min-width:0;width:100%}}
+
 /* ---------- impresión: ajustes ---------- */
 #modalImpresion .modal{max-width:560px}
 .logo-caja{background:#fbfaf7;border:1.5px dashed var(--linea);border-radius:11px;padding:14px;text-align:center;margin-bottom:14px}
@@ -296,6 +306,9 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
   #zona-impresion td{padding:1px 0;vertical-align:top}
   #zona-impresion td.der{text-align:right;white-space:nowrap}
   #zona-impresion .total-linea{font-size:15px;font-weight:bold}
+  #zona-impresion .com-sec{font-weight:bold;font-size:13px;margin:7px 0 2px;text-decoration:underline}
+  #zona-impresion .com-item{font-size:14px;font-weight:bold;margin-top:4px}
+  #zona-impresion .com-det{font-size:12px;padding-left:14px}
 }
 
 @media (max-width:900px){
@@ -380,6 +393,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
           <div class="ticket-pie">
             <div class="ticket-pagado" id="ticketPagado" style="display:none"></div>
             <div class="ticket-total"><span class="et">TOTAL</span><span class="tt dinero" id="ticketTotal">$0.00</span></div>
+            <button class="btn btn-borde" id="btnComanda" data-accion="imprimir-comanda" style="width:100%;margin-bottom:8px;display:none">🧑‍🍳 Imprimir comanda</button>
             <button class="btn btn-ambar" id="btnCobrar" data-accion="abrir-cobro">💵 COBRAR</button>
           </div>
         </div>
@@ -585,7 +599,8 @@ if(!D){
   guardar();
 }
 if(!D.turno){ D.turno = { fecha:hoyISO(), hora:horaConSegundos() }; guardar(); }
-if(!D.impresion){ D.impresion = { ancho:80, logo:null, pie:'¡Gracias por su visita!' }; guardar(); }
+if(!D.impresion){ D.impresion = { ancho:80, logo:null, pie:'¡Gracias por su visita!', comanda:false }; guardar(); }
+if(D.impresion.comanda===undefined){ D.impresion.comanda = false; guardar(); }
 
 /* ============ estado de la vista ============ */
 let vista = { pantalla:'mesas', cuentaId:null };
@@ -744,6 +759,49 @@ function pintarTicket(){
   const btn = $('btnCobrar');
   btn.disabled = c.items.length===0;
   btn.textContent = pag>0 ? '💵 COBRAR LO QUE FALTA' : '💵 COBRAR';
+  const bc = $('btnComanda');
+  if(D.impresion && D.impresion.comanda && c.items.length>0){
+    const pend = c.items.reduce((s,i)=> s + Math.max(0, i.cant-(i.comandadoCant||0)), 0);
+    bc.style.display = 'block';
+    bc.textContent = pend>0 ? '🧑‍🍳 Imprimir comanda · '+pend+' nuevo'+(pend===1?'':'s') : '🧑‍🍳 Reimprimir comanda';
+  } else bc.style.display = 'none';
+}
+
+/* ============ comanda para barra y cocina ============ */
+function htmlComanda(c, renglones, esReimpresion){
+  const destinoDe = i => {
+    const fam = i.familia || (D.productos.find(p=>p.id===i.prodId)||{}).familia || 'Comida';
+    return fam==='Comida' ? 'COCINA' : (fam==='Souvenirs' ? 'MOSTRADOR' : 'BARRA');
+  };
+  const grupos = {};
+  renglones.forEach(r => { const d = destinoDe(r.item); (grupos[d]=grupos[d]||[]).push(r); });
+  return '<h3>*** COMANDA ***'+(esReimpresion?'<br>(REIMPRESIÓN)':'')+'</h3>'+
+    '<div class="centrado">'+esc(c.nombre)+' · '+horaAhora()+'</div><hr>'+
+    ['BARRA','COCINA','MOSTRADOR'].filter(d=>grupos[d]).map(d =>
+      '<div class="com-sec">&gt;&gt; '+d+'</div>'+
+      grupos[d].map(r =>
+        '<div class="com-item">'+r.cant+' × '+esc(r.item.icono+' '+r.item.nombre)+'</div>'+
+        (r.item.detalle ? '<div class="com-det">&gt; '+esc(r.item.detalle)+'</div>' : '')
+      ).join('')
+    ).join('')+
+    '<hr><div class="centrado">'+esc(c.nombre)+'</div>';
+}
+
+function imprimirComanda(){
+  const c = buscarCuenta(vista.cuentaId); if(!c || c.items.length===0) return;
+  const pendientes = c.items
+    .map(i => ({item:i, cant: Math.max(0, i.cant - (i.comandadoCant||0))}))
+    .filter(r => r.cant > 0);
+  const esReimpresion = pendientes.length===0;
+  const renglones = esReimpresion ? c.items.map(i=>({item:i, cant:i.cant})) : pendientes;
+  imprimir(htmlComanda(c, renglones, esReimpresion));
+  if(!esReimpresion){
+    c.items.forEach(i => i.comandadoCant = i.cant);
+    guardar(); pintarTicket();
+    avisar('Comanda impresa para barra y cocina');
+  } else {
+    avisar('Comanda reimpresa completa');
+  }
 }
 
 function agregarItem(prodId){
@@ -756,7 +814,7 @@ function anotarItem(p, detalle){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
   const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado);
   if(linea) linea.cant++;
-  else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, detalle:detalle||'', precio:p.precio, cant:1, pagado:false});
+  else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, detalle:detalle||'', familia:p.familia, precio:p.precio, cant:1, pagado:false});
   guardar(); pintarTicket();
   avisar(p.icono+' '+p.nombre+(detalle?' ('+detalle+')':'')+' anotado');
 }
@@ -1092,50 +1150,58 @@ function pintarCobro(){
         '<div class="cifra falta"><div class="et">Falta</div><div class="v dinero">'+fmt(resta)+'</div></div>'+
       '</div>'+
     '</div>'+
-    '<div class="modal-cuerpo">'+
-      '<div class="segmento">'+
-        '<button id="segEfectivo" data-accion="metodo" data-m="efectivo" class="'+(cobro.metodo==='efectivo'?'activo':'')+'">💵 Efectivo</button>'+
-        '<button id="segTarjeta" data-accion="metodo" data-m="tarjeta" class="'+(cobro.metodo==='tarjeta'?'activo':'')+'">💳 Tarjeta</button>'+
+    '<div class="modal-cuerpo cobro-cuerpo">'+
+      '<div class="cobro-col-izq">'+
+        '<div class="segmento">'+
+          '<button id="segEfectivo" data-accion="metodo" data-m="efectivo" class="'+(cobro.metodo==='efectivo'?'activo':'')+'">💵 Efectivo</button>'+
+          '<button id="segTarjeta" data-accion="metodo" data-m="tarjeta" class="'+(cobro.metodo==='tarjeta'?'activo':'')+'">💳 Tarjeta</button>'+
+        '</div>'+
+        '<div class="campo-grande"><label for="montoCobrar">Cantidad a cobrar ahora (todo junto)</label>'+
+          '<input id="montoCobrar" inputmode="decimal" autocomplete="off" value="'+(montoInicial/100).toFixed(2)+'"></div>'+
+        '<div id="zonaEfectivo" style="display:'+(cobro.metodo==='efectivo'?'block':'none')+'">'+
+          '<div class="campo-grande"><label for="recibido">¿Con cuánto paga? Toca los billetes y se van sumando</label>'+
+          '<input id="recibido" inputmode="decimal" autocomplete="off" placeholder="Si paga exacto, déjalo vacío"></div>'+
+          '<div class="ayudas billetes">'+
+            '<button data-accion="billete" data-v="exacto">Pago exacto</button>'+
+            '<button data-accion="billete" data-v="2000">+$20</button>'+
+            '<button data-accion="billete" data-v="5000">+$50</button>'+
+            '<button data-accion="billete" data-v="10000">+$100</button>'+
+            '<button data-accion="billete" data-v="20000">+$200</button>'+
+            '<button data-accion="billete" data-v="50000">+$500</button>'+
+            '<button data-accion="billete" data-v="100000">+$1,000</button>'+
+            '<button data-accion="billete" data-v="limpiar" title="Borrar lo recibido">✕</button>'+
+          '</div>'+
+          '<div id="cajaCambio"></div>'+
+        '</div>'+
+        '<div id="zonaTarjeta" style="display:'+(cobro.metodo==='tarjeta'?'block':'none')+'">'+
+          '<div class="fila-tarjeta">'+
+            '<div class="campo-grande"><label for="tarjetaNombre">Nombre en la tarjeta (opcional)</label>'+
+            '<input id="tarjetaNombre" autocomplete="off" placeholder="Como aparece en la tarjeta"></div>'+
+            '<div class="campo-grande" style="max-width:180px"><label for="tarjeta4">Últimos 4 dígitos</label>'+
+            '<input id="tarjeta4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1234"></div>'+
+          '</div>'+
+        '</div>'+
+        '<button class="btn btn-ambar" id="btnRegistrarPago" data-accion="registrar-pago" style="width:100%;font-size:1.2rem;padding:15px"></button>'+
+        pagosHtml+
       '</div>'+
-      '<div class="ayudas">'+
-        '<button data-accion="monto-todo">Cobrar todo lo que falta</button>'+
-        '<button data-accion="modo-seleccion" class="'+(cobro.modoSeleccion?'encendido':'')+'">☑ Elegir productos (cada quien lo suyo)</button>'+
-        '<button data-accion="toggle-teclado" class="'+(tecladoVisible?'encendido':'')+'">🔢 Teclado</button>'+
-      '</div>'+
-      seleccionHtml+
-      '<div class="divisor-personas">'+
-        '<span style="font-weight:700">Dividir entre</span>'+
-        '<button class="paso" data-accion="personas" data-d="-1">−</button>'+
-        '<b style="font-size:1.2rem;min-width:22px;text-align:center">'+cobro.personas+'</b>'+
-        '<button class="paso" data-accion="personas" data-d="1">+</button>'+
-        '<span class="cada">personas: <b class="dinero">'+fmt(porPersona)+'</b> cada una</span>'+
-        '<button class="btn btn-borde btn-mini" data-accion="monto-persona">Usar</button>'+
-      '</div>'+
-      '<div class="campo-grande"><label for="montoCobrar">Cantidad a cobrar ahora</label>'+
-        '<input id="montoCobrar" inputmode="decimal" autocomplete="off" value="'+(montoInicial/100).toFixed(2)+'"></div>'+
-      '<div id="zonaEfectivo" style="display:'+(cobro.metodo==='efectivo'?'block':'none')+'">'+
-        '<div class="campo-grande"><label for="recibido">¿Con cuánto paga el cliente?</label>'+
-        '<input id="recibido" inputmode="decimal" autocomplete="off" placeholder="Si paga exacto, déjalo vacío"></div>'+
+      '<div class="cobro-col-der">'+
+        '<div class="ayudas" style="margin-bottom:6px"><button data-accion="toggle-teclado" class="'+(tecladoVisible?'encendido':'')+'">🔢 Teclado</button></div>'+
+        '<div class="teclado-num" data-defecto="montoCobrar" data-objetivos="montoCobrar,recibido,tarjeta4">'+teclasHtml()+'</div>'+
+        '<div class="mini-titulo">Otras formas de cobrar</div>'+
+        '<div class="divisor-personas">'+
+          '<span style="font-weight:700">Dividir entre</span>'+
+          '<button class="paso" data-accion="personas" data-d="-1">−</button>'+
+          '<b style="font-size:1.2rem;min-width:22px;text-align:center">'+cobro.personas+'</b>'+
+          '<button class="paso" data-accion="personas" data-d="1">+</button>'+
+          '<span class="cada">personas: <b class="dinero">'+fmt(porPersona)+'</b> cada una</span>'+
+          '<button class="btn btn-borde btn-mini" data-accion="monto-persona">Usar</button>'+
+        '</div>'+
         '<div class="ayudas">'+
-          '<button data-accion="billete" data-v="exacto">Pago exacto</button>'+
-          '<button data-accion="billete" data-v="10000">$100</button>'+
-          '<button data-accion="billete" data-v="20000">$200</button>'+
-          '<button data-accion="billete" data-v="50000">$500</button>'+
-          '<button data-accion="billete" data-v="100000">$1,000</button>'+
+          '<button data-accion="monto-todo">Volver a cobrar todo junto</button>'+
+          '<button data-accion="modo-seleccion" class="'+(cobro.modoSeleccion?'encendido':'')+'">☑ Elegir productos (cada quien lo suyo)</button>'+
         '</div>'+
-        '<div id="cajaCambio"></div>'+
+        seleccionHtml+
       '</div>'+
-      '<div id="zonaTarjeta" style="display:'+(cobro.metodo==='tarjeta'?'block':'none')+'">'+
-        '<div class="fila-tarjeta">'+
-          '<div class="campo-grande"><label for="tarjetaNombre">Nombre en la tarjeta (opcional)</label>'+
-          '<input id="tarjetaNombre" autocomplete="off" placeholder="Como aparece en la tarjeta"></div>'+
-          '<div class="campo-grande" style="max-width:180px"><label for="tarjeta4">Últimos 4 dígitos</label>'+
-          '<input id="tarjeta4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1234"></div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="teclado-num" data-defecto="montoCobrar" data-objetivos="montoCobrar,recibido,tarjeta4">'+teclasHtml()+'</div>'+
-      '<button class="btn btn-ambar" id="btnRegistrarPago" data-accion="registrar-pago" style="width:100%;font-size:1.2rem;padding:15px"></button>'+
-      pagosHtml+
     '</div>';
 
   aplicarTeclados();
@@ -1333,6 +1399,11 @@ function pintarImpresion(){
     '<div class="ajuste-fila"><b>Ancho del rollo:</b>'+
       '<button class="btn btn-mini '+(imp.ancho!==58?'btn-ambar':'btn-borde')+'" data-accion="ancho-ticket" data-mm="80">80 mm (XP-Q200II)</button>'+
       '<button class="btn btn-mini '+(imp.ancho===58?'btn-ambar':'btn-borde')+'" data-accion="ancho-ticket" data-mm="58">58 mm</button>'+
+    '</div>'+
+    '<div class="ajuste-fila"><b>Comanda para barra y cocina:</b>'+
+      '<button class="btn btn-mini '+(imp.comanda?'btn-ambar':'btn-borde')+'" data-accion="comanda-toggle" data-on="1">Activada</button>'+
+      '<button class="btn btn-mini '+(!imp.comanda?'btn-ambar':'btn-borde')+'" data-accion="comanda-toggle" data-on="0">Desactivada</button>'+
+      '<span style="flex-basis:100%;font-size:.78rem;color:var(--tinta-suave)">Activada, en cada cuenta aparece el botón «🧑‍🍳 Imprimir comanda»: imprime solo lo nuevo, separado por BARRA y COCINA, con todo el detalle de cómo lo pidió el cliente.</span>'+
     '</div>'+
     '<div class="campo-grande" style="margin-bottom:14px"><label for="pieTicket">Mensaje al pie del ticket</label>'+
       '<input id="pieTicket" maxlength="60" style="font-size:1rem;font-weight:600" value="'+esc(imp.pie||'')+'" autocomplete="off"></div>'+
@@ -1635,7 +1706,11 @@ const acciones = {
   'billete': d => {
     const rec = $('recibido'); if(!rec) return;
     if(d.v==='exacto') rec.value = $('montoCobrar').value;
-    else rec.value = (Number(d.v)/100).toFixed(2);
+    else if(d.v==='limpiar') rec.value = '';
+    else {
+      const actual = aCentavos(rec.value) || 0; // los billetes se suman: 500+200 = dos toques
+      rec.value = ((actual + Number(d.v))/100).toFixed(2);
+    }
     actualizarCambio();
     rec.focus();
   },
@@ -1660,6 +1735,8 @@ const acciones = {
   'quitar-logo': () => { D.impresion.logo = null; guardar(); pintarImpresion(); avisar('Logo quitado'); },
   'ancho-ticket': d => { D.impresion.ancho = Number(d.mm); guardar(); aplicarEstiloImpresion(); pintarImpresion(); },
   'imprimir-prueba': () => imprimir(htmlTicket(ticketPrueba())),
+  'comanda-toggle': d => { D.impresion.comanda = d.on==='1'; guardar(); pintarImpresion(); if(vista.pantalla==='cuenta') pintarTicket(); },
+  'imprimir-comanda': () => imprimirComanda(),
   'anotar-opciones': () => {
     if(!submenu) return;
     const p = D.productos.find(x=>x.id===submenu.prodId); if(!p) return;
