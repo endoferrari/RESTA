@@ -578,36 +578,77 @@ const OPS_COPA =
   'Mezcla: Puesto, Campechano, Pintado, Divorciado, Derecho\n'+
   'Con qué va [si: Puesto]: Agua mineral, Refresco, Agua y refresco (pintado)\n'+
   'Aparte [varias] [si: Divorciado]: Agua mineral, Agua natural, Refresco\n'+
-  'Refresco [si: Refresco, Agua y refresco (pintado), Campechano, Pintado]: Coca, Coca Light, Coca Zero, Sprite, Squirt\n'+
+  'Refresco [si: Refresco, Agua y refresco (pintado), Campechano, Pintado]: Coca, Coca Light\n'+
   'Hielo: Con hielo, Sin hielo';
+const OPS_CERVEZA = 'Marca: Tecate Light, Heineken, Amstel Ultra, XX Ámbar, XX Lager, Sol, Indio, Heineken 0.0';
+const OPS_DIGESTIVO = 'Cómo va: Derecho, En las rocas, Shakereado';
+const SABORES_LECHE = 'Sabor: Oreo, Nutella, Vainilla, Cajeta, Mazapán, Fresa, Coco, Rompope';
+const SABORES_AGUA = 'Sabor: Mango con chamoy, Limón, Uva, Tamarindo, Mandarina, Grosella, Picafresa';
 
-/* menú de ejemplo: [familia, icono, nombre, precio, submenú en texto] */
-const MENU_EJEMPLO = [
-  ['Comida','🍔','Hamburguesa',9500,'Tipo: Sencilla, Con queso, Doble\nPapas: Con papas, Sin papas'],
-  ['Comida','🍗','Alitas de pollo',11500,'Salsa: BBQ, Búfalo, Mango habanero, Naturales'],
-  ['Comida','🧀','Dedos de queso',8500,null],
-  ['Comida','🍤','Nuggets de pollo',8000,null],
-  ['Comida','🍖','Boneless de pollo',12500,'Salsa: BBQ, Búfalo, Mango habanero'],
-  ['Comida','🍟','Papas botana',4000,null],
+/* menú real de ONCE Social Lounge (LISTA_DE_PRECIOS.xlsx): [familia, icono, nombre, precio, submenú] */
+const MENU_ONCE = [
+  /* ── Refrescos: bebidas sin alcohol y café ── */
+  ['Refrescos','💧','Agua 500 ml',1500,null],
+  ['Refrescos','💧','Agua 1 litro',2500,null],
+  ['Refrescos','🫧','Agua mineral',2500,null],
+  ['Refrescos','⚡','Electrolit',3000,'Sabor: Uva, Piña, Naranja-Mandarina, Ponche de Frutas, Lima-Limón, Fresa-Kiwi'],
+  ['Refrescos','⚡','Electrolit Zero',3500,'Sabor: Ponche de Frutas, Naranja-Mandarina, Uva, Frambuesa Azul, Fresa-Kiwi, Coco'],
+  ['Refrescos','🥤','Zaraza',2500,null],
+  ['Refrescos','🧃','Jarochito botella',2000,null],
+  ['Refrescos','🧃','Jarochito de sabor',2500,'Sabor: Fresa, Naranja, Toronja'],
+  ['Refrescos','🥤','Coca-Cola',3500,'Tipo: Regular, Light'],
+  ['Refrescos','🍅','Clamato natural',5500,null],
+  ['Refrescos','🍋','Limonada / Rusa',4000,'Tipo: Limonada, Rusa'],
+  ['Refrescos','☕','Café americano',3000,null],
+  ['Refrescos','☕','Capuchino',4500,null],
+  ['Refrescos','☕','Café latte',4000,null],
+  ['Refrescos','☕','Expresso',3000,null],
+  ['Refrescos','🍵','Té chai latte',5000,null],
+  /* ── Comida: snacks y botanas ── */
+  ['Comida','🍧','Bolis de leche',3000,SABORES_LECHE],
+  ['Comida','🍧','Bolis de agua',2500,SABORES_AGUA],
+  ['Comida','🍨','Cubito de leche',3000,SABORES_LECHE],
+  ['Comida','🍨','Cubito de agua',2500,SABORES_AGUA],
+  ['Comida','🍎','Manzana cubierta',4500,null],
+  ['Comida','🥔','Papas',2500,null],
+  ['Comida','🥔','Papas preparadas',3500,null],
   ['Comida','🥜','Cacahuates',2500,null],
-  ['Comida','🍪','Galletas',2000,null],
-  ['Refrescos','🥤','Refresco',3000,'Sabor: Coca, Coca Light, Coca Zero, Sprite, Squirt\nHielo: Con hielo, Sin hielo'],
-  ['Refrescos','🧃','Agua fresca',2500,null],
-  ['Refrescos','💧','Agua embotellada',2000,null],
-  ['Refrescos','☕','Café',3000,null],
-  ['Bebidas','🍺','Cerveza',4500,null],
-  ['Bebidas','🍹','Michelada',7000,'Preparado: Clásica, Cubana, Con Clamato'],
-  ['Bebidas','🥃','Copa Bacardí blanco',8500,OPS_COPA],
-  ['Bebidas','🥃','Copa tequila',9000,OPS_COPA],
-  ['Bebidas','🍸','Copa vodka',8500,OPS_COPA],
-  ['Souvenirs','👕','Playera',18000,'Talla: Chica, Mediana, Grande, Extra grande'],
-  ['Souvenirs','🧢','Gorra',12000,null],
-  ['Souvenirs','☕','Taza',8000,null],
-  ['Souvenirs','🔑','Llavero',5000,null]
+  ['Comida','🥜','Cacahuates preparados',3500,null],
+  ['Comida','🍟','Sabritas',2500,null],
+  ['Comida','🍪','Galletas',2500,null],
+  ['Comida','🥒','Verduras chile y limón',6000,null],
+  ['Comida','🫒','Aceitunas preparadas',5500,null],
+  ['Comida','🍟','Papas a la francesa (200 g)',7000,null],
+  ['Comida','🧀','Dedos de queso (6 pzas)',8500,null],
+  ['Comida','🍗','Boneless Búfalo (250 g)',14000,null],
+  ['Comida','🍗','Palomitas de pollo (250 g)',9000,null],
+  ['Comida','🍗','Alitas picositas (10 pzas)',14000,null],
+  /* ── Bebidas: cerveza y licores ── */
+  ['Bebidas','🍺','Cerveza',4000,OPS_CERVEZA],
+  ['Bebidas','🍺','Chelada (limón y sal)',5000,OPS_CERVEZA],
+  ['Bebidas','🍹','Michelada (salsas)',6000,OPS_CERVEZA],
+  ['Bebidas','🍹','Chelato (salsas y clamato)',7000,OPS_CERVEZA],
+  ['Bebidas','🥃','Whisky Etiqueta Negra',15000,OPS_COPA],
+  ['Bebidas','🥃','Whisky Buchanan\'s 12 años',15000,OPS_COPA],
+  ['Bebidas','🥃','Whisky Chivas',15000,OPS_COPA],
+  ['Bebidas','🥃','Ron Bacardí blanco',7000,OPS_COPA],
+  ['Bebidas','🥃','Ron Matusalem clásico',7000,OPS_COPA],
+  ['Bebidas','🥃','Brandy Torres 10',10000,OPS_COPA],
+  ['Bebidas','🥃','Brandy Azteca de Oro',8000,OPS_COPA],
+  ['Bebidas','🥃','Tequila Maestro Tequilero',12000,OPS_COPA],
+  ['Bebidas','🥃','Tequila Don Julio 70',15000,OPS_COPA],
+  ['Bebidas','🍸','Ginebra Beefeater',10000,OPS_COPA],
+  ['Bebidas','🍸','Vodka Absolut Azul',7000,OPS_COPA],
+  ['Bebidas','🍸','Vodka Stolichnaya',8000,OPS_COPA],
+  ['Bebidas','🍮','Licor 43',9000,OPS_DIGESTIVO],
+  ['Bebidas','🥛','Baileys',9000,OPS_DIGESTIVO],
+  ['Bebidas','☕','Carajillo',12000,'Preparación: En las rocas, Shakereado'],
+  ['Bebidas','🍶','Sambuca Vaccari',8000,OPS_DIGESTIVO],
+  ['Bebidas','🍷','Vino Cune Crianza (botella)',50000,null]
 ];
-const DEMO_VERSION = 2;
-function productosEjemplo(){
-  return MENU_EJEMPLO.map(p => {
+const MENU_VERSION = 3;
+function productosIniciales(){
+  return MENU_ONCE.map(p => {
     const prod = {id:nid(), familia:p[0], icono:p[1], nombre:p[2], precio:p[3]};
     if(p[4]) prod.opciones = parseOpciones(p[4]);
     return prod;
@@ -616,11 +657,11 @@ function productosEjemplo(){
 
 let D = leerDatos();
 if(!D){
-  D = { negocio:'ONCE Social Lounge', esDemo:true, demoV:DEMO_VERSION, seq:1, productos:productosEjemplo(), cuentas:[], tickets:[] };
+  D = { negocio:'ONCE Social Lounge', esDemo:false, demoV:MENU_VERSION, seq:1, productos:productosIniciales(), cuentas:[], tickets:[] };
   guardar();
 } else {
-  // datos de versiones anteriores: renovar el menú de ejemplo y asignar familia
-  if(D.esDemo && D.demoV!==DEMO_VERSION){ D.productos = productosEjemplo(); D.demoV = DEMO_VERSION; }
+  // datos con el menú de prueba de versiones anteriores: cambiarlo por el menú real
+  if(D.esDemo && D.demoV!==MENU_VERSION){ D.productos = productosIniciales(); D.demoV = MENU_VERSION; D.esDemo = false; }
   if(D.negocio==='Mi Restaurante') D.negocio = 'ONCE Social Lounge';
   D.productos.forEach(p => { if(!FAMILIAS.includes(p.familia)) p.familia = 'Comida'; });
   guardar();
