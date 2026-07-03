@@ -122,6 +122,10 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .linea.pagada .desc .n{text-decoration:line-through;color:var(--tinta-suave)}
 .linea.pagada .importe{color:var(--exito)}
 .linea .btns{display:flex;gap:4px}
+/* lo ya enviado a barra/cocina vs lo nuevo que aún no se manda */
+.sep-consumo{padding:7px 14px 5px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);background:#fbfaf7;border-bottom:1px dashed var(--linea)}
+.sep-consumo.nuevo{color:var(--ambar-oscuro);background:#fff4e2;border-top:2px solid var(--ambar)}
+.linea.nueva{background:#fffaf0;border-left:4px solid var(--ambar);padding-left:10px}
 .linea .btns button{width:28px;height:28px;border-radius:8px;border:1.5px solid var(--linea);background:#fff;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:center}
 .linea .btns button:hover{border-color:var(--tinta-suave)}
 .linea .btns .quitar{color:var(--peligro);border-color:#ebc9c9}
@@ -589,7 +593,7 @@ let ultimoRespaldo = '';
 /* APP_VERSION = versión de ESTE archivo. La "última" disponible se configura en
    version.json dentro del repositorio; el botón «Actualizar» la compara y, si hay
    una nueva, descarga el RESTA.html nuevo desde GitHub y lo instala. */
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 const REPO_RAW = 'https://raw.githubusercontent.com/endoferrari/RESTA/master';
 let dirInstalacion = null;      // carpeta donde está instalado RESTA (p. ej. C:\RESTA)
 let buscandoActualizacion = false;
@@ -904,26 +908,37 @@ function pintarTicket(){
   const c = buscarCuenta(vista.cuentaId);
   if(!c) return;
   const caja = $('lineasTicket');
+  const lineaHtml = (i, esNueva) =>
+    '<div class="linea'+(i.pagado?' pagada':'')+(esNueva?' nueva':'')+'">'+
+      '<span class="cant">'+i.cant+'</span>'+
+      '<span class="desc"><span class="n">'+esc(i.nombre)+'</span>'+
+      (i.detalle ? '<br><span class="det">'+esc(i.detalle)+'</span>' : '')+
+      (i.precioOriginal ? '<br><span class="det">🏷️ CORTESÍA'+(i.motivoCortesia?' · '+esc(i.motivoCortesia):'')+'</span>' : '')+
+      '<br><span class="u dinero">'+fmt(i.precio)+' c/u</span></span>'+
+      '<span class="importe dinero">'+(i.pagado?'✓ ':'')+fmt(i.precio*i.cant)+'</span>'+
+      (i.pagado ? '' :
+      '<span class="btns">'+
+        '<button data-accion="menos-item" data-id="'+i.id+'" title="Quitar uno">−</button>'+
+        '<button data-accion="mas-item" data-id="'+i.id+'" title="Agregar uno">+</button>'+
+        '<button data-accion="cortesia-item" data-id="'+i.id+'" title="Cortesía: va por cuenta de la casa">🏷️</button>'+
+        '<button class="quitar" data-accion="quitar-item" data-id="'+i.id+'" title="Borrar renglón">✕</button>'+
+      '</span>')+
+    '</div>';
+  // con comanda activa: lo ya enviado arriba y lo NUEVO (por enviar) aparte, resaltado
+  const comandaOn = D.impresion && D.impresion.comanda;
+  const esNueva = i => comandaOn && !i.pagado && i.cant > (i.comandadoCant||0);
+  const nuevas = c.items.filter(esNueva);
+  const previas = c.items.filter(i => !esNueva(i));
   if(c.items.length===0){
     caja.innerHTML = '<div class="vacio">Toca un producto para anotarlo aquí</div>';
+  } else if(comandaOn && nuevas.length && previas.length){
+    caja.innerHTML =
+      '<div class="sep-consumo">✔ Ya pedido a barra/cocina</div>'+
+      previas.map(i => lineaHtml(i, false)).join('')+
+      '<div class="sep-consumo nuevo">🆕 Nuevo · aún sin enviar</div>'+
+      nuevas.map(i => lineaHtml(i, true)).join('');
   } else {
-    caja.innerHTML = c.items.map(i =>
-      '<div class="linea'+(i.pagado?' pagada':'')+'">'+
-        '<span class="cant">'+i.cant+'</span>'+
-        '<span class="desc"><span class="n">'+esc(i.nombre)+'</span>'+
-        (i.detalle ? '<br><span class="det">'+esc(i.detalle)+'</span>' : '')+
-        (i.precioOriginal ? '<br><span class="det">🏷️ CORTESÍA'+(i.motivoCortesia?' · '+esc(i.motivoCortesia):'')+'</span>' : '')+
-        '<br><span class="u dinero">'+fmt(i.precio)+' c/u</span></span>'+
-        '<span class="importe dinero">'+(i.pagado?'✓ ':'')+fmt(i.precio*i.cant)+'</span>'+
-        (i.pagado ? '' :
-        '<span class="btns">'+
-          '<button data-accion="menos-item" data-id="'+i.id+'" title="Quitar uno">−</button>'+
-          '<button data-accion="mas-item" data-id="'+i.id+'" title="Agregar uno">+</button>'+
-          '<button data-accion="cortesia-item" data-id="'+i.id+'" title="Cortesía: va por cuenta de la casa">🏷️</button>'+
-          '<button class="quitar" data-accion="quitar-item" data-id="'+i.id+'" title="Borrar renglón">✕</button>'+
-        '</span>')+
-      '</div>'
-    ).join('');
+    caja.innerHTML = c.items.map(i => lineaHtml(i, false)).join('');
   }
   const tot = totalCuenta(c), pag = pagadoCuenta(c);
   const arts = c.items.reduce((s,i)=>s+i.cant,0);
@@ -944,7 +959,9 @@ function pintarTicket(){
   if(D.impresion && D.impresion.comanda && c.items.length>0){
     const pend = c.items.reduce((s,i)=> s + Math.max(0, i.cant-(i.comandadoCant||0)), 0);
     bc.style.display = 'block';
-    bc.textContent = pend>0 ? '🧑‍🍳 Imprimir comanda · '+pend+' nuevo'+(pend===1?'':'s') : '🧑‍🍳 Reimprimir comanda';
+    bc.textContent = pend>0 ? '🧑‍🍳 Enviar a barra/cocina · '+pend+' nuevo'+(pend===1?'':'s') : '🧑‍🍳 Reimprimir comanda';
+    bc.classList.toggle('btn-ambar', pend>0);
+    bc.classList.toggle('btn-borde', pend===0);
   } else bc.style.display = 'none';
   const bq = $('btnCuenta');
   bq.style.display = c.items.length>0 ? 'block' : 'none';
@@ -1004,6 +1021,19 @@ function htmlComanda(c, renglones, esReimpresion){
     '<hr><div class="centrado com-mesa">'+esc(c.nombre)+'</div>';
 }
 
+/* después de mandar la comanda, los renglones iguales ya enviados se unen en uno solo */
+function unirLineasComandadas(c){
+  const vivos = [];
+  c.items.forEach(i => {
+    const igual = vivos.find(x => x.prodId===i.prodId && (x.detalle||'')===(i.detalle||'') &&
+      !x.pagado && !i.pagado && !x.precioOriginal && !i.precioOriginal &&
+      x.precio===i.precio && (x.comandadoCant||0)===x.cant && (i.comandadoCant||0)===i.cant);
+    if(igual){ igual.cant += i.cant; igual.comandadoCant = igual.cant; }
+    else vivos.push(i);
+  });
+  c.items = vivos;
+}
+
 function imprimirComanda(){
   const c = buscarCuenta(vista.cuentaId); if(!c || c.items.length===0) return;
   const pendientes = c.items
@@ -1014,6 +1044,7 @@ function imprimirComanda(){
   imprimir(htmlComanda(c, renglones, esReimpresion));
   if(!esReimpresion){
     c.items.forEach(i => i.comandadoCant = i.cant);
+    unirLineasComandadas(c); // ya enviado: los renglones iguales se juntan en uno
     anotarEvento(c, '🧑‍🍳 Comanda a barra/cocina · '+renglones.length+' '+(renglones.length===1?'renglón':'renglones'));
     guardar(); pintarTicket();
     avisar('Comanda impresa para barra y cocina');
@@ -1030,9 +1061,15 @@ function agregarItem(prodId){
   anotarItem(p, '');
 }
 
+/* con comanda activa, un renglón que ya salió completo a barra/cocina no se toca:
+   lo nuevo se anota en un renglón aparte (sección NUEVO) hasta que se mande */
+function sePuedeUnir(i){
+  return !(D.impresion && D.impresion.comanda) || i.cant > (i.comandadoCant||0);
+}
+
 function anotarItem(p, detalle){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
-  const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado && !i.precioOriginal);
+  const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado && !i.precioOriginal && sePuedeUnir(i));
   if(linea) linea.cant++;
   else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, detalle:detalle||'', familia:p.familia, precio:p.precio, cant:1, pagado:false});
   guardar(); pintarTicket();
@@ -1162,6 +1199,14 @@ function anotarSubmenu(p, visibles){
 function cambiarCant(itemId, delta){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
   const i = c.items.find(x=>x.id===itemId); if(!i || i.pagado) return;
+  if(delta>0 && !sePuedeUnir(i)){
+    // el renglón ya salió completo a barra/cocina: lo extra va como NUEVO aparte
+    const gemela = c.items.find(x => x.prodId===i.prodId && (x.detalle||'')===(i.detalle||'') && !x.pagado && !x.precioOriginal && sePuedeUnir(x));
+    if(gemela) gemela.cant++;
+    else c.items.push({id:nid(), prodId:i.prodId, icono:i.icono, nombre:i.nombre, detalle:i.detalle||'', familia:i.familia, precio:i.precioOriginal||i.precio, cant:1, pagado:false});
+    guardar(); pintarTicket();
+    return;
+  }
   if(delta<0 && i.cant-1 < (i.comandadoCant||0)){
     // se está quitando algo que ya salió a barra/cocina: pedir el motivo
     pedirMotivo('Cancelar 1 × '+i.nombre, 'Ya se mandó a barra/cocina; registra el motivo para el control:', RAZONES_CANCELACION, motivo => {

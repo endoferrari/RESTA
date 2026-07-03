@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.3.0",
   "fecha": "2026-07-03",
-  "notas": "En la comanda, la mesa (arriba y abajo) sale en letras grandes para verse desde lejos en barra y cocina."
+  "notas": "En la cuenta, lo nuevo que se va anotando aparece en una sección 🆕 NUEVO aparte de lo ya enviado a barra/cocina; al imprimir la comanda todo se junta. El botón cambia a «Enviar a barra/cocina» y se resalta cuando hay pendientes."
 }
