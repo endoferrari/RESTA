@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "fecha": "2026-07-03",
-  "notas": "Ticket del cliente con logo en la impresora térmica, comanda de barra/cocina con letras grandes, arreglo del signo ¡ (salía como carácter chino) y sin fecha ni dirección del archivo en las impresiones."
+  "notas": "En la comanda, la mesa (arriba y abajo) sale en letras grandes para verse desde lejos en barra y cocina."
 }

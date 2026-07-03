@@ -318,6 +318,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 #zona-impresion .com-sec{font-weight:bold;font-size:13px;margin:7px 0 2px;text-decoration:underline}
 #zona-impresion .com-item{font-size:14px;font-weight:bold;margin-top:4px}
 #zona-impresion .com-det{font-size:12px;padding-left:14px}
+#zona-impresion .com-mesa{font-size:16px;font-weight:bold}
 #zona-impresion img{max-width:75%;height:auto}
 /* estado temporal solo para medir el alto real del ticket (fuera de pantalla) */
 #zona-impresion.midiendo{display:block;position:fixed;left:-10000px;top:0;visibility:hidden}
@@ -588,7 +589,7 @@ let ultimoRespaldo = '';
 /* APP_VERSION = versión de ESTE archivo. La "última" disponible se configura en
    version.json dentro del repositorio; el botón «Actualizar» la compara y, si hay
    una nueva, descarga el RESTA.html nuevo desde GitHub y lo instala. */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const REPO_RAW = 'https://raw.githubusercontent.com/endoferrari/RESTA/master';
 let dirInstalacion = null;      // carpeta donde está instalado RESTA (p. ej. C:\RESTA)
 let buscandoActualizacion = false;
@@ -992,7 +993,7 @@ function htmlComanda(c, renglones, esReimpresion){
   const grupos = {};
   renglones.forEach(r => { const d = destinoDe(r.item); (grupos[d]=grupos[d]||[]).push(r); });
   return '<h3>*** COMANDA ***'+(esReimpresion?'<br>(REIMPRESIÓN)':'')+'</h3>'+
-    '<div class="centrado">'+esc(c.nombre)+' · '+horaAhora()+'</div><hr>'+
+    '<div class="centrado com-mesa">'+esc(c.nombre)+' · '+horaAhora()+'</div><hr>'+
     ['BARRA','COCINA','MOSTRADOR'].filter(d=>grupos[d]).map(d =>
       '<div class="com-sec">&gt;&gt; '+d+'</div>'+
       grupos[d].map(r =>
@@ -1000,7 +1001,7 @@ function htmlComanda(c, renglones, esReimpresion){
         (r.item.detalle ? '<div class="com-det">&gt; '+esc(r.item.detalle)+'</div>' : '')
       ).join('')
     ).join('')+
-    '<hr><div class="centrado">'+esc(c.nombre)+'</div>';
+    '<hr><div class="centrado com-mesa">'+esc(c.nombre)+'</div>';
 }
 
 function imprimirComanda(){
@@ -1823,6 +1824,13 @@ function ticketAEscPos(){
       return;
     }
     if(el.tagName==='HR'){ p.izq().linea('-'.repeat(W)); return; }
+    if(el.classList.contains('com-mesa')){
+      // la mesa en la comanda va grande, para verse desde lejos en barra/cocina
+      p.centro().negrita(true).tam(2,2);
+      textoNodo(el).split('\n').forEach(l=>{ if(l.trim()!=='') p.linea(soloImprimible(l)); });
+      p.tam(1,1).negrita(false).izq();
+      return;
+    }
     if(el.classList.contains('centrado')){
       // el logo viene dentro de un div.centrado: hay que buscarlo adentro
       const img = el.querySelector('img');
