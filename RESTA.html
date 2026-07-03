@@ -129,6 +129,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 .ticket-pagado{display:flex;justify-content:space-between;font-size:.9rem;color:var(--exito);font-weight:700;margin-bottom:8px}
 #btnCobrar{width:100%;font-size:1.25rem;padding:15px}
 #btnCobrar:disabled{background:#d8d5cb;color:#8f8d84;box-shadow:none;cursor:not-allowed}
+.ticket-descuento{display:flex;justify-content:space-between;font-size:.9rem;color:var(--ambar-oscuro);font-weight:700;margin-bottom:6px}
 .historial{margin-top:10px;font-size:.82rem;color:var(--tinta-suave)}
 .historial summary{cursor:pointer;font-weight:700}
 .historial .ev{padding:3px 0;border-bottom:1px dashed var(--linea)}
@@ -398,6 +399,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
           <div id="lineasTicket"></div>
           <div class="ticket-pie">
             <div class="ticket-pagado" id="ticketPagado" style="display:none"></div>
+            <div class="ticket-descuento" id="ticketDescuento" style="display:none"></div>
             <div class="ticket-total"><span class="et">TOTAL</span><span class="tt dinero" id="ticketTotal">$0.00</span></div>
             <button class="btn btn-borde" id="btnComanda" data-accion="imprimir-comanda" style="width:100%;margin-bottom:8px;display:none">🧑‍🍳 Imprimir comanda</button>
             <button class="btn btn-borde" id="btnCuenta" data-accion="imprimir-cuenta" style="width:100%;margin-bottom:8px;display:none">🧾 Imprimir cuenta</button>
@@ -451,7 +453,11 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
       <h1>Corte del día</h1>
       <p class="sub">El resumen de todo lo cobrado: cuánto entró en efectivo, cuánto con tarjeta y qué se vendió.</p>
       <div class="corte-controles">
-        <label for="fechaCorte" style="font-weight:700">Día:</label>
+        <div class="segmento" style="margin:0;max-width:330px;flex:none">
+          <button id="modoCorteTurno" data-accion="modo-corte" data-m="turno">🔒 Turno actual</button>
+          <button id="modoCorteDia" data-accion="modo-corte" data-m="dia">📅 Por día</button>
+        </div>
+        <label for="fechaCorte" id="etiquetaFecha" style="font-weight:700">Día:</label>
         <input type="date" id="fechaCorte">
         <button class="btn btn-borde" data-accion="imprimir-corte">🖨️ Imprimir corte</button>
         <span style="flex:1"></span>
@@ -491,6 +497,28 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
 <!-- MODAL SUBMENÚ DE OPCIONES -->
 <div id="modalOpciones" class="modal-fondo oculto">
   <div class="modal" id="modalOpcionesCaja"></div>
+</div>
+
+<!-- MODAL MOTIVO (cancelaciones y cortesías) -->
+<div id="modalMotivo" class="modal-fondo oculto">
+  <div class="modal" style="max-width:470px">
+    <div class="modal-cabeza"><div class="titulo"><span id="motivoTitulo"></span><button class="cerrar" data-accion="cerrar-motivo">×</button></div></div>
+    <div class="modal-cuerpo">
+      <p class="sub" style="margin-top:0" id="motivoPista"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px" id="motivoBotones"></div>
+      <div class="campo-grande" style="margin:0"><label for="motivoOtro">Otro motivo</label>
+        <input id="motivoOtro" maxlength="60" autocomplete="off" placeholder="Escríbelo y presiona Enter…" style="font-size:1rem;font-weight:600">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DESCUENTO -->
+<div id="modalDescuento" class="modal-fondo oculto">
+  <div class="modal" style="max-width:470px">
+    <div class="modal-cabeza"><div class="titulo"><span>🏷️ Descuento a la cuenta</span><button class="cerrar" data-accion="cerrar-descuento">×</button></div></div>
+    <div class="modal-cuerpo" id="descCuerpo"></div>
+  </div>
 </div>
 
 <!-- MODAL IMPRESIÓN -->
@@ -688,13 +716,19 @@ let cobro = null; // {cuentaId, metodo, seleccion:Set, modoSeleccion, personas, 
 let alConfirmar = null;
 let familiaActiva = 'todo';
 let submenu = null; // {prodId, elec:{grupo: opción elegida}}
+let corteModo = 'turno'; // el corte se ve por turno (bares que cierran de madrugada) o por día
+let alMotivo = null;     // qué hacer cuando eligen el motivo de una cancelación/cortesía
+let descuentoMotivo = 'Cortesía de la casa';
+const RAZONES_CANCELACION = ['Se equivocó el mesero','El cliente lo cambió','Se acabó el producto','Salió mal / merma'];
+const RAZONES_CORTESIA = ['Cortesía de la casa','Cliente frecuente','Compensación por demora','Promoción'];
 let tecladoVisible = true;
 try{ tecladoVisible = localStorage.getItem('resta_teclado')!=='0'; }catch(e){}
 let tecladoTarget = null; // id del campo donde escribe el teclado en pantalla
 
 /* ============ cuentas: cálculos ============ */
 const buscarCuenta = id => D.cuentas.find(c => c.id===id);
-const totalCuenta = c => c.items.reduce((s,i)=> s + i.precio*i.cant, 0);
+const brutoCuenta = c => c.items.reduce((s,i)=> s + i.precio*i.cant, 0);
+const totalCuenta = c => Math.max(0, brutoCuenta(c) - (c.descuento ? c.descuento.monto : 0));
 const pagadoCuenta = c => c.pagos.reduce((s,p)=> s + p.monto, 0);
 const restanteCuenta = c => totalCuenta(c) - pagadoCuenta(c);
 
@@ -702,6 +736,35 @@ const restanteCuenta = c => totalCuenta(c) - pagadoCuenta(c);
 function anotarEvento(c, texto){
   (c.eventos = c.eventos || []).push({ fecha:hoyISO(), hora:horaAhora(), texto });
 }
+
+/* registro global de cancelaciones (control de merma): aparece en el corte */
+function registrarCancelacion(c, item, cant, motivo){
+  (D.cancelaciones = D.cancelaciones || []).push({
+    fecha:hoyISO(), hora:horaAhora(), cuenta:c.nombre,
+    icono:item.icono, nombre:item.nombre, detalle:item.detalle||'',
+    cant, importe:item.precio*cant, motivo
+  });
+  anotarEvento(c, '❌ Cancelado '+cant+' × '+item.nombre+(item.detalle?' ('+item.detalle+')':'')+' · '+motivo);
+}
+
+/* modal genérico para pedir un motivo (cancelaciones y cortesías) */
+function pedirMotivo(titulo, pista, razones, fn){
+  $('motivoTitulo').textContent = titulo;
+  $('motivoPista').textContent = pista;
+  $('motivoBotones').innerHTML = razones.map(r =>
+    '<button class="op-btn" data-accion="motivo-elegir" data-m="'+esc(r)+'">'+esc(r)+'</button>').join('');
+  $('motivoOtro').value = '';
+  alMotivo = fn;
+  $('modalMotivo').classList.remove('oculto');
+}
+function resolverMotivo(m){
+  const motivo = String(m||'').trim();
+  if(!motivo) return;
+  $('modalMotivo').classList.add('oculto');
+  const fn = alMotivo; alMotivo = null;
+  if(fn) fn(motivo);
+}
+function cerrarMotivo(){ $('modalMotivo').classList.add('oculto'); alMotivo = null; }
 
 /* ============ navegación ============ */
 function irA(pantalla, cuentaId){
@@ -823,12 +886,14 @@ function pintarTicket(){
         '<span class="cant">'+i.cant+'</span>'+
         '<span class="desc"><span class="n">'+esc(i.nombre)+'</span>'+
         (i.detalle ? '<br><span class="det">'+esc(i.detalle)+'</span>' : '')+
+        (i.precioOriginal ? '<br><span class="det">🏷️ CORTESÍA'+(i.motivoCortesia?' · '+esc(i.motivoCortesia):'')+'</span>' : '')+
         '<br><span class="u dinero">'+fmt(i.precio)+' c/u</span></span>'+
         '<span class="importe dinero">'+(i.pagado?'✓ ':'')+fmt(i.precio*i.cant)+'</span>'+
         (i.pagado ? '' :
         '<span class="btns">'+
           '<button data-accion="menos-item" data-id="'+i.id+'" title="Quitar uno">−</button>'+
           '<button data-accion="mas-item" data-id="'+i.id+'" title="Agregar uno">+</button>'+
+          '<button data-accion="cortesia-item" data-id="'+i.id+'" title="Cortesía: va por cuenta de la casa">🏷️</button>'+
           '<button class="quitar" data-accion="quitar-item" data-id="'+i.id+'" title="Borrar renglón">✕</button>'+
         '</span>')+
       '</div>'
@@ -838,6 +903,11 @@ function pintarTicket(){
   const arts = c.items.reduce((s,i)=>s+i.cant,0);
   $('ticketArticulos').textContent = arts + ' artículo' + (arts===1?'':'s');
   $('ticketTotal').textContent = fmt(tot);
+  const td = $('ticketDescuento');
+  if(c.descuento){
+    td.style.display = 'flex';
+    td.innerHTML = '<span>Subtotal '+fmt(brutoCuenta(c))+' · 🏷️ '+esc(c.descuento.motivo)+'</span><span class="dinero">−'+fmt(c.descuento.monto)+'</span>';
+  } else td.style.display = 'none';
   const tp = $('ticketPagado');
   if(pag>0){ tp.style.display='flex'; tp.innerHTML = '<span>Ya pagado</span><span class="dinero">'+fmt(pag)+' · falta '+fmt(tot-pag)+'</span>'; }
   else tp.style.display='none';
@@ -864,12 +934,14 @@ function pintarTicket(){
    la revisa y manda el dinero → se cuenta → hasta entonces se presiona COBRAR */
 function htmlCuentaCliente(c){
   const lineas = c.items.map(i =>
-    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
+    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+
+    (i.precioOriginal?' (CORTESÍA)':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
   const tot = totalCuenta(c), pag = pagadoCuenta(c);
   return logoHtml()+'<h3>'+esc(D.negocio)+'</h3>'+
     '<div class="centrado">— CUENTA —<br>'+esc(c.nombre)+' · '+fechaBonita(hoyISO())+' '+horaAhora()+'</div><hr>'+
     '<table>'+lineas+'</table><hr>'+
-    '<table><tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(tot)+'</td></tr>'+
+    '<table>'+filasDescuento(brutoCuenta(c), c.descuento)+
+    '<tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(tot)+'</td></tr>'+
     (pag>0 ? '<tr><td>Ya pagado</td><td class="der">'+fmt(pag)+'</td></tr>'+
       '<tr class="total-linea"><td>POR PAGAR</td><td class="der total-linea">'+fmt(tot-pag)+'</td></tr>' : '')+
     '</table>'+
@@ -934,7 +1006,7 @@ function agregarItem(prodId){
 
 function anotarItem(p, detalle){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
-  const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado);
+  const linea = c.items.find(i => i.prodId===p.id && (i.detalle||'')===(detalle||'') && !i.pagado && !i.precioOriginal);
   if(linea) linea.cant++;
   else c.items.push({id:nid(), prodId:p.id, icono:p.icono, nombre:p.nombre, detalle:detalle||'', familia:p.familia, precio:p.precio, cant:1, pagado:false});
   guardar(); pintarTicket();
@@ -1064,6 +1136,17 @@ function anotarSubmenu(p, visibles){
 function cambiarCant(itemId, delta){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
   const i = c.items.find(x=>x.id===itemId); if(!i || i.pagado) return;
+  if(delta<0 && i.cant-1 < (i.comandadoCant||0)){
+    // se está quitando algo que ya salió a barra/cocina: pedir el motivo
+    pedirMotivo('Cancelar 1 × '+i.nombre, 'Ya se mandó a barra/cocina; registra el motivo para el control:', RAZONES_CANCELACION, motivo => {
+      registrarCancelacion(c, i, 1, motivo);
+      i.cant -= 1; i.comandadoCant = i.cant;
+      if(i.cant<=0) c.items = c.items.filter(x=>x.id!==itemId);
+      guardar(); pintarTicket();
+      avisar('Cancelación registrada');
+    });
+    return;
+  }
   i.cant += delta;
   if(i.cant<=0) c.items = c.items.filter(x=>x.id!==itemId);
   guardar(); pintarTicket();
@@ -1071,13 +1154,55 @@ function cambiarCant(itemId, delta){
 
 function quitarItem(itemId){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
+  const i = c.items.find(x=>x.id===itemId); if(!i || i.pagado) return;
+  if((i.comandadoCant||0) > 0){
+    pedirMotivo('Cancelar '+i.cant+' × '+i.nombre, 'Ya se mandó a barra/cocina; registra el motivo para el control:', RAZONES_CANCELACION, motivo => {
+      registrarCancelacion(c, i, i.cant, motivo);
+      c.items = c.items.filter(x=>x.id!==itemId);
+      guardar(); pintarTicket();
+      avisar('Renglón cancelado y registrado');
+    });
+    return;
+  }
   c.items = c.items.filter(x=>x.id!==itemId);
   guardar(); pintarTicket();
+}
+
+/* cortesía: el renglón va por cuenta de la casa (importe $0, queda registrado) */
+function cortesiaItem(itemId){
+  const c = buscarCuenta(vista.cuentaId); if(!c) return;
+  const i = c.items.find(x=>x.id===itemId); if(!i || i.pagado) return;
+  if(i.precioOriginal){
+    confirmar('¿Quitar la cortesía y volver a cobrar '+i.cant+' × '+esc(i.nombre)+'?', () => {
+      anotarEvento(c, '🏷️ Se quitó la cortesía de '+i.cant+' × '+i.nombre);
+      i.precio = i.precioOriginal;
+      delete i.precioOriginal; delete i.motivoCortesia;
+      guardar(); pintarTicket(); avisar('Cortesía quitada; se cobra normal');
+    });
+    return;
+  }
+  pedirMotivo('Cortesía: '+i.cant+' × '+i.nombre, 'Va por cuenta de la casa; registra el motivo:', RAZONES_CORTESIA, motivo => {
+    i.precioOriginal = i.precio;
+    i.precio = 0;
+    i.motivoCortesia = motivo;
+    anotarEvento(c, '🏷️ Cortesía: '+i.cant+' × '+i.nombre+' · '+motivo+' (−'+fmt(i.precioOriginal*i.cant)+')');
+    guardar(); pintarTicket();
+    avisar('Cortesía aplicada y registrada');
+  });
 }
 
 function cancelarCuenta(){
   const c = buscarCuenta(vista.cuentaId); if(!c) return;
   if(c.pagos.length>0){ avisar('Esta cuenta ya tiene pagos; termina de cobrarla', true); return; }
+  const comandados = c.items.filter(i => (i.comandadoCant||0) > 0);
+  if(comandados.length){
+    pedirMotivo('Cancelar la cuenta «'+c.nombre+'»', 'Tiene productos ya mandados a barra/cocina; registra el motivo:', RAZONES_CANCELACION, motivo => {
+      comandados.forEach(i => registrarCancelacion(c, i, Math.min(i.comandadoCant, i.cant), motivo));
+      D.cuentas = D.cuentas.filter(x=>x.id!==c.id);
+      guardar(); irA('mesas'); avisar('Cuenta cancelada y registrada');
+    });
+    return;
+  }
   confirmar('¿Cancelar la cuenta «'+esc(c.nombre)+'»?<br><small>Se borra lo anotado y no se cobra nada.</small>', () => {
     D.cuentas = D.cuentas.filter(x=>x.id!==c.id);
     guardar(); irA('mesas'); avisar('Cuenta cancelada');
@@ -1250,6 +1375,7 @@ function pintarCobro(){
     c.pagos.map(p =>
       '<div class="pago-linea"><span>'+(p.metodo==='efectivo'?'💵 Efectivo':'💳 Tarjeta'+(p.digitos?' •••• '+esc(p.digitos):''))+' a las '+p.hora+
       (p.metodo==='efectivo' && p.cambio>0 ? ' (recibí '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')' : '')+
+      (p.propina>0 ? ' · propina '+fmt(p.propina) : '')+
       (p.metodo==='tarjeta' && p.nombreTarjeta ? ' — '+esc(p.nombreTarjeta) : '')+
       '</span><b>'+fmt(p.monto)+'</b></div>').join('') + '</div>' : '';
 
@@ -1278,8 +1404,17 @@ function pintarCobro(){
           '<button id="segEfectivo" data-accion="metodo" data-m="efectivo" class="'+(cobro.metodo==='efectivo'?'activo':'')+'">💵 Efectivo</button>'+
           '<button id="segTarjeta" data-accion="metodo" data-m="tarjeta" class="'+(cobro.metodo==='tarjeta'?'activo':'')+'">💳 Tarjeta</button>'+
         '</div>'+
-        '<div class="campo-grande"><label for="montoCobrar">Cantidad a cobrar ahora (todo junto)</label>'+
+        '<div class="fila-tarjeta">'+
+          '<div class="campo-grande" style="flex:1.5"><label for="montoCobrar">Cantidad a cobrar ahora (todo junto)</label>'+
           '<input id="montoCobrar" inputmode="decimal" autocomplete="off" value="'+(montoInicial/100).toFixed(2)+'"></div>'+
+          '<div class="campo-grande" style="max-width:160px"><label for="propina">Propina (opcional)</label>'+
+          '<input id="propina" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>'+
+        '</div>'+
+        '<div class="ayudas" style="margin-top:-6px">'+
+          '<button data-accion="propina-pct" data-p="10">Propina 10%</button>'+
+          '<button data-accion="propina-pct" data-p="15">Propina 15%</button>'+
+          '<button data-accion="propina-pct" data-p="0">Sin propina</button>'+
+        '</div>'+
         '<div id="zonaEfectivo" style="display:'+(cobro.metodo==='efectivo'?'block':'none')+'">'+
           '<div class="campo-grande"><label for="recibido">¿Con cuánto paga? Toca los billetes y se van sumando</label>'+
           '<input id="recibido" inputmode="decimal" autocomplete="off" placeholder="Si paga exacto, déjalo vacío"></div>'+
@@ -1308,7 +1443,7 @@ function pintarCobro(){
       '</div>'+
       '<div class="cobro-col-der">'+
         '<div class="ayudas" style="margin-bottom:6px"><button data-accion="toggle-teclado" class="'+(tecladoVisible?'encendido':'')+'">🔢 Teclado</button></div>'+
-        '<div class="teclado-num" data-defecto="montoCobrar" data-objetivos="montoCobrar,recibido,tarjeta4">'+teclasHtml()+'</div>'+
+        '<div class="teclado-num" data-defecto="montoCobrar" data-objetivos="montoCobrar,propina,recibido,tarjeta4">'+teclasHtml()+'</div>'+
         '<div class="mini-titulo">Otras formas de cobrar</div>'+
         '<div class="divisor-personas">'+
           '<span style="font-weight:700">Dividir entre</span>'+
@@ -1321,6 +1456,7 @@ function pintarCobro(){
         '<div class="ayudas">'+
           '<button data-accion="monto-todo">Volver a cobrar todo junto</button>'+
           '<button data-accion="modo-seleccion" class="'+(cobro.modoSeleccion?'encendido':'')+'">☑ Elegir productos (cada quien lo suyo)</button>'+
+          '<button data-accion="abrir-descuento" class="'+(c.descuento?'encendido':'')+'">🏷️ Descuento'+(c.descuento?' −'+fmt(c.descuento.monto):'')+'</button>'+
         '</div>'+
         seleccionHtml+
       '</div>'+
@@ -1344,8 +1480,19 @@ function pintarCobro(){
     t4.addEventListener('input', ()=>{ t4.value = t4.value.replace(/\D/g,'').slice(0,4); });
     t4.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); registrarPago(); } });
   }
+  const prop = $('propina');
+  prop.addEventListener('input', actualizarCambio);
+  prop.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); if(cobro.metodo==='efectivo') $('recibido').focus(); else registrarPago(); }
+  });
   tecladoTarget = 'montoCobrar';
   setTimeout(()=>{ monto.focus(); monto.select(); }, 60);
+}
+
+function propinaActual(){
+  const el = $('propina'); if(!el) return 0;
+  const v = aCentavos(el.value);
+  return v===null ? 0 : v;
 }
 
 function actualizarCambio(){
@@ -1355,11 +1502,50 @@ function actualizarCambio(){
   if(recTxt==='' || monto===null){ caja.innerHTML=''; return; }
   const rec = aCentavos(recTxt);
   if(rec===null){ caja.innerHTML=''; return; }
-  if(rec < monto){
-    caja.innerHTML = '<div class="cambio-caja mal">Falta dinero: recibiste '+fmt(rec)+' y son '+fmt(monto)+'</div>';
+  const aCobrar = monto + propinaActual(); // el cliente cubre consumo + propina
+  if(rec < aCobrar){
+    caja.innerHTML = '<div class="cambio-caja mal">Falta dinero: recibiste '+fmt(rec)+' y son '+fmt(aCobrar)+(propinaActual()>0?' (con propina)':'')+'</div>';
   } else {
-    caja.innerHTML = '<div class="cambio-caja ok">CAMBIO A ENTREGAR<div class="grande">'+fmt(rec-monto)+'</div></div>';
+    caja.innerHTML = '<div class="cambio-caja ok">CAMBIO A ENTREGAR<div class="grande">'+fmt(rec-aCobrar)+'</div>'+
+      (propinaActual()>0?'<div style="font-size:.8rem;font-weight:600">ya apartada la propina de '+fmt(propinaActual())+'</div>':'')+'</div>';
   }
+}
+
+/* ============ descuento a la cuenta ============ */
+function pintarDescuento(conservarMonto){
+  const c = buscarCuenta(cobro.cuentaId); if(!c) return;
+  const previo = conservarMonto && $('descMonto') ? $('descMonto').value : (c.descuento ? (c.descuento.monto/100).toFixed(2) : '');
+  if(c.descuento) descuentoMotivo = c.descuento.motivo;
+  $('descCuerpo').innerHTML =
+    '<p class="sub" style="margin-top:0">Cuenta «'+esc(c.nombre)+'» · consumo '+fmt(brutoCuenta(c))+'</p>'+
+    '<div class="campo-grande"><label for="descMonto">Cantidad de descuento (pesos)</label>'+
+      '<input id="descMonto" inputmode="decimal" autocomplete="off" value="'+esc(previo)+'"></div>'+
+    '<div class="ayudas">'+
+      [10,15,20,50].map(p=>'<button data-accion="desc-pct" data-p="'+p+'">'+p+'%</button>').join('')+
+    '</div>'+
+    '<div class="mini-titulo">Motivo</div>'+
+    '<div class="ayudas">'+RAZONES_CORTESIA.map(r =>
+      '<button data-accion="desc-motivo" data-m="'+esc(r)+'" class="'+(descuentoMotivo===r?'encendido':'')+'">'+esc(r)+'</button>').join('')+
+    '</div>'+
+    '<button class="btn btn-verde" data-accion="desc-aplicar" style="width:100%;font-size:1.05rem;padding:13px">✔ Aplicar descuento</button>'+
+    (c.descuento ? '<button class="btn btn-rojo" data-accion="desc-quitar" style="width:100%;margin-top:8px">Quitar el descuento actual (−'+fmt(c.descuento.monto)+')</button>' : '');
+  const campo = $('descMonto');
+  campo.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); aplicarDescuento(); } });
+  if(!conservarMonto) setTimeout(()=>{ campo.focus(); campo.select(); }, 60);
+}
+
+function aplicarDescuento(){
+  const c = buscarCuenta(cobro.cuentaId); if(!c) return;
+  const v = aCentavos($('descMonto').value);
+  if(v===null || v<=0){ avisar('Escribe la cantidad del descuento', true); $('descMonto').focus(); return; }
+  const maximo = brutoCuenta(c) - pagadoCuenta(c);
+  if(v > maximo){ avisar('El descuento no puede ser mayor a lo que falta por pagar ('+fmt(maximo)+')', true); $('descMonto').focus(); return; }
+  c.descuento = { monto:v, motivo:descuentoMotivo };
+  anotarEvento(c, '🏷️ Descuento de '+fmt(v)+' aplicado · '+descuentoMotivo);
+  guardar();
+  $('modalDescuento').classList.add('oculto');
+  pintarCobro();
+  avisar('Descuento aplicado: −'+fmt(v));
 }
 
 function actualizarBotonCobro(){
@@ -1377,14 +1563,15 @@ function registrarPago(){
     monto = resta;
     avisar('La cantidad era mayor a lo que falta; se ajustó a '+fmt(resta));
   }
+  const propina = propinaActual();
   let recibido = monto, cambio = 0;
   if(cobro.metodo==='efectivo'){
     const recTxt = $('recibido').value.trim();
     if(recTxt!==''){
       const rec = aCentavos(recTxt);
       if(rec===null){ avisar('La cantidad recibida no es válida', true); $('recibido').focus(); return; }
-      if(rec < monto){ avisar('El cliente dio menos de lo que se cobra; revisa las cantidades', true); $('recibido').focus(); return; }
-      recibido = rec; cambio = rec - monto;
+      if(rec < monto + propina){ avisar('El cliente dio menos de lo que se cobra'+(propina>0?' con la propina':'')+'; revisa las cantidades', true); $('recibido').focus(); return; }
+      recibido = rec; cambio = rec - monto - propina;
     }
   }
   let nombreTarjeta = '', digitos = '';
@@ -1393,8 +1580,9 @@ function registrarPago(){
     digitos = $('tarjeta4') ? $('tarjeta4').value.trim() : '';
     if(digitos && !/^\d{4}$/.test(digitos)){ avisar('Los dígitos de la tarjeta deben ser 4 números', true); $('tarjeta4').focus(); return; }
   }
-  c.pagos.push({id:nid(), fecha:hoyISO(), monto, metodo:cobro.metodo, recibido, cambio, nombreTarjeta, digitos, hora:horaAhora()});
+  c.pagos.push({id:nid(), fecha:hoyISO(), monto, propina, metodo:cobro.metodo, recibido, cambio, nombreTarjeta, digitos, hora:horaAhora()});
   anotarEvento(c, (cobro.metodo==='efectivo'?'💵':'💳')+' Pago de '+fmt(monto)+
+    (propina>0 ? ' + propina '+fmt(propina) : '')+
     (restanteCuenta(c)>0 ? ' · queda por pagar '+fmt(restanteCuenta(c)) : ' · con esto se liquida'));
   // marcar productos elegidos como pagados si coincide el importe
   if(cobro.modoSeleccion && cobro.seleccion.size>0){
@@ -1421,8 +1609,9 @@ function finalizarCuenta(c){
   const ticket = {
     id: nid(), folio: D.seq++,
     nombre: c.nombre, abierta: c.creada, fecha: hoyISO(), hora: horaAhora(),
-    items: c.items.map(i=>({icono:i.icono, nombre:i.nombre, detalle:i.detalle||'', precio:i.precio, cant:i.cant})),
-    pagos: c.pagos.map(p=>({fecha:p.fecha||hoyISO(), monto:p.monto, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, nombreTarjeta:p.nombreTarjeta||'', digitos:p.digitos||'', hora:p.hora})),
+    items: c.items.map(i=>({icono:i.icono, nombre:i.nombre, detalle:i.detalle||'', precio:i.precio, cant:i.cant, precioOriginal:i.precioOriginal||0, motivoCortesia:i.motivoCortesia||''})),
+    pagos: c.pagos.map(p=>({fecha:p.fecha||hoyISO(), monto:p.monto, propina:p.propina||0, metodo:p.metodo, recibido:p.recibido, cambio:p.cambio, nombreTarjeta:p.nombreTarjeta||'', digitos:p.digitos||'', hora:p.hora})),
+    descuento: c.descuento || null,
     eventos: c.eventos || [],
     total: totalCuenta(c)
   };
@@ -1550,9 +1739,18 @@ function pintarImpresion(){
   pie.addEventListener('input', () => { D.impresion.pie = pie.value; guardar(); });
 }
 
+function filasDescuento(bruto, descuento){
+  if(!descuento) return '';
+  return '<tr><td>Subtotal</td><td class="der">'+fmt(bruto)+'</td></tr>'+
+    '<tr><td>Descuento ('+esc(descuento.motivo)+')</td><td class="der">-'+fmt(descuento.monto)+'</td></tr>';
+}
+
 function htmlTicket(t){
   const lineas = t.items.map(i =>
-    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
+    '<tr><td>'+i.cant+' '+esc(i.nombre)+(i.detalle?' ('+esc(i.detalle)+')':'')+
+    (i.precioOriginal?' (CORTESÍA)':'')+'</td><td class="der">'+fmt(i.precio*i.cant)+'</td></tr>').join('');
+  const bruto = t.items.reduce((s,i)=>s+i.precio*i.cant,0);
+  const propinas = t.pagos.reduce((s,p)=>s+(p.propina||0),0);
   const pagos = t.pagos.map(p =>
     '<tr><td>'+(p.metodo==='efectivo'
       ? 'Efectivo'+(p.cambio>0?' (recibido '+fmt(p.recibido)+', cambio '+fmt(p.cambio)+')':'')
@@ -1562,45 +1760,93 @@ function htmlTicket(t){
     '<div class="centrado">'+esc(t.nombre)+' · Folio '+String(t.folio).padStart(4,'0')+'<br>'+
     fechaBonita(t.fecha)+' '+t.hora+'</div><hr>'+
     '<table>'+lineas+'</table><hr>'+
-    '<table><tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(t.total)+'</td></tr>'+pagos+'</table>'+
+    '<table>'+filasDescuento(bruto, t.descuento)+
+    '<tr class="total-linea"><td class="total-linea">TOTAL</td><td class="der total-linea">'+fmt(t.total)+'</td></tr>'+pagos+
+    (propinas>0?'<tr><td>Propina ¡gracias!</td><td class="der">'+fmt(propinas)+'</td></tr>':'')+
+    '</table>'+
     '<hr><div class="centrado">'+esc((D.impresion && D.impresion.pie) || '¡Gracias por su visita!')+'</div>';
 }
 
 /* ============ pantalla: corte ============ */
-function pintarCorte(){
-  $('turnoInfo').textContent = 'Turno abierto: '+D.turno.fecha+' '+String(D.turno.hora).slice(0,5);
-  const fecha = $('fechaCorte').value || hoyISO();
-  const del = D.tickets.filter(t=>t.fecha===fecha);
-  const caja = $('contenidoCorte');
+/* el corte se puede ver por TURNO (desde que se abrió, ideal para bares que
+   cierran de madrugada) o por DÍA de calendario */
+function enRango(fecha, hora){
+  if(corteModo==='turno'){
+    const desde = D.turno.fecha+' '+String(D.turno.hora).slice(0,5);
+    return (fecha+' '+(hora||'00:00')) >= desde;
+  }
+  const f = $('fechaCorte').value || hoyISO();
+  return fecha === f;
+}
 
-  // pagos parciales de cuentas TODAVÍA abiertas: dinero que ya está en caja
+function datosCorte(){
+  const del = D.tickets.filter(t => enRango(t.fecha, t.hora));
   const anticipos = [];
   D.cuentas.forEach(cta => (cta.pagos||[]).forEach(p => {
-    if((p.fecha||cta.fecha)===fecha) anticipos.push({cta, p});
+    if(enRango(p.fecha||cta.fecha, p.hora)) anticipos.push({cta, p});
   }));
-  const antTotal = anticipos.reduce((s,a)=>s+a.p.monto,0);
-  const anticiposHtml = antTotal>0 ?
+  const cancel = (D.cancelaciones||[]).filter(x => enRango(x.fecha, x.hora));
+  let efectivo=0, tarjeta=0, propinas=0, descuentos=0;
+  del.forEach(t => {
+    t.pagos.forEach(p => {
+      if(p.metodo==='efectivo') efectivo += p.monto; else tarjeta += p.monto;
+      propinas += p.propina||0;
+    });
+    if(t.descuento) descuentos += t.descuento.monto;
+    t.items.forEach(i => { if(i.precioOriginal) descuentos += i.precioOriginal*i.cant; });
+  });
+  anticipos.forEach(a => { propinas += a.p.propina||0; });
+  return {
+    del, anticipos, cancel,
+    total: del.reduce((s,t)=>s+t.total,0),
+    efectivo, tarjeta, propinas, descuentos,
+    antTotal: anticipos.reduce((s,a)=>s+a.p.monto,0),
+    cancelTotal: cancel.reduce((s,x)=>s+x.importe,0),
+    titulo: corteModo==='turno'
+      ? 'CORTE DEL TURNO<br>desde '+D.turno.fecha+' '+String(D.turno.hora).slice(0,5)+' · hasta '+horaAhora()
+      : 'CORTE DEL DÍA<br>'+fechaBonita($('fechaCorte').value || hoyISO())
+  };
+}
+
+function pintarCorte(){
+  $('turnoInfo').textContent = 'Turno abierto: '+D.turno.fecha+' '+String(D.turno.hora).slice(0,5);
+  $('modoCorteTurno').classList.toggle('activo', corteModo==='turno');
+  $('modoCorteDia').classList.toggle('activo', corteModo==='dia');
+  $('etiquetaFecha').style.display = corteModo==='dia' ? '' : 'none';
+  $('fechaCorte').style.display = corteModo==='dia' ? '' : 'none';
+  const dc = datosCorte();
+  const caja = $('contenidoCorte');
+
+  const anticiposHtml = dc.antTotal>0 ?
     '<div class="col-top tarjeta">'+
       '<div class="cabecera-bloque">💰 Anticipos de cuentas abiertas</div>'+
-      anticipos.map(a =>
+      dc.anticipos.map(a =>
         '<div class="top-item"><span class="nm">'+esc(a.cta.nombre)+' · '+a.p.hora+' '+(a.p.metodo==='efectivo'?'💵':'💳')+'</span>'+
         '<span class="veces dinero">'+fmt(a.p.monto)+'</span></div>').join('')+
-      '<div style="padding:10px 14px;font-size:.8rem;color:var(--tinta-suave)">Este dinero ya está en caja; se sumará al total del día en que esas cuentas se cierren.</div>'+
+      '<div style="padding:10px 14px;font-size:.8rem;color:var(--tinta-suave)">Este dinero ya está en caja; se sumará al total cuando esas cuentas se cierren.</div>'+
     '</div>' : '';
 
-  if(del.length===0){
-    caja.innerHTML = '<div class="vacio tarjeta"><div class="icono">📊</div><b>No hay cuentas cobradas el '+
-      fechaBonita(fecha)+'.</b><br>Aquí aparecerá el resumen cuando cobres.</div>'+
-      (antTotal>0 ? '<div class="dos-columnas" style="margin-top:16px">'+anticiposHtml+'</div>' : '');
+  const cancelHtml = dc.cancel.length>0 ?
+    '<div class="col-top tarjeta">'+
+      '<div class="cabecera-bloque">❌ Cancelaciones (merma) <span class="dinero">'+fmt(dc.cancelTotal)+'</span></div>'+
+      dc.cancel.map(x =>
+        '<div class="top-item"><span class="ic">'+esc(x.icono)+'</span>'+
+        '<span class="nm">'+x.cant+' × '+esc(x.nombre)+(x.detalle?' <small>('+esc(x.detalle)+')</small>':'')+
+        '<br><small>'+x.hora+' · '+esc(x.cuenta)+' · '+esc(x.motivo)+'</small></span>'+
+        '<span class="veces dinero">'+fmt(x.importe)+'</span></div>').join('')+
+    '</div>' : '';
+
+  if(dc.del.length===0){
+    caja.innerHTML = '<div class="vacio tarjeta"><div class="icono">📊</div><b>'+
+      (corteModo==='turno' ? 'Todavía no se cobra nada en este turno.' : 'No hay cuentas cobradas el '+fechaBonita($('fechaCorte').value||hoyISO())+'.')+
+      '</b><br>Aquí aparecerá el resumen cuando cobres.</div>'+
+      (dc.antTotal>0 || dc.cancel.length>0 ? '<div class="dos-columnas" style="margin-top:16px">'+anticiposHtml+cancelHtml+'</div>' : '');
     return;
   }
-  const total = del.reduce((s,t)=>s+t.total,0);
-  let efectivo=0, tarjeta=0;
-  del.forEach(t=>t.pagos.forEach(p=>{ if(p.metodo==='efectivo') efectivo+=p.monto; else tarjeta+=p.monto; }));
-  const promedio = Math.round(total/del.length);
+  const promedio = Math.round(dc.total/dc.del.length);
 
   const cuenta = {};
-  del.forEach(t=>t.items.forEach(i=>{
+  dc.del.forEach(t=>t.items.forEach(i=>{
     const k = i.icono+'|'+i.nombre;
     cuenta[k] = (cuenta[k]||0) + i.cant;
   }));
@@ -1608,19 +1854,22 @@ function pintarCorte(){
 
   caja.innerHTML =
     '<div class="tiles">'+
-      '<div class="tile tarjeta destacado"><div class="et">Total cobrado</div><div class="valor dinero">'+fmt(total)+'</div></div>'+
-      '<div class="tile tarjeta"><div class="et">💵 Efectivo en caja</div><div class="valor dinero">'+fmt(efectivo)+'</div></div>'+
-      '<div class="tile tarjeta"><div class="et">💳 Con tarjeta</div><div class="valor dinero">'+fmt(tarjeta)+'</div></div>'+
-      '<div class="tile tarjeta"><div class="et">Cuentas cobradas</div><div class="valor">'+del.length+'</div></div>'+
+      '<div class="tile tarjeta destacado"><div class="et">Total cobrado</div><div class="valor dinero">'+fmt(dc.total)+'</div></div>'+
+      '<div class="tile tarjeta"><div class="et">💵 Efectivo en caja</div><div class="valor dinero">'+fmt(dc.efectivo)+'</div></div>'+
+      '<div class="tile tarjeta"><div class="et">💳 Con tarjeta</div><div class="valor dinero">'+fmt(dc.tarjeta)+'</div></div>'+
+      '<div class="tile tarjeta"><div class="et">Cuentas cobradas</div><div class="valor">'+dc.del.length+'</div></div>'+
       '<div class="tile tarjeta"><div class="et">Consumo promedio</div><div class="valor dinero">'+fmt(promedio)+'</div></div>'+
-      (antTotal>0 ? '<div class="tile tarjeta"><div class="et">💰 Anticipos (cuentas abiertas)</div><div class="valor dinero">'+fmt(antTotal)+'</div></div>' : '')+
+      (dc.propinas>0 ? '<div class="tile tarjeta"><div class="et">💁 Propinas</div><div class="valor dinero">'+fmt(dc.propinas)+'</div></div>' : '')+
+      (dc.descuentos>0 ? '<div class="tile tarjeta"><div class="et">🏷️ Descuentos y cortesías</div><div class="valor dinero">'+fmt(dc.descuentos)+'</div></div>' : '')+
+      (dc.cancelTotal>0 ? '<div class="tile tarjeta"><div class="et">❌ Cancelado (merma)</div><div class="valor dinero">'+fmt(dc.cancelTotal)+'</div></div>' : '')+
+      (dc.antTotal>0 ? '<div class="tile tarjeta"><div class="et">💰 Anticipos (cuentas abiertas)</div><div class="valor dinero">'+fmt(dc.antTotal)+'</div></div>' : '')+
     '</div>'+
     '<div class="dos-columnas">'+
       '<div class="col-tickets tarjeta">'+
         '<div class="cabecera-bloque">Cuentas cobradas</div>'+
         '<div style="overflow-x:auto"><table class="tabla"><thead><tr>'+
         '<th>Folio</th><th>Hora</th><th>Cuenta</th><th>Arts.</th><th>Total</th><th>Pago</th><th></th></tr></thead><tbody>'+
-        del.slice().reverse().map(t=>{
+        dc.del.slice().reverse().map(t=>{
           const efe = t.pagos.some(p=>p.metodo==='efectivo'), tar = t.pagos.some(p=>p.metodo==='tarjeta');
           const pill = efe&&tar ? '<span class="pill pill-mix">Mixto</span>' : tar ? '<span class="pill pill-tar">Tarjeta</span>' : '<span class="pill pill-efe">Efectivo</span>';
           const arts = t.items.reduce((s,i)=>s+i.cant,0);
@@ -1638,23 +1887,24 @@ function pintarCorte(){
         }).join('')+
       '</div>'+
       anticiposHtml+
+      cancelHtml+
     '</div>';
 }
 
 function imprimirCorte(){
-  const fecha = $('fechaCorte').value || hoyISO();
-  const del = D.tickets.filter(t=>t.fecha===fecha);
-  if(del.length===0){ avisar('No hay nada que imprimir de ese día', true); return; }
-  const total = del.reduce((s,t)=>s+t.total,0);
-  let efectivo=0, tarjeta=0;
-  del.forEach(t=>t.pagos.forEach(p=>{ if(p.metodo==='efectivo') efectivo+=p.monto; else tarjeta+=p.monto; }));
-  const filas = del.map(t=>'<tr><td>'+String(t.folio).padStart(4,'0')+' '+t.hora+' '+esc(t.nombre)+'</td><td class="der">'+fmt(t.total)+'</td></tr>').join('');
-  imprimir(logoHtml()+'<h3>'+esc(D.negocio)+'</h3><div class="centrado">CORTE DEL DÍA<br>'+fechaBonita(fecha)+'</div><hr>'+
+  const dc = datosCorte();
+  if(dc.del.length===0 && dc.antTotal===0){ avisar('No hay nada que imprimir de ese periodo', true); return; }
+  const filas = dc.del.map(t=>'<tr><td>'+String(t.folio).padStart(4,'0')+' '+t.hora+' '+esc(t.nombre)+'</td><td class="der">'+fmt(t.total)+'</td></tr>').join('');
+  imprimir(logoHtml()+'<h3>'+esc(D.negocio)+'</h3><div class="centrado">'+dc.titulo+'</div><hr>'+
     '<table>'+
-    '<tr class="total-linea"><td>TOTAL COBRADO</td><td class="der">'+fmt(total)+'</td></tr>'+
-    '<tr><td>Efectivo en caja</td><td class="der">'+fmt(efectivo)+'</td></tr>'+
-    '<tr><td>Con tarjeta</td><td class="der">'+fmt(tarjeta)+'</td></tr>'+
-    '<tr><td>Cuentas cobradas</td><td class="der">'+del.length+'</td></tr>'+
+    '<tr class="total-linea"><td>TOTAL COBRADO</td><td class="der">'+fmt(dc.total)+'</td></tr>'+
+    '<tr><td>Efectivo en caja</td><td class="der">'+fmt(dc.efectivo)+'</td></tr>'+
+    '<tr><td>Con tarjeta</td><td class="der">'+fmt(dc.tarjeta)+'</td></tr>'+
+    '<tr><td>Cuentas cobradas</td><td class="der">'+dc.del.length+'</td></tr>'+
+    (dc.propinas>0?'<tr><td>Propinas</td><td class="der">'+fmt(dc.propinas)+'</td></tr>':'')+
+    (dc.descuentos>0?'<tr><td>Descuentos y cortesías</td><td class="der">'+fmt(dc.descuentos)+'</td></tr>':'')+
+    (dc.cancelTotal>0?'<tr><td>Cancelado (merma)</td><td class="der">'+fmt(dc.cancelTotal)+'</td></tr>':'')+
+    (dc.antTotal>0?'<tr><td>Anticipos cuentas abiertas</td><td class="der">'+fmt(dc.antTotal)+'</td></tr>':'')+
     '</table><hr><table>'+filas+'</table>');
 }
 
@@ -1850,7 +2100,7 @@ const acciones = {
   },
   'billete': d => {
     const rec = $('recibido'); if(!rec) return;
-    if(d.v==='exacto') rec.value = $('montoCobrar').value;
+    if(d.v==='exacto') rec.value = (((aCentavos($('montoCobrar').value)||0) + propinaActual())/100).toFixed(2);
     else if(d.v==='limpiar') rec.value = '';
     else {
       const actual = aCentavos(rec.value) || 0; // los billetes se suman: 500+200 = dos toques
@@ -1859,6 +2109,31 @@ const acciones = {
     actualizarCambio();
     rec.focus();
   },
+  'propina-pct': d => {
+    const el = $('propina'); if(!el) return;
+    const pct = Number(d.p);
+    el.value = pct===0 ? '' : ((Math.round((aCentavos($('montoCobrar').value)||0) * pct/100))/100).toFixed(2);
+    actualizarCambio();
+  },
+  'abrir-descuento': () => { $('modalDescuento').classList.remove('oculto'); pintarDescuento(); },
+  'cerrar-descuento': () => $('modalDescuento').classList.add('oculto'),
+  'desc-pct': d => {
+    const c = buscarCuenta(cobro.cuentaId); if(!c) return;
+    $('descMonto').value = ((Math.round(brutoCuenta(c) * Number(d.p)/100))/100).toFixed(2);
+  },
+  'desc-motivo': d => { descuentoMotivo = d.m; pintarDescuento(true); },
+  'desc-aplicar': () => aplicarDescuento(),
+  'desc-quitar': () => {
+    const c = buscarCuenta(cobro.cuentaId); if(!c || !c.descuento) return;
+    anotarEvento(c, '🏷️ Se quitó el descuento de '+fmt(c.descuento.monto));
+    c.descuento = null;
+    guardar();
+    $('modalDescuento').classList.add('oculto');
+    pintarCobro();
+    avisar('Descuento quitado');
+  },
+  'motivo-elegir': d => resolverMotivo(d.m),
+  'cerrar-motivo': () => cerrarMotivo(),
   'registrar-pago': () => registrarPago(),
   'familia': d => { familiaActiva = d.f; pintarFamilias(); pintarMosaico(); },
   'op-elegir': d => elegirOpcion(d.g, d.v),
@@ -1917,6 +2192,8 @@ const acciones = {
   'cerrar-emojis': () => $('modalEmojis').classList.add('oculto'),
   'elegir-emoji': d => { iconoElegido=d.e; $('btnIcono').textContent=d.e; $('modalEmojis').classList.add('oculto'); $('prodNombre').focus(); },
   'imprimir-corte': () => imprimirCorte(),
+  'modo-corte': d => { corteModo = d.m; pintarCorte(); },
+  'cortesia-item': d => cortesiaItem(d.id),
   'reimprimir': d => { const t=D.tickets.find(x=>x.id===d.id); if(t) imprimir(htmlTicket(t)); },
   'confirmar-no': () => { $('modalConfirmar').classList.add('oculto'); alConfirmar=null; },
   'respaldo': () => guardarRespaldo(),
@@ -1939,7 +2216,7 @@ function refrescarMetodo(){
 
 function pintarCobroConservando(){
   const valores = {};
-  ['montoCobrar','recibido','tarjetaNombre','tarjeta4'].forEach(id => { const el=$(id); if(el) valores[id]=el.value; });
+  ['montoCobrar','propina','recibido','tarjetaNombre','tarjeta4'].forEach(id => { const el=$(id); if(el) valores[id]=el.value; });
   pintarCobro();
   Object.keys(valores).forEach(id => { const el=$(id); if(el) el.value = valores[id]; });
   actualizarCambio(); actualizarBotonCobro();
@@ -1974,7 +2251,7 @@ function tecla(k, el){
 /* lo que haría Enter en ese campo */
 function entrarEn(id){
   if(id==='nuevaCuenta') crearCuenta();
-  else if(id==='montoCobrar' && cobro && cobro.metodo==='efectivo'){ const r=$('recibido'); if(r) r.focus(); }
+  else if((id==='montoCobrar' || id==='propina') && cobro && cobro.metodo==='efectivo'){ const r=$('recibido'); if(r) r.focus(); }
   else registrarPago();
 }
 
@@ -1997,7 +2274,7 @@ $('archivoRespaldo').addEventListener('change', e => recuperarRespaldo(e.target)
 
 /* teclado en pantalla: recordar en qué campo escribe y no robarle el foco */
 document.addEventListener('focusin', e => {
-  if(['nuevaCuenta','montoCobrar','recibido','tarjeta4'].includes(e.target.id)) tecladoTarget = e.target.id;
+  if(['nuevaCuenta','montoCobrar','propina','recibido','tarjeta4'].includes(e.target.id)) tecladoTarget = e.target.id;
 });
 document.addEventListener('mousedown', e => { if(e.target.closest('.teclado-num')) e.preventDefault(); });
 
@@ -2015,12 +2292,15 @@ $('buscador').addEventListener('keydown', e => {
   }
   if(e.key==='Escape'){ $('buscador').value=''; pintarMosaico(); }
 });
+$('motivoOtro').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); resolverMotivo(e.target.value); } });
 $('prodNombre').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); $('prodPrecio').focus(); } });
 $('prodPrecio').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); guardarProducto(); } });
 $('fechaCorte').addEventListener('change', pintarCorte);
 document.addEventListener('keydown', e => {
   if(e.key==='Escape'){
-    if(!$('modalOpciones').classList.contains('oculto')) cerrarOpciones();
+    if(!$('modalMotivo').classList.contains('oculto')) cerrarMotivo();
+    else if(!$('modalDescuento').classList.contains('oculto')) $('modalDescuento').classList.add('oculto');
+    else if(!$('modalOpciones').classList.contains('oculto')) cerrarOpciones();
     else if(!$('modalEmojis').classList.contains('oculto')) $('modalEmojis').classList.add('oculto');
     else if(!$('modalConfirmar').classList.contains('oculto')){ $('modalConfirmar').classList.add('oculto'); alConfirmar=null; }
     else if(!$('modalImpresion').classList.contains('oculto')) $('modalImpresion').classList.add('oculto');
