@@ -7,6 +7,8 @@ QUÉ DEBE TRAER ESTA USB (cópialo antes de salir):
   [ ] RESTA.html          ← el programa completo, con los
                             productos y el logo ya cargados
   [ ] INSTALAR.bat        ← instalador automático
+  [ ] ACTUALIZAR.bat      ← actualizador (baja la versión nueva)
+  [ ] version.json        ← número de versión disponible
   [ ] GUIA-IMPRESORA.md   ← guía de la impresora térmica
   [ ] driver\             ← carpeta con el ZIP del driver
                             "Xprinter Windows Driver"
@@ -41,6 +43,16 @@ INSTALACIÓN EN LA PC DEL CLIENTE (10 minutos):
      comanda → imprimir cuenta → cobrar → ver el corte.
      Cuando todo esté bien: Corte del día → 🧹 Borrar ventas
      para entregar la caja en ceros.
+
+ACTUALIZAR MÁS ADELANTE (cuando haya versión nueva):
+  · Dentro de RESTA, barra izquierda abajo: botón 🔄 Actualizar.
+    Compara con GitHub y, si hay una versión nueva, la instala
+    sola y se reinicia. Los datos y ventas NO se borran.
+  · Si el botón no aparece (versión vieja) o falla: usa el acceso
+    directo "ACTUALIZAR ONCE POS" del escritorio (o ACTUALIZAR.bat
+    de C:\RESTA). Guarda una copia .bak del archivo anterior.
+  · La versión disponible se configura en version.json del
+    repositorio; el número actual se ve abajo a la izquierda en RESTA.
 
 IMPORTANTE:
   · Usa SIEMPRE el acceso directo "ONCE POS". Los datos viven

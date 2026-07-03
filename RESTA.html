@@ -52,6 +52,9 @@ input,select{font-family:inherit;font-size:1rem}
 .respaldo-auto{width:100%;background:none;border:1px solid #3c5a4f;color:#b9cabf;border-radius:8px;padding:7px 8px;font-size:.72rem;text-align:left;margin-top:6px;cursor:pointer}
 .respaldo-auto:hover{background:var(--verde-medio);color:#fff}
 .respaldo-auto b{color:#fff}
+.version-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;font-size:.7rem;color:#8aa89b}
+.version-pie button{background:none;border:1px solid #3c5a4f;color:#b9cabf;border-radius:8px;padding:6px 9px;font-size:.72rem;cursor:pointer}
+.version-pie button:hover{background:var(--verde-medio);color:#fff}
 .auto-detalle{font-size:.66rem;color:#8fa79a;margin-top:4px;line-height:1.35;word-break:break-word}
 
 /* ---------- zona principal ---------- */
@@ -363,6 +366,10 @@ h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
         <button class="respaldo-auto" data-accion="carpeta-respaldo" title="Elige una carpeta y todo se guardará solo, una carpeta por turno">🛟 Respaldo automático: <b id="autoEstado">…</b></button>
         <div class="auto-detalle" id="autoDetalle"></div>
       </div>
+      <div class="version-pie">
+        <button data-accion="buscar-actualizacion" title="Busca e instala la última versión desde GitHub">🔄 Actualizar</button>
+        <span>RESTA v<span id="appVersion">—</span></span>
+      </div>
     </div>
   </aside>
 
@@ -576,6 +583,16 @@ let dirRespaldo = null;        // carpeta elegida para el respaldo automático
 let respaldoPendiente = false; // hay carpeta pero falta volver a dar permiso
 let respaldoTimer = null;
 let ultimoRespaldo = '';
+
+/* ============ versión y actualizaciones ============ */
+/* APP_VERSION = versión de ESTE archivo. La "última" disponible se configura en
+   version.json dentro del repositorio; el botón «Actualizar» la compara y, si hay
+   una nueva, descarga el RESTA.html nuevo desde GitHub y lo instala. */
+const APP_VERSION = '1.1.0';
+const REPO_RAW = 'https://raw.githubusercontent.com/endoferrari/RESTA/master';
+let dirInstalacion = null;      // carpeta donde está instalado RESTA (p. ej. C:\RESTA)
+let buscandoActualizacion = false;
+
 function leerDatos(){
   try{ const t = localStorage.getItem(CLAVE); return t ? JSON.parse(t) : null; }
   catch(e){ puedeGuardar = false; return memoriaLocal; }
@@ -2142,22 +2159,22 @@ function abrirBD(){
     req.onerror = () => rej(req.error);
   });
 }
-async function guardarHandle(h){
+async function guardarHandle(h, clave='carpeta'){
   try{
     const db = await abrirBD();
     await new Promise((res, rej) => {
       const tx = db.transaction('handles','readwrite');
-      tx.objectStore('handles').put(h, 'carpeta');
+      tx.objectStore('handles').put(h, clave);
       tx.oncomplete = res; tx.onerror = () => rej(tx.error);
     });
   }catch(e){}
 }
-async function leerHandle(){
+async function leerHandle(clave='carpeta'){
   try{
     const db = await abrirBD();
     return await new Promise((res, rej) => {
       const tx = db.transaction('handles','readonly');
-      const rq = tx.objectStore('handles').get('carpeta');
+      const rq = tx.objectStore('handles').get(clave);
       rq.onsuccess = () => res(rq.result || null);
       rq.onerror = () => rej(rq.error);
     });
@@ -2237,6 +2254,113 @@ function cerrarTurno(){
     pintarCorte();
     avisar('Turno cerrado; empezó uno nuevo');
   });
+}
+
+/* ============ actualizaciones ============ */
+/* Compara dos versiones tipo "1.2.3". Devuelve -1, 0 o 1. */
+function compararVersion(a, b){
+  const pa = String(a).split('.').map(n => parseInt(n,10) || 0);
+  const pb = String(b).split('.').map(n => parseInt(n,10) || 0);
+  for(let i=0; i<Math.max(pa.length, pb.length); i++){
+    const d = (pa[i]||0) - (pb[i]||0);
+    if(d) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+/* Botón «Actualizar»: consulta version.json en GitHub y, si hay una nueva, la instala. */
+async function buscarActualizacion(){
+  if(buscandoActualizacion) return;
+  buscandoActualizacion = true;
+  avisar('Buscando actualización…');
+  try{
+    const r = await fetch(REPO_RAW + '/version.json?_=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const info = await r.json();
+    const ultima = String(info.version || '').trim();
+    if(!ultima) throw new Error('sin version');
+    if(compararVersion(APP_VERSION, ultima) >= 0){
+      avisar('Ya tienes la última versión (v'+APP_VERSION+')');
+      return;
+    }
+    const notas = info.notas ? '<br><small>📝 '+esc(info.notas)+'</small>' : '';
+    confirmar(
+      '¿Actualizar RESTA a la versión <b>v'+esc(ultima)+'</b>?<br>'+
+      '<small>Tienes la v'+APP_VERSION+'. Se descargará la versión nueva y RESTA se reiniciará. '+
+      'Tus productos, ventas y ajustes NO se borran.</small>'+notas,
+      () => instalarActualizacion(ultima)
+    );
+  }catch(e){
+    avisar('No se pudo buscar la actualización; revisa el internet', true);
+  }finally{
+    buscandoActualizacion = false;
+  }
+}
+
+/* Descarga el RESTA.html nuevo y lo instala sobre la carpeta de instalación. */
+async function instalarActualizacion(ultima){
+  avisar('Descargando la versión v'+ultima+'…');
+  let html;
+  try{
+    const r = await fetch(REPO_RAW + '/RESTA.html?_=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    html = await r.text();
+  }catch(e){
+    avisar('No se pudo descargar la versión nueva; revisa el internet', true);
+    return;
+  }
+  // comprobación básica: que la descarga sí sea RESTA y no una página de error
+  if(html.length < 5000 || html.indexOf('APP_VERSION') === -1){
+    avisar('La descarga no parece válida; intenta otra vez', true);
+    return;
+  }
+  // 1) intentar escribir directo sobre RESTA.html (queda instalado y se reinicia)
+  if(await escribirActualizacion(html)){
+    avisar('¡Actualizado a v'+ultima+'! Reiniciando…');
+    setTimeout(() => location.reload(), 1300);
+    return;
+  }
+  // 2) plan B: descargar el archivo para reemplazarlo a mano o con ACTUALIZAR
+  descargarNuevaVersion();
+}
+
+/* Escribe el HTML nuevo en la carpeta de instalación usando el permiso de carpeta.
+   Recuerda la carpeta elegida para no volver a preguntar la próxima vez. */
+async function escribirActualizacion(html){
+  if(!('showDirectoryPicker' in window)) return false;
+  try{
+    if(!dirInstalacion) dirInstalacion = await leerHandle('instalacion');
+    if(dirInstalacion){
+      let permiso = 'prompt';
+      try{ permiso = await dirInstalacion.queryPermission({mode:'readwrite'}); }catch(e){}
+      if(permiso !== 'granted'){
+        try{ permiso = await dirInstalacion.requestPermission({mode:'readwrite'}); }catch(e){}
+      }
+      if(permiso !== 'granted') dirInstalacion = null;
+    }
+    if(!dirInstalacion){
+      avisar('Elige la carpeta donde está instalado RESTA (normalmente C:\\RESTA)');
+      dirInstalacion = await window.showDirectoryPicker({mode:'readwrite'});
+      await guardarHandle(dirInstalacion, 'instalacion');
+    }
+    const archivo = await dirInstalacion.getFileHandle('RESTA.html', {create:true});
+    const w = await archivo.createWritable();
+    await w.write(html);
+    await w.close();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+/* Plan B: baja el RESTA.html nuevo a Descargas y explica cómo terminar a mano. */
+function descargarNuevaVersion(){
+  confirmar(
+    'No se pudo instalar sola la actualización.<br>'+
+    '<small>Cierra RESTA y usa el acceso directo <b>ACTUALIZAR ONCE POS</b> del escritorio '+
+    '(baja e instala la versión nueva). Si no lo tienes, ejecuta <b>ACTUALIZAR.bat</b> de la carpeta C:\\RESTA.</small>',
+    () => {}
+  );
 }
 
 /* ============ respaldo ============ */
@@ -2420,7 +2544,8 @@ const acciones = {
   'reimprimir': d => { const t=D.tickets.find(x=>x.id===d.id); if(t) imprimir(htmlTicket(t)); },
   'confirmar-no': () => { $('modalConfirmar').classList.add('oculto'); alConfirmar=null; },
   'respaldo': () => guardarRespaldo(),
-  'abrir-recuperar': () => $('archivoRespaldo').click()
+  'abrir-recuperar': () => $('archivoRespaldo').click(),
+  'buscar-actualizacion': () => buscarActualizacion()
 };
 
 function ponMonto(centavos){
@@ -2544,6 +2669,7 @@ function tictac(){
 tictac(); setInterval(tictac, 15000);
 
 /* arranque */
+$('appVersion').textContent = APP_VERSION;
 $('logoMarca').src = LOGO_ONCE_COLOR;
 $('tecladoMesas').innerHTML = teclasHtml();
 aplicarTeclados();

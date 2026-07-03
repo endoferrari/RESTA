@@ -23,6 +23,11 @@ copy /Y "%~dp0RESTA.html" "%DESTINO%\RESTA.html" >nul
 echo  [OK] Programa copiado a C:\RESTA\RESTA.html
 echo  [OK] Carpeta de respaldos creada: C:\RESTA\Respaldos
 
+rem ── Copiar el actualizador (para poder actualizar sin la USB) ──
+if exist "%~dp0ACTUALIZAR.bat" copy /Y "%~dp0ACTUALIZAR.bat" "%DESTINO%\ACTUALIZAR.bat" >nul
+if exist "%~dp0version.json" copy /Y "%~dp0version.json" "%DESTINO%\version.json" >nul
+if exist "%DESTINO%\ACTUALIZAR.bat" echo  [OK] Actualizador copiado a C:\RESTA\ACTUALIZAR.bat
+
 rem ── 2. Buscar Chrome o Edge ──────────────────────────────────
 set NAVEGADOR=
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "NAVEGADOR=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
@@ -47,6 +52,12 @@ if errorlevel 1 (
 ) else (
   echo  [OK] Acceso directo "ONCE POS" creado en el escritorio
   echo       (abre sin barras del navegador e imprime directo, sin ventanas)
+)
+
+rem ── 4. Acceso directo del actualizador en el escritorio ──────────
+if exist "%DESTINO%\ACTUALIZAR.bat" (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\ACTUALIZAR ONCE POS.lnk'); $s.TargetPath='%DESTINO%\ACTUALIZAR.bat'; $s.WorkingDirectory='%DESTINO%'; $s.Description='Baja e instala la ultima version de RESTA'; $s.Save()"
+  echo  [OK] Acceso directo "ACTUALIZAR ONCE POS" creado en el escritorio
 )
 
 echo.
