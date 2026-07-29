@@ -33,18 +33,19 @@ necesidades del negocio, no conocimientos técnicos.
 | 3 | Mesas y cuentas en vivo, PIN de mesero | ✅ hecho |
 | 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ✅ hecho |
 | 5 | Impresión ESC/POS configurable | ✅ hecho — falta el logo |
-| 6 | Corte del día, turnos, respaldos automáticos | ⬜ siguiente |
-| 7 | Empaquetado final e instalador | ⬜ |
+| 6 | Corte del día, turnos, respaldos automáticos | ✅ hecho |
+| 7 | Empaquetado final e instalador | ⬜ siguiente |
 
 El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
-**Lo siguiente: Fase 6 (corte del día, turnos y respaldos).**
+**Lo siguiente: Fase 7 (instalador y empaquetado).**
 
-⚠️ **Pendiente de la fase 5: el logo del ticket.** La v1.3.0 sí lo imprime.
-En v2 el bloque `logo()` existe en el documento y `rasterABytes()` ya sabe
-mandar una imagen a la térmica, pero falta convertir el SVG de ONCE a puntos
-(en Node, sin dibujarlo en un canvas). Mientras tanto el ticket sale sin
-logo. **La v2 no está terminada hasta que eso exista.**
+⚠️ **Pendientes que faltan para dar la v2 por terminada:**
+
+1. **El logo del ticket.** La v1.3.0 sí lo imprime. Aquí el bloque `logo()`
+   existe y `rasterABytes()` ya sabe mandar una imagen a la térmica, pero
+   falta convertir el SVG de ONCE a puntos desde Node (sin canvas).
+2. **El actualizador desde GitHub** que tenía la v1.3.0 (botón 🔄).
 
 Nada de la impresión se puede probar de verdad en Linux. Para eso está el
 modo `simulada`, que escribe el papel a `datos-dev/tickets/`.
@@ -100,7 +101,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 155/155)
+npm test             # las pruebas (deben pasar 189/189)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -117,7 +118,8 @@ v2/
 │   ├─ dinero.js     centavos, formato, reparto sin perder centavos
 │   ├─ cuenta.js     cortesías, descuentos, propinas, cobro, cambio
 │   ├─ opciones.js   el submenú del mesero (derecho/puesto/campechano…)
-│   └─ permisos.js   quién puede qué (mesero anota, caja cobra)
+│   ├─ permisos.js   quién puede qué (mesero anota, caja cobra)
+│   └─ corte.js      totales del turno y cuánto debe haber en el cajón
 ├─ datos/        SQLite y migraciones
 │   ├─ rutas-datos.js   dónde vive todo (C:\RESTA en Windows)
 │   ├─ conexion.js      WAL, pragmas, transacciones
@@ -125,6 +127,7 @@ v2/
 │   ├─ menu-once.js     la carta real de ONCE (55 productos, en centavos)
 │   ├─ sembrar-menu.js  pone la carta si la base está vacía
 │   ├─ importar-v1.js   lee el respaldo .json de la v1.3.0
+│   ├─ respaldo.js      copia en caliente de resta.db, retención 30 días
 │   ├─ repos/           una función por consulta, nada de SQL suelto
 │   └─ migraciones/
 ├─ servidor/     Fastify + WebSocket
@@ -133,16 +136,18 @@ v2/
 │   ├─ idempotencia.js  el folio por acción, para no cobrar dos veces
 │   ├─ tiempo-real.js   avisa a todas las pantallas cuando algo cambia
 │   ├─ auth.js          el pase de cada tablet y el freno a los PIN
-│   └─ rutas/           salud · menu · sesion · cuentas · cobro
+│   └─ rutas/           salud · menu · sesion · cuentas · cobro ·
+│                        impresion · turnos
 ├─ cliente/      Lo que se ve. JS con módulos ES, SIN paso de build.
 │   ├─ estado.js        qué sabe esta tablet ahora mismo
 │   ├─ ui.js            avisos y ventanitas (nada de alert())
-│   └─ vistas/          pin · mesas · cuenta · cobro · carta
+│   └─ vistas/          pin · mesas · cuenta · cobro · carta ·
+│                        impresora · corte
 ├─ impresion/    La miniprinter
 │   ├─ documento.js   bloques del papel + vista en texto (para probar sin papel)
 │   ├─ escpos.js      bytes de la térmica, CP850, el arreglo del modo chino
-│   ├─ plantillas.js  ticket · cuenta · comanda · prueba
 │   ├─ salidas.js     simulada · red 9100 · spooler Windows · puerto COM
+│   ├─ plantillas.js  ticket · cuenta · comanda · corte · prueba
 │   └─ cola.js        reintentos y el foquito de estado
 ├─ escritorio/   Ventana Electron, bandeja, instalador NSIS
 └─ pruebas/      node:test

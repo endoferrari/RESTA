@@ -181,6 +181,113 @@ function totales(t) {
   return filas;
 }
 
+/* ── CORTE DE CAJA ─────────────────────────────────────────────────────── */
+
+/**
+ * El papel que se guarda al cerrar la caja.
+ *
+ * Lo que se busca con la vista al leerlo es una sola cosa: si cuadró o no.
+ * Por eso la diferencia va en letras grandes al final, y si falta dinero lo
+ * dice con todas sus letras en vez de con un número negativo.
+ */
+export function corte({ negocio, corte: c }) {
+  const t = c.turno;
+  const doc = [...encabezado(negocio, 'CORTE DE CAJA')];
+
+  doc.push(dosColumnas('Turno', `#${t.id}`, { negrita: true }));
+  doc.push(dosColumnas('Abrió', soloImprimible(t.abiertoPor ?? '—')));
+  doc.push(texto(`   ${t.abierto ?? ''}`));
+  if (t.cerrado) {
+    doc.push(dosColumnas('Cerró', soloImprimible(t.cerradoPor ?? '—')));
+    doc.push(texto(`   ${t.cerrado}`));
+  }
+
+  doc.push(separador());
+  doc.push(texto('VENTAS', { negrita: true }));
+  doc.push(dosColumnas('Cuentas cobradas', String(c.tickets)));
+  doc.push(dosColumnas('Productos', String(c.articulos)));
+  doc.push(dosColumnas('Consumo cobrado', formatear(c.consumo)));
+  if (c.descuento) doc.push(dosColumnas('Descuentos', `-${formatear(c.descuento)}`));
+  if (c.propina)   doc.push(dosColumnas('Propinas', formatear(c.propina)));
+  doc.push(dosColumnas('TOTAL VENDIDO', formatear(c.total), { negrita: true }));
+
+  // Las cortesías van APARTE, sin signo de menos: nunca estuvieron dentro del
+  // total. Ponerlas como resta hace creer que el total sería mayor sin ellas.
+  if (c.cortesias) {
+    doc.push(salto());
+    doc.push(dosColumnas('Se regaló en cortesías', formatear(c.cortesias)));
+  }
+
+  doc.push(separador());
+  doc.push(texto('CÓMO PAGARON', { negrita: true }));
+  doc.push(dosColumnas('Efectivo', formatear(c.porMetodo.efectivo ?? 0)));
+  doc.push(dosColumnas('Tarjeta', formatear(c.porMetodo.tarjeta ?? 0)));
+  doc.push(dosColumnas('Transferencia', formatear(c.porMetodo.transferencia ?? 0)));
+
+  doc.push(separador());
+  doc.push(texto('EL CAJÓN', { negrita: true }));
+  doc.push(dosColumnas('Fondo con que se abrió', formatear(c.fondo)));
+  doc.push(dosColumnas('Entró en efectivo', formatear(c.porMetodo.efectivo ?? 0)));
+  doc.push(dosColumnas('DEBE HABER', formatear(c.efectivoEsperado), { negrita: true }));
+
+  if (c.efectivoContado !== null) {
+    doc.push(dosColumnas('Se contó', formatear(c.efectivoContado)));
+    doc.push(salto());
+    if (c.diferencia === 0) {
+      doc.push(titulo('CUADRA'));
+    } else if (c.diferencia < 0) {
+      doc.push(titulo('FALTAN'));
+      doc.push(titulo(formatear(Math.abs(c.diferencia))));
+    } else {
+      doc.push(titulo('SOBRAN'));
+      doc.push(titulo(formatear(c.diferencia)));
+    }
+  } else {
+    doc.push(salto());
+    doc.push(texto('Falta contar el efectivo.', { alinear: 'centro' }));
+  }
+
+  // Lo que no se cobró: es donde se busca cuando algo no cuadra.
+  if (c.canceladas?.cuantas) {
+    doc.push(separador());
+    doc.push(texto('CUENTAS CANCELADAS', { negrita: true }));
+    for (const x of c.canceladas.lista) {
+      doc.push(dosColumnas(soloImprimible(x.nombre), formatear(x.total)));
+      doc.push(texto(`${soloImprimible(x.motivo ?? '')} · ${soloImprimible(x.usuario ?? '')}`, { sangria: 3 }));
+    }
+    doc.push(dosColumnas('Total no cobrado', formatear(c.canceladas.monto), { negrita: true }));
+  }
+
+  if (c.anulados) {
+    doc.push(separador());
+    doc.push(texto(`${c.anulados} ticket(s) anulado(s) en este turno.`));
+  }
+
+  if (c.masVendido?.length) {
+    doc.push(separador());
+    doc.push(texto('LO MÁS VENDIDO', { negrita: true }));
+    for (const p of c.masVendido) {
+      // Un producto regalado entero saldría con importe 0 y se leería como
+      // un error. Se dice qué fue.
+      const importe = p.importe === 0 && p.regaladas
+        ? 'cortesía'
+        : formatear(p.importe);
+      doc.push(dosColumnas(`${p.piezas} ${soloImprimible(p.nombre)}`, importe));
+    }
+  }
+
+  if (t.notas) {
+    doc.push(separador());
+    doc.push(texto('NOTAS', { negrita: true }));
+    doc.push(texto(soloImprimible(t.notas)));
+  }
+
+  doc.push(separador());
+  doc.push(texto('Firma: ______________________', { alinear: 'centro' }));
+  doc.push(cortar());
+  return doc;
+}
+
 /* ── PRUEBA (para calibrar) ────────────────────────────────────────────── */
 
 /**

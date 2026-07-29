@@ -446,3 +446,9 @@
   color: var(--verde-oscuro); padding: 16px 0;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Corte de caja ─────────────────────────────────────────────────────── */
+.bloque-corte { padding: 16px 18px; margin-bottom: 16px; }
+.bloque-corte .titulo-bloque:first-child { margin-top: 0; }
+.cambio-valor.falta, .cambio-grande.falta { color: var(--peligro); }
+.vacio .btn.grande { margin-top: 20px; display: inline-block; width: auto; padding: 16px 32px; }

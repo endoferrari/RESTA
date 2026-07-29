@@ -25,10 +25,13 @@ import {
   iniciarImpresora, iniciarAncho, cargarImpresora, pintarImpresora,
   ponerEstadoImpresion, alTocarFoquito, puedeVerImpresora,
 } from './vistas/impresora.js';
+import {
+  iniciarCorte, cargarCorte, pintarCorte, pintarAvisoDeCaja,
+} from './vistas/corte.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
 
-const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora'];
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora', 'corte'];
 
 function ir(vista) {
   estado.vista = vista;
@@ -53,6 +56,7 @@ function ir(vista) {
   if (vista === 'cobro')  pintarCobro();
   if (vista === 'carta')  pintarCarta();
   if (vista === 'impresora') pintarImpresora();
+  if (vista === 'corte') pintarCorte();
 }
 
 async function irACuenta(cuenta) {
@@ -65,6 +69,7 @@ async function irACuenta(cuenta) {
 async function volverAMesas() {
   estado.cuenta = null;
   await cargarMesas();
+  pintarAvisoDeCaja();
   ir('mesas');
 }
 
@@ -80,11 +85,13 @@ function ponerUsuario(r) {
   $('boton-ir-carta').hidden = !estado.permisos.includes('menu.ver');
   // El foquito de la impresora sólo le sirve a quien puede hacer algo con él.
   if (!puedeVerImpresora()) $('foquito').hidden = true;
+  // El corte es de caja y administración: el mesero no lo ve.
+  $('boton-ir-corte').hidden = !estado.permisos.includes('corte.ver');
 }
 
 async function entrar(r) {
   ponerUsuario(r);
-  await Promise.all([cargarCarta(), cargarMesas(), cargarImpresora()]);
+  await Promise.all([cargarCarta(), cargarMesas(), cargarImpresora(), cargarCorte()]);
   ir('mesas');
 }
 
@@ -115,6 +122,9 @@ conectar({
     // La impresora cambió de estado: se apagó, se quedó sin papel, o ya salió.
     if (mensaje.tipo === 'impresion.estado') ponerEstadoImpresion(mensaje.estado);
 
+    // Se abrió o se cerró la caja desde otra pantalla.
+    if (mensaje.tipo === 'turno.cambio') cargarCorte();
+
     // Se abrió o se cerró una mesa.
     if (mensaje.tipo === 'cuentas.cambio') cargarMesas();
 
@@ -123,6 +133,14 @@ conectar({
     if (mensaje.tipo === 'cuenta.cambio') {
       if (estado.cuenta && mensaje.cuentaId === estado.cuenta.id) refrescarCuenta();
       else cargarMesas();
+    }
+
+    // Si alguien está mirando el corte mientras en la caja se cobra, los
+    // números tienen que moverse solos. Si no, se cerraría la caja contra un
+    // total viejo y parecería que falta dinero.
+    if (estado.vista === 'corte' &&
+        ['cuenta.cambio', 'cuentas.cambio'].includes(mensaje.tipo)) {
+      cargarCorte();
     }
   },
 });
@@ -217,6 +235,12 @@ iniciarCobro(() => ir('cuenta'), volverAMesas);
 iniciarImpresora(volverAMesas);
 iniciarAncho();
 alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
+iniciarCorte(volverAMesas);
+
+$('boton-ir-corte').addEventListener('click', async () => {
+  await cargarCorte();
+  ir('corte');
+});
 
 $('boton-ir-cobrar').addEventListener('click', () => {
   empezarCobro();

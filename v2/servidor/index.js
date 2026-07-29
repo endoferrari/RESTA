@@ -24,6 +24,10 @@ import { registrarRutasSesion } from './rutas/sesion.js';
 import { registrarRutasCuentas } from './rutas/cuentas.js';
 import { registrarRutasCobro } from './rutas/cobro.js';
 import { registrarRutasImpresion } from './rutas/impresion.js';
+import { registrarRutasTurnos } from './rutas/turnos.js';
+import {
+  arrancarRespaldoAutomatico, detenerRespaldoAutomatico, respaldarAhora,
+} from '../datos/respaldo.js';
 import { alCambiarEstado } from '../impresion/index.js';
 import { registrarTiempoReal, avisarATodos } from './tiempo-real.js';
 
@@ -87,6 +91,7 @@ export async function crearServidor() {
   registrarRutasCuentas(app);
   registrarRutasCobro(app);
   registrarRutasImpresion(app);
+  registrarRutasTurnos(app);
   registrarTiempoReal(app);
 
   // El foquito de la impresora se enciende y se apaga solo en todas las
@@ -109,6 +114,10 @@ export async function arrancar() {
   console.log(`   carpeta: ${RAIZ}`);
   abrirBase();
   console.log(`   archivo: ${RUTA_BASE}`);
+
+  // Copia de seguridad cada hora, mientras RESTA esté prendido.
+  arrancarRespaldoAutomatico({ cadaMinutos: 60 });
+  console.log('   respaldo automático: cada hora');
 
   const app = await crearServidor();
   await app.listen({ port: PUERTO, host: DIRECCION });
@@ -138,6 +147,17 @@ export async function detener(app) {
   } catch (e) {
     console.error('   el servidor no cerró limpio:', e.message);
   }
+  detenerRespaldoAutomatico();
+
+  // Un último respaldo antes de apagar. Si algo le pasa a la laptop mientras
+  // está apagada, la copia ya está hecha.
+  try {
+    const r = await respaldarAhora('al-apagar');
+    console.log(`   respaldo guardado: ${r.archivo}`);
+  } catch (e) {
+    console.error('   no se pudo respaldar al apagar:', e.message);
+  }
+
   cerrarBase();
   console.log('   base de datos cerrada correctamente');
 }

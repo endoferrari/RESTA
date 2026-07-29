@@ -10,7 +10,10 @@
  */
 
 import { leerAjuste, escribirAjuste } from '../datos/repos/ajustes.js';
-import { comanda, cuenta as plantillaCuenta, ticket as plantillaTicket, prueba } from './plantillas.js';
+import {
+  comanda, cuenta as plantillaCuenta, ticket as plantillaTicket,
+  corte as plantillaCorte, prueba,
+} from './plantillas.js';
 import { encolar, configurarSalida } from './cola.js';
 import { MODOS } from './salidas.js';
 
@@ -119,6 +122,16 @@ export function imprimirTicket({ ticket, cuenta }) {
     'ticket',
     `ticket ${ticket.folio}`,
     { abrirCajon: huboEfectivo },
+  );
+}
+
+/** El corte de caja, que se guarda al cerrar el turno. */
+export function imprimirCorte({ corte }) {
+  const config = configuracion();
+  return mandar(
+    plantillaCorte({ negocio: config.negocio, corte }),
+    'corte',
+    `corte del turno ${corte.turno.id}`,
   );
 }
 

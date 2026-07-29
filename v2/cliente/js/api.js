@@ -174,4 +174,18 @@ export const api = {
   reintentarImpresion:  () => pedir('POST', '/api/impresion/reintentar'),
   cancelarImpresion:    (id) => pedir('DELETE', `/api/impresion/cola/${id}`),
   vaciarColaImpresion:  () => pedir('DELETE', '/api/impresion/cola'),
+
+  /* ── Turno y corte ── */
+  turno:       () => pedir('GET', '/api/turno'),
+  abrirTurno:  (fondo) => conFolio('POST', '/api/turno', { fondo }),
+  corte:       (turnoId = null) =>
+    pedir('GET', '/api/corte' + (turnoId ? `?turno=${turnoId}` : '')),
+  cerrarTurno: (efectivoContado, notas) =>
+    conFolio('POST', '/api/turno/cerrar', { efectivoContado, notas }),
+  turnos:      () => pedir('GET', '/api/turnos'),
+  imprimirCorte: (turnoId) => conFolio('POST', `/api/turno/${turnoId}/imprimir`),
+
+  /* ── Respaldos ── */
+  respaldos:      () => pedir('GET', '/api/respaldos'),
+  respaldarAhora: () => conFolio('POST', '/api/respaldos'),
 };

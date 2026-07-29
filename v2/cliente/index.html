@@ -27,6 +27,7 @@
     <div class="barra-nombre" id="nombre-negocio">RESTA</div>
     <div class="barra-acciones">
       <button class="btn btn-chico" id="boton-ir-mesas">🍽️ Mesas</button>
+      <button class="btn btn-chico" id="boton-ir-corte" hidden>🧮 Corte</button>
       <button class="btn btn-chico" id="boton-ir-carta" hidden>📋 Carta</button>
       <button class="foquito" id="foquito" title="Impresora" hidden></button>
       <span class="quien" id="quien-soy"></span>
@@ -126,7 +127,88 @@
       </form>
     </div>
 
+    <div id="aviso-caja" class="caja-aviso" hidden></div>
     <div id="lista-mesas" class="rejilla-mesas"></div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CORTE ══════════════════ -->
+  <section id="pantalla-corte" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-corte">← Mesas</button>
+      <div>
+        <h1 id="titulo-corte">Corte de caja</h1>
+        <div class="sub" id="sub-corte"></div>
+      </div>
+    </div>
+
+    <!-- Todavía no se abre la caja -->
+    <div id="corte-sin-turno" hidden>
+      <div class="vacio">
+        <div class="vacio-icono">🧮</div>
+        <div class="vacio-titulo">La caja no está abierta</div>
+        <div class="vacio-nota">
+          Antes de empezar la noche, abre la caja anotando con cuánto dinero
+          empieza el cajón. Sin eso, al final no hay contra qué comparar.<br>
+          Lo de siempre: <b id="fondo-sugerido">—</b>
+        </div>
+        <button class="btn btn-ambar grande" id="boton-abrir-caja">Abrir la caja</button>
+      </div>
+    </div>
+
+    <!-- Turno abierto -->
+    <div id="corte-con-turno" hidden>
+      <div class="dos-columnas">
+
+        <!-- izquierda: lo vendido -->
+        <div>
+          <div class="tarjeta bloque-corte">
+            <div class="titulo-bloque">Ventas del turno</div>
+            <div id="corte-ventas"></div>
+
+            <div class="titulo-bloque">Cómo pagaron</div>
+            <div id="corte-metodos"></div>
+          </div>
+
+          <div class="tarjeta bloque-corte" id="corte-canceladas" hidden></div>
+          <div class="tarjeta bloque-corte" id="corte-mas-vendido" hidden></div>
+        </div>
+
+        <!-- derecha: el cajón -->
+        <div class="columna-cobro">
+          <div class="titulo-bloque">El cajón</div>
+          <div id="corte-cajon"></div>
+
+          <div class="titulo-bloque">Cuenta el dinero que hay</div>
+          <div class="recibido-caja">
+            <span class="recibido-et">Contado</span>
+            <span class="recibido-valor dinero" id="corte-contado">—</span>
+          </div>
+
+          <div class="teclado teclado-dinero" id="corte-teclado">
+            <button data-tecla="1">1</button>
+            <button data-tecla="2">2</button>
+            <button data-tecla="3">3</button>
+            <button data-tecla="4">4</button>
+            <button data-tecla="5">5</button>
+            <button data-tecla="6">6</button>
+            <button data-tecla="7">7</button>
+            <button data-tecla="8">8</button>
+            <button data-tecla="9">9</button>
+            <button data-tecla="limpiar" class="tecla-borrar">C</button>
+            <button data-tecla="0">0</button>
+            <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+          </div>
+
+          <div class="cambio-caja" id="corte-diferencia"></div>
+
+          <div class="botones-cuenta">
+            <button class="btn btn-rojo ancho grande" id="boton-cerrar-caja">Cerrar la caja</button>
+            <button class="btn" id="boton-imprimir-corte">🖨️ Imprimir el corte</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
 

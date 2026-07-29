@@ -169,6 +169,15 @@ function cerrarCuenta({ cuenta, usuario }) {
     cerrado_nom: usuario?.nombre ?? null,
   });
 
+  // Se le pega el turno al ticket. Podría deducirse comparando horas, pero
+  // un turno que cruza la medianoche —lo normal en un bar— haría de eso un
+  // lío. Se busca aquí con una consulta suelta y no importando el módulo de
+  // turnos, para no cruzar las importaciones entre los dos archivos.
+  const turno = base().prepare('SELECT id FROM turnos WHERE cerrado IS NULL').get();
+  if (turno) {
+    base().prepare('UPDATE tickets SET turno_id = ? WHERE folio = ?').run(turno.id, folio);
+  }
+
   base().prepare(`
     UPDATE cuentas
        SET estado = 'cobrada', cerrada = datetime('now','localtime'), version = version + 1
