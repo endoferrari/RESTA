@@ -258,18 +258,28 @@
       </div>
     </div>
 
+    <!-- IZQUIERDA = la cuenta (qué se cobra) · DERECHA = el pago (cómo paga).
+         El bloque «Cuánto se cobra» va a la izquierda a propósito: cuando se
+         elige «Cada quien lo suyo» hay que marcar renglones ahí mismo. Antes
+         el botón estaba de un lado y lo que había que tocar del otro. -->
     <div class="dos-columnas">
-      <!-- izquierda: qué se está cobrando -->
+
+      <!-- ── LA CUENTA ── -->
       <div>
         <div class="ticket">
           <div class="ticket-lineas" id="cobro-renglones"></div>
           <div class="ticket-totales" id="cobro-resumen"></div>
         </div>
 
-        <div class="botones-cuenta">
+        <div class="titulo-bloque">Ajustes de la cuenta</div>
+        <div class="botones-cuenta fila">
           <button class="btn" id="boton-descuento">% Descuento</button>
           <button class="btn" id="boton-propina">＋ Propina</button>
         </div>
+
+        <div class="titulo-bloque">Cuánto se cobra ahora</div>
+        <div class="grupo-botones" id="cobro-modos"></div>
+        <p class="sutil" id="explica-modo-cobro"></p>
 
         <div id="cobro-pagos" class="bloque-pagos" hidden>
           <div class="titulo-bloque">Ya se pagó</div>
@@ -278,19 +288,31 @@
         </div>
       </div>
 
-      <!-- derecha: cómo se cobra -->
+      <!-- ── EL PAGO ── -->
       <div class="columna-cobro">
-        <div class="titulo-bloque">Cuánto</div>
-        <div class="grupo-botones" id="cobro-modos"></div>
+        <!-- Lo primero que se busca con la vista: cuánto hay que cobrar -->
+        <div class="a-cobrar">
+          <span class="a-cobrar-et" id="a-cobrar-et">A cobrar</span>
+          <span class="a-cobrar-valor dinero" id="a-cobrar-valor">$0.00</span>
+        </div>
 
         <div class="titulo-bloque">Cómo paga</div>
         <div class="grupo-botones" id="cobro-metodos"></div>
 
         <div id="cobro-efectivo">
           <div class="titulo-bloque">Con cuánto paga</div>
+
           <div class="recibido-caja">
             <span class="recibido-et">Recibido</span>
             <span class="recibido-valor dinero" id="cobro-recibido">—</span>
+          </div>
+
+          <!-- Lo más común primero: pago justo y los billetes de siempre -->
+          <div class="grupo-botones atajos-dinero" id="cobro-atajos">
+            <button type="button" class="op op-exacto" data-tecla="exacto">Pago justo</button>
+            <button type="button" class="op" data-tecla="billete:10000">$100</button>
+            <button type="button" class="op" data-tecla="billete:20000">$200</button>
+            <button type="button" class="op" data-tecla="billete:50000">$500</button>
           </div>
 
           <div class="teclado teclado-dinero" id="cobro-teclado">
@@ -306,15 +328,16 @@
             <button data-tecla="limpiar" class="tecla-borrar">C</button>
             <button data-tecla="0">0</button>
             <button data-tecla="borrar" class="tecla-borrar">⌫</button>
-            <button data-tecla="billete:10000" class="tecla-billete">$100</button>
-            <button data-tecla="billete:20000" class="tecla-billete">$200</button>
-            <button data-tecla="billete:50000" class="tecla-billete">$500</button>
           </div>
 
           <div class="cambio-caja" id="cobro-cambio"></div>
         </div>
 
         <button class="btn btn-verde ancho grande" id="boton-cobrar">Cobrar</button>
+        <p class="sutil pista-teclado">
+          También se puede teclear con el teclado de la laptop: números,
+          <b>⌫</b> para borrar y <b>Enter</b> para cobrar.
+        </p>
       </div>
     </div>
   </section>

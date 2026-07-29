@@ -527,3 +527,53 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
   border-radius: var(--radio-chico); padding: 10px 0; font-size: 1.5rem;
 }
 .rejilla-emojis button:hover { border-color: var(--ambar); background: var(--verde-claro); }
+
+/* ── Cobro: el importe a cobrar, arriba y en grande ─────────────────────
+   Es lo primero que busca la vista al llegar a esta pantalla. Antes sólo
+   aparecía escrito dentro del botón, al final de una columna larga. */
+.a-cobrar {
+  background: var(--verde-oscuro);
+  border-radius: var(--radio-chico);
+  padding: 14px 18px;
+  margin-bottom: 6px;
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+}
+.a-cobrar-et {
+  font-size: .72rem; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: #9fb5a8;
+}
+.a-cobrar-valor {
+  margin-left: auto;
+  font-size: 2.1rem; font-weight: 800; color: #fff;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.a-cobrar-valor.en-cero { color: #9fb5a8; }
+
+/* Atajos de efectivo: lo más común, de un toque.
+   «Pago justo» ocupa el renglón completo porque es el caso más frecuente;
+   los billetes van abajo en tres, del mismo tamaño que las teclas. */
+.atajos-dinero {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 12px;
+}
+.atajos-dinero .op { text-align: center; padding: 12px 4px; white-space: nowrap; }
+.atajos-dinero .op-exacto { grid-column: 1 / -1; }
+.op-exacto {
+  background: var(--verde-claro);
+  border-color: var(--verde-claro);
+  color: var(--verde-medio);
+  font-weight: 800;
+}
+.op-exacto:hover { border-color: var(--verde-medio); }
+
+.botones-cuenta.fila { flex-direction: row; flex-wrap: wrap; }
+.botones-cuenta.fila .btn { flex: 1; min-width: 140px; }
+
+.pista-teclado { margin-top: 12px; text-align: center; font-size: .8rem; }
+
+/* En pantallas angostas (una tablet en vertical) el teclado de dinero
+   se queda con teclas grandes en vez de encogerse. */
+@media (max-width: 900px) {
+  .columna-cobro { margin-top: 18px; }
+  .teclado-dinero button { padding: 18px 0; }
+}

@@ -41,10 +41,43 @@ export function iniciarCobro(cuandoVuelva, cuandoCierre) {
   $('cobro-modos').addEventListener('click', alTocarModo);
   $('cobro-metodos').addEventListener('click', alTocarMetodo);
   $('cobro-teclado').addEventListener('click', alTocarTecla);
+  $('cobro-atajos').addEventListener('click', alTocarTecla);
   $('boton-cobrar').addEventListener('click', cobrar);
   $('boton-descuento').addEventListener('click', preguntarDescuento);
   $('boton-propina').addEventListener('click', preguntarPropina);
   $('boton-anular-pago').addEventListener('click', anularPago);
+
+  // El teclado de la laptop. En la caja se cobra con las dos manos y buscar
+  // los números en pantalla con el ratón es lento; teclearlos es inmediato.
+  document.addEventListener('keydown', alTeclarFisico);
+}
+
+/**
+ * Teclado físico, sólo mientras se está en la pantalla de cobro.
+ * Si hay una ventanita abierta no se toca nada: ahí manda ella.
+ */
+function alTeclarFisico(e) {
+  if (estado.vista !== 'cobro') return;
+  if (document.querySelector('.fondo-ventana')) return;
+
+  // Si se está escribiendo en un campo, las teclas son suyas.
+  // (Se comprueba que sea un elemento: cuando la tecla no viene de ninguno,
+  //  `e.target` es el documento y no tiene `matches`.)
+  if (e.target instanceof Element && e.target.matches('input, textarea, select')) return;
+
+  if (/^\d$/.test(e.key) && metodo === 'efectivo') {
+    e.preventDefault();
+    meterTecla(e.key);
+  } else if (e.key === 'Backspace' && metodo === 'efectivo') {
+    e.preventDefault();
+    meterTecla('borrar');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!$('boton-cobrar').disabled) cobrar();
+  } else if (e.key === 'Escape' && recibido) {
+    e.preventDefault();
+    meterTecla('limpiar');
+  }
 }
 
 /** Se llama al entrar a la pantalla: deja todo como recién abierto. */
@@ -101,6 +134,13 @@ export function pintarCobro() {
   pintarPagos();
 
   const monto = aCobrar();
+
+  // El importe a cobrar, en grande y arriba de todo. Es lo primero que se
+  // busca con la vista al llegar a esta pantalla.
+  $('a-cobrar-valor').textContent = formatear(monto);
+  $('a-cobrar-et').textContent = c.totales.pagado > 0 ? 'A cobrar ahora' : 'A cobrar';
+  $('a-cobrar-valor').classList.toggle('en-cero', monto <= 0);
+
   $('boton-cobrar').disabled = monto <= 0;
   $('boton-cobrar').textContent = monto > 0
     ? `Cobrar ${formatear(monto)}`
@@ -159,6 +199,12 @@ function pintarResumen() {
      </div>`;
 }
 
+const EXPLICA_MODO = {
+  todo:      'Se cobra todo lo que falta de esta cuenta.',
+  parte:     'Se cobra sólo la cantidad que escribiste; la cuenta sigue abierta con el resto.',
+  renglones: 'Marca arriba, en la cuenta, los renglones de esta persona. El descuento y la propina se reparten en proporción.',
+};
+
 function pintarModos() {
   const opciones = [
     ['todo', 'Todo'],
@@ -168,6 +214,8 @@ function pintarModos() {
   $('cobro-modos').innerHTML = opciones.map(([clave, texto]) =>
     `<button class="op ${modo === clave ? 'activo' : ''}" data-modo="${clave}">${texto}</button>`
   ).join('') + '<button class="op" data-modo="dividir">Dividir entre…</button>';
+
+  $('explica-modo-cobro').textContent = EXPLICA_MODO[modo] ?? '';
 }
 
 function pintarMetodos() {
@@ -236,15 +284,16 @@ function aCentavosDelTeclado(texto) {
 
 function alTocarTecla(e) {
   const b = e.target.closest('[data-tecla]');
-  if (!b) return;
+  if (b) meterTecla(b.dataset.tecla);
+}
 
-  const t = b.dataset.tecla;
+function meterTecla(t) {
   if (t === 'borrar') recibido = recibido.slice(0, -1);
   else if (t === 'limpiar') recibido = '';
+  else if (t === 'exacto') recibido = String(aCobrar());       // pagó justo
   else if (t.startsWith('billete')) recibido = String(Number(t.split(':')[1]));
   else if (recibido.length < 8) recibido += t;
 
-  pintarEfectivo();
   pintarCobro();
 }
 
