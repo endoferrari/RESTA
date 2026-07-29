@@ -20,7 +20,7 @@ export function registrarTiempoReal(app) {
       socket: conexion,
       desde: peticion.ip,
       conectadaEn: Date.now(),
-      usuario: null,      // se llena cuando entra con su PIN (fase 3)
+      usuario: null,      // pendiente: identificar la pantalla con su pase
     };
 
     conectados.add(pantalla);

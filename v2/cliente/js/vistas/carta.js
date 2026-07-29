@@ -10,7 +10,7 @@
  */
 
 import { api } from '../api.js';
-import { estado, ponerMenu } from '../estado.js';
+import { estado, ponerMenu, puede } from '../estado.js';
 import { $, esc, avisar } from '../ui.js';
 import { formatear } from '/nucleo/dinero.js';
 
@@ -45,6 +45,10 @@ export async function cargarCarta() {
 
 export function pintarCarta() {
   const m = estado.menu;
+
+  // Importar un respaldo reescribe TODOS los precios. Un mesero puede mirar
+  // la carta —le sirve para consultar precios— pero no tocarla.
+  $('boton-importar').hidden = !puede('ajustes.cambiar');
 
   $('familias-carta').innerHTML = m.familias.map((f) => `
     <button data-familia="${esc(f.clave)}" class="${f.clave === estado.familiaActiva ? 'activo' : ''}">

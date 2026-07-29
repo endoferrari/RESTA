@@ -45,7 +45,10 @@ function pintarFoquito() {
   const e = datos.estado;
   const foco = $('foquito');
 
-  if (!e) { foco.hidden = true; return; }
+  // Ojo: esto se comprueba AQUÍ y no sólo al entrar. Antes se escondía al
+  // iniciar sesión pero volvía a aparecer en cuanto llegaba el primer aviso
+  // de la impresora, y a un mesero le salía un botón que no le sirve.
+  if (!e || !puedeVerImpresora()) { foco.hidden = true; return; }
 
   foco.hidden = false;
   foco.className = `foquito foquito-${e.luz}`;

@@ -533,13 +533,18 @@ async function cobrar() {
       }
 
       if (r.ticket) {
+        // Se dice qué pasó con el papel de verdad: si la impresora está
+        // apagada en los ajustes, o si el ticket quedó en la cola esperando,
+        // quien cobró tiene que enterarse ahí mismo.
+        const papel = r.impresion?.impreso
+          ? `Ticket ${r.ticket.folio} · va en camino a la impresora.`
+          : `Ticket ${r.ticket.folio} guardado. ${esc(r.impresion?.motivo ?? 'No se imprimió.')}`;
+
         partes.push(`
           <p class="texto-ventana" style="text-align:center">
             <b>${esc(r.cuenta.nombre)}</b> quedó pagada ·
             total <b>${formatear(r.ticket.totales.total)}</b><br>
-            <span style="color:var(--tinta-suave);font-size:.88rem">
-              Ticket ${r.ticket.folio} guardado. La impresión llega en la fase 5.
-            </span>
+            <span style="color:var(--tinta-suave);font-size:.88rem">${papel}</span>
           </p>`);
       }
 

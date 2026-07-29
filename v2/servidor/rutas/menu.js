@@ -14,14 +14,42 @@ import { todosLosAjustes } from '../../datos/repos/ajustes.js';
 import { importarV1, resumirImportacion } from '../../datos/importar-v1.js';
 import { conFolio } from '../idempotencia.js';
 import { avisarATodos } from '../tiempo-real.js';
+import { exigir } from '../auth.js';
+
+/**
+ * Lo único que se enseña ANTES de entrar con PIN.
+ *
+ * La pantalla del PIN necesita el nombre del bar para ponerlo en el título,
+ * y nada más. Todo lo demás —la dirección de la impresora, la configuración—
+ * sólo lo ve quien ya entró. Una tablet ajena conectada al WiFi no tiene por
+ * qué poder leer cómo está armado el sistema.
+ */
+const AJUSTES_PUBLICOS = ['negocio.nombre'];
 
 export function registrarRutasMenu(app) {
 
   /** La carta completa, como la pinta la pantalla de venta. */
-  app.get('/api/menu', async () => ({ ok: true, ...menuCompleto() }));
+  app.get('/api/menu', async (peticion) => {
+    exigir(peticion, 'menu.ver');
+    return { ok: true, ...menuCompleto() };
+  });
 
-  /** Los ajustes del negocio (nombre, ticket, impresora). */
-  app.get('/api/ajustes', async () => ({ ok: true, ajustes: todosLosAjustes() }));
+  /** Los ajustes. Sin entrar, sólo se ve el nombre del negocio. */
+  app.get('/api/ajustes', async (peticion) => {
+    const todos = todosLosAjustes();
+
+    let usuario = null;
+    try { usuario = exigir(peticion, 'menu.ver'); } catch { /* sin sesión */ }
+
+    if (usuario) return { ok: true, ajustes: todos };
+
+    return {
+      ok: true,
+      ajustes: Object.fromEntries(
+        AJUSTES_PUBLICOS.filter((c) => c in todos).map((c) => [c, todos[c]])
+      ),
+    };
+  });
 
   /**
    * Importar el respaldo .json de la v1.3.0.
@@ -33,6 +61,11 @@ export function registrarRutasMenu(app) {
   app.post('/api/menu/importar', {
     bodyLimit: 32 * 1024 * 1024,
   }, async (peticion) => {
+    // Esto REESCRIBE todos los precios de la carta. Sólo el administrador.
+    // Sin esta línea, cualquiera conectado al WiFi del bar —sin siquiera
+    // entrar con PIN— podía dejar toda la carta en un centavo.
+    exigir(peticion, 'ajustes.cambiar');
+
     const datos = peticion.body;
 
     const informe = conFolio(peticion, '/api/menu/importar', () => importarV1(datos));
