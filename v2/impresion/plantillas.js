@@ -222,7 +222,11 @@ export function corte({ negocio, corte: c }) {
   doc.push(texto('CÓMO PAGARON', { negrita: true }));
   doc.push(dosColumnas('Efectivo', formatear(c.porMetodo.efectivo ?? 0)));
   doc.push(dosColumnas('Tarjeta', formatear(c.porMetodo.tarjeta ?? 0)));
-  doc.push(dosColumnas('Transferencia', formatear(c.porMetodo.transferencia ?? 0)));
+  // La transferencia sólo se imprime si se usó: si no, es un renglón en cero
+  // que gasta papel todos los días.
+  if ((c.porMetodo.transferencia ?? 0) > 0) {
+    doc.push(dosColumnas('Transferencia', formatear(c.porMetodo.transferencia)));
+  }
 
   doc.push(separador());
   doc.push(texto('EL CAJÓN', { negrita: true }));

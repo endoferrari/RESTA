@@ -202,14 +202,14 @@ function pintarResumen() {
 const EXPLICA_MODO = {
   todo:      'Se cobra todo lo que falta de esta cuenta.',
   parte:     'Se cobra sólo la cantidad que escribiste; la cuenta sigue abierta con el resto.',
-  renglones: 'Marca arriba, en la cuenta, los renglones de esta persona. El descuento y la propina se reparten en proporción.',
+  renglones: 'Marca arriba los productos que se pagan ahora. Los demás quedan pendientes y la mesa sigue abierta. El descuento y la propina se reparten en proporción.',
 };
 
 function pintarModos() {
   const opciones = [
     ['todo', 'Todo'],
     ['parte', 'Una cantidad'],
-    ['renglones', 'Cada quien lo suyo'],
+    ['renglones', 'Sólo unos productos'],
   ];
   $('cobro-modos').innerHTML = opciones.map(([clave, texto]) =>
     `<button class="op ${modo === clave ? 'activo' : ''}" data-modo="${clave}">${texto}</button>`
@@ -219,10 +219,12 @@ function pintarModos() {
 }
 
 function pintarMetodos() {
+  // Sin transferencia: en ONCE no se usa y era un botón más que estorbaba.
+  // El servidor la sigue aceptando, así que si algún día se ocupa se vuelve
+  // a poner aquí y ya está.
   const opciones = [
     ['efectivo', '💵 Efectivo'],
     ['tarjeta', '💳 Tarjeta'],
-    ['transferencia', '📱 Transferencia'],
   ];
   $('cobro-metodos').innerHTML = opciones.map(([clave, texto]) =>
     `<button class="op ${metodo === clave ? 'activo' : ''}" data-metodo="${clave}">${texto}</button>`
@@ -548,7 +550,7 @@ async function cobrar() {
   const cuerpo = { metodo, version: c.version };
 
   if (modo === 'renglones') {
-    if (seleccion.size === 0) return avisar('Elige qué renglones se cobran.', true);
+    if (seleccion.size === 0) return avisar('Marca arriba qué productos se cobran.', true);
     cuerpo.lineas = [...seleccion];
   } else if (modo === 'parte') {
     cuerpo.monto = montoParte;

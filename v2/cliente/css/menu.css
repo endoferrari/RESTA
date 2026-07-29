@@ -20,14 +20,23 @@
 .cabecera .sub { color: var(--tinta-suave); font-size: .86rem; margin-top: 2px; }
 .cabecera .acciones { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
 
+/* TODOS los botones se tocan con el dedo, no con el ratón.
+   48 px de alto mínimo: es la medida por debajo de la cual un dedo empieza a
+   fallar. En una tablet apoyada en la barra, con prisa y las manos ocupadas,
+   un botón chico se convierte en dos intentos. */
 .btn {
   border: 1.5px solid var(--linea);
   background: var(--tarjeta);
   color: var(--tinta);
   border-radius: 99px;
-  padding: 10px 18px;
+  padding: 12px 22px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font-weight: 700;
-  font-size: .9rem;
+  font-size: .95rem;
 }
 .btn:hover { border-color: var(--tinta-suave); }
 .btn-ambar {

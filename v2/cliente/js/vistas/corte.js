@@ -132,7 +132,13 @@ export function pintarCorte() {
     `<div class="fila-total fila-gran"><span>Total vendido</span>
        <span class="dinero">${formatear(c.total)}</span></div>` + regalado;
 
-  $('corte-metodos').innerHTML = ['efectivo', 'tarjeta', 'transferencia'].map((m) => `
+  // Efectivo y tarjeta salen siempre, aunque estén en cero: si un día no
+  // entró nada en efectivo, eso mismo es un dato. La transferencia sólo
+  // aparece si de verdad se usó; si no, es un renglón en cero que estorba.
+  const metodos = ['efectivo', 'tarjeta']
+    .concat((c.porMetodo.transferencia ?? 0) > 0 ? ['transferencia'] : []);
+
+  $('corte-metodos').innerHTML = metodos.map((m) => `
     <div class="fila-total sutil">
       <span>${nombreMetodo(m)}</span>
       <span class="dinero">${formatear(c.porMetodo[m] ?? 0)}</span>
