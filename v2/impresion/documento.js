@@ -38,8 +38,13 @@ export const separador = (caracter = '-') => ({ tipo: 'separador', caracter });
 export const salto = (cuantos = 1) => ({ tipo: 'salto', cuantos });
 export const cortar = () => ({ tipo: 'cortar' });
 
-/** Deja constancia de dónde iría el logo mientras no se pueda rasterizar. */
-export const logo = () => ({ tipo: 'logo' });
+/**
+ * El logo del ticket.
+ * `raster` son los puntos ya calculados (los dibuja el navegador una vez y
+ * se guardan). Si no hay, el bloque no imprime nada: más vale un ticket sin
+ * logo que un ticket con basura.
+ */
+export const logo = (raster = null) => ({ tipo: 'logo', raster });
 
 /* ── Acomodar el texto ─────────────────────────────────────────────────── */
 

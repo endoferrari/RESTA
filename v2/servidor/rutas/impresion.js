@@ -12,6 +12,7 @@
 import {
   estadoImpresion, configuracion, guardarConfiguracion, imprimirPrueba,
   imprimirTicket, cancelar, vaciar, reintentarYa, MODOS, impresorasDeWindows,
+  guardarLogo,
 } from '../../impresion/index.js';
 import { buscarTicket } from '../../datos/repos/cobro.js';
 import { buscarCuenta } from '../../datos/repos/cuentas.js';
@@ -56,6 +57,20 @@ export function registrarRutasImpresion(app) {
     });
 
     return { ok: true, configuracion: config, estado: estadoImpresion() };
+  });
+
+  /**
+   * Guarda el logo del ticket, ya convertido a puntos.
+   *
+   * Lo dibuja el navegador —Node no sabe dibujar— y lo manda una sola vez.
+   * De ahí en adelante el ticket sale con logo sin volver a dibujarlo.
+   */
+  app.put('/api/impresion/logo', { bodyLimit: 2 * 1024 * 1024 }, async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const r = guardarLogo(peticion.body?.raster ?? null);
+
+    anotarEvento({ tipo: 'impresora.logo', usuario, detalle: r });
+    return { ok: true, ...r };
   });
 
   /** La tira de calibración. */

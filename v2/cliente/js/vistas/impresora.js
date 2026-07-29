@@ -13,6 +13,7 @@
 import { api } from '../api.js';
 import { estado, puede } from '../estado.js';
 import { $, esc, avisar, confirmar } from '../ui.js';
+import { LOGO_TICKET, rasterizarLogo } from '../logo-once.js';
 
 let alVolver = null;
 let datos = { estado: null, configuracion: null, modos: [], esWindows: false };
@@ -26,6 +27,10 @@ export function iniciarImpresora(cuandoVuelva) {
   $('form-impresora').addEventListener('submit', guardar);
   $('boton-prueba').addEventListener('click', hacerPrueba);
   $('boton-reintentar').addEventListener('click', reintentar);
+  $('boton-mandar-logo').addEventListener('click', mandarLogo);
+
+  // Se enseña en blanco y negro, que es como va a salir en el papel.
+  $('logo-vista').innerHTML = LOGO_TICKET;
   $('cola-impresion').addEventListener('click', alTocarCola);
 }
 
@@ -189,6 +194,25 @@ async function hacerPrueba() {
     avisar(r.impreso
       ? 'Prueba mandada a la impresora'
       : r.motivo ?? 'La impresora está apagada en los ajustes', !r.impreso);
+  } catch (e) {
+    avisar(e.message, true);
+  }
+}
+
+/**
+ * Convierte el logo a puntos y lo manda al servidor.
+ *
+ * Se hace AQUÍ y no en el servidor porque para pasar un dibujo a puntos hay
+ * que dibujarlo, y el navegador sabe dibujar; Node no. Se hace una sola vez
+ * y de ahí en adelante el ticket sale con logo.
+ */
+async function mandarLogo() {
+  try {
+    const anchoDelPapel = datos.configuracion?.anchoMm === 58 ? 384 : 576;
+    const raster = await rasterizarLogo({ anchoDelPapel });
+
+    await api.guardarLogoTicket(raster);
+    avisar('Logo guardado. Los próximos tickets ya salen con él.');
   } catch (e) {
     avisar(e.message, true);
   }

@@ -27,13 +27,10 @@
        A la izquierda, como en la v1.3.0: la navegación no le quita alto al
        área de trabajo, que es donde de verdad se necesita el espacio. -->
   <aside id="lateral" hidden>
-    <div class="marca-lateral">
-      <div class="marca-icono">🍽️</div>
-      <div class="marca-textos">
-        <div class="marca-nombre-lateral" id="nombre-negocio">RESTA</div>
-        <div class="marca-sub">punto de venta</div>
-      </div>
-    </div>
+    <!-- El logo va dibujado, no es un archivo: se ve nítido a cualquier
+         tamaño y no hay nada que se pueda borrar por accidente. -->
+    <div class="marca-logo" id="logo-lateral"></div>
+    <div class="marca-sub marca-sub-centro" id="nombre-negocio">RESTA</div>
 
     <nav id="menu-lateral">
       <button class="nav-btn" id="boton-ir-mesas"><span>🍽️</span> Mesas y cuentas</button>
@@ -420,6 +417,16 @@
         <input type="checkbox" id="impresora-activa">
         <span>Imprimir. Si lo apagas, RESTA sigue cobrando pero no sale papel.</span>
       </label>
+
+      <div class="titulo-bloque">Logo del ticket</div>
+      <div class="caja-logo">
+        <div class="logo-vista" id="logo-vista"></div>
+        <p class="sutil">
+          El logo va dibujado, no es una foto. Para que salga en la térmica hay
+          que convertirlo a puntos una sola vez: eso lo hace esta pantalla.
+        </p>
+        <button class="btn" type="button" id="boton-mandar-logo">📤 Mandar el logo a la impresora</button>
+      </div>
 
       <div class="botones-cuenta">
         <button class="btn btn-ambar" type="submit">Guardar</button>

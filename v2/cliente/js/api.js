@@ -176,6 +176,7 @@ export const api = {
   impresorasDeWindows:  () => pedir('GET', '/api/impresion/impresoras'),
   guardarImpresora:     (config) => pedir('PUT', '/api/impresion', config),
   pruebaDeImpresion:    () => conFolio('POST', '/api/impresion/prueba'),
+  guardarLogoTicket:    (raster) => pedir('PUT', '/api/impresion/logo', { raster }),
   reintentarImpresion:  () => pedir('POST', '/api/impresion/reintentar'),
   cancelarImpresion:    (id) => pedir('DELETE', `/api/impresion/cola/${id}`),
   vaciarColaImpresion:  () => pedir('DELETE', '/api/impresion/cola'),

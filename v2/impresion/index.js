@@ -35,7 +35,41 @@ export function configuracion() {
     // Si está apagada, RESTA no imprime nada. Sirve para trabajar sin papel
     // un rato sin que se llene la cola de tickets que nadie va a ver.
     activa:    leerAjuste('impresora.activa', '1') === '1',
+    // Los puntos del logo, dibujados una vez por el navegador y guardados.
+    // Si no hay, el ticket sale sin logo y ya.
+    logoRaster: leerLogo(),
   };
+}
+
+/** El logo guardado, o null si todavía no se ha mandado desde la pantalla. */
+function leerLogo() {
+  const guardado = leerAjuste('ticket.logo_raster', '');
+  if (!guardado) return null;
+  try {
+    const r = JSON.parse(guardado);
+    return r?.bytes ? r : null;
+  } catch {
+    return null;      // si quedó mal guardado, mejor sin logo que con basura
+  }
+}
+
+/** Guarda el logo ya convertido a puntos. Lo manda la pantalla una sola vez. */
+export function guardarLogo(raster) {
+  if (raster === null) {
+    escribirAjuste('ticket.logo_raster', '');
+    return { guardado: false };
+  }
+
+  const { bytes, anchoEnBytes, alto } = raster ?? {};
+  if (!bytes || !Number.isInteger(anchoEnBytes) || !Number.isInteger(alto)) {
+    throw new Error('Ese logo no llegó bien; vuelve a mandarlo desde la pantalla.');
+  }
+  if (alto > 600 || anchoEnBytes > 100) {
+    throw new Error('Ese logo es demasiado grande para la impresora.');
+  }
+
+  escribirAjuste('ticket.logo_raster', JSON.stringify({ bytes, anchoEnBytes, alto }));
+  return { guardado: true, alto, anchoEnBytes };
 }
 
 /**
@@ -103,7 +137,7 @@ export function imprimirComanda({ cuenta, salieron, mesero }) {
 export function imprimirCuenta({ cuenta }) {
   const config = configuracion();
   return mandar(
-    plantillaCuenta({ negocio: config.negocio, cuenta, pie: config.pie }),
+    plantillaCuenta({ negocio: config.negocio, cuenta, pie: config.pie, logoRaster: config.logoRaster }),
     'cuenta',
     `cuenta de ${cuenta.nombre}`,
   );
@@ -118,7 +152,7 @@ export function imprimirTicket({ ticket, cuenta }) {
   const huboEfectivo = (ticket.pagos ?? []).some((p) => p.metodo === 'efectivo');
 
   return mandar(
-    plantillaTicket({ negocio: config.negocio, ticket, cuenta, pie: config.pie }),
+    plantillaTicket({ negocio: config.negocio, ticket, cuenta, pie: config.pie, logoRaster: config.logoRaster }),
     'ticket',
     `ticket ${ticket.folio}`,
     { abrirCajon: huboEfectivo },
@@ -129,7 +163,7 @@ export function imprimirTicket({ ticket, cuenta }) {
 export function imprimirCorte({ corte }) {
   const config = configuracion();
   return mandar(
-    plantillaCorte({ negocio: config.negocio, corte }),
+    plantillaCorte({ negocio: config.negocio, corte, logoRaster: config.logoRaster }),
     'corte',
     `corte del turno ${corte.turno.id}`,
   );
@@ -139,7 +173,7 @@ export function imprimirCorte({ corte }) {
 export function imprimirPrueba() {
   const config = configuracion();
   return mandar(
-    prueba({ negocio: config.negocio, anchoMm: config.anchoMm }),
+    prueba({ negocio: config.negocio, anchoMm: config.anchoMm, logoRaster: config.logoRaster }),
     'prueba',
     'prueba de impresión',
   );

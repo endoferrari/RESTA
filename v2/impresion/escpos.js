@@ -154,11 +154,16 @@ export function aBytes(documento, { anchoMm = 80, abrirCajon = false } = {}) {
         for (let i = 0; i < bloque.cuantos; i++) cinta.meter(0x0A);
         break;
 
-      case 'logo':
-        // Pendiente: el logo de ONCE es un SVG y convertirlo a puntos
-        // necesita dibujarlo primero. Mientras tanto no se imprime nada:
-        // más vale un ticket sin logo que un ticket con basura.
+      case 'logo': {
+        // Los puntos los dibujó el navegador una sola vez y se guardaron.
+        // Aquí sólo se mandan. Si no hay logo guardado, no se imprime nada.
+        if (!bloque.raster?.bytes) break;
+
+        cinta.comando('centro');
+        for (const b of rasterABytes(bloque.raster)) cinta.bytes.push(b);
+        cinta.comando('izquierda');
         break;
+      }
 
       case 'cortar':
         cinta.comando('corte');

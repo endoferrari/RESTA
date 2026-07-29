@@ -16,6 +16,7 @@ import { conectar } from './conexion.js';
 import { estado, ponerMenu } from './estado.js';
 import { $, esc, avisar, cerrarVentana } from './ui.js';
 import { svgQR } from './qr.js';
+import { LOGO_COLOR } from './logo-once.js';
 
 import { iniciarPin, pintarPin } from './vistas/pin.js';
 import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
@@ -306,6 +307,10 @@ $('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta')
 $('boton-ir-mesas').addEventListener('click', volverAMesas);
 
 async function arrancar() {
+  // El logo de ONCE, dibujado. No es un archivo: no hay nada que se pueda
+  // perder ni que se vea borroso en una pantalla grande.
+  $('logo-lateral').innerHTML = LOGO_COLOR;
+
   revisar();
 
   try {

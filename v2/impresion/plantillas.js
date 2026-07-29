@@ -31,10 +31,10 @@ function ahora() {
 }
 
 /** El encabezado que llevan todos: logo, nombre del negocio y fecha. */
-function encabezado(negocio, subtitulo = null) {
+function encabezado(negocio, subtitulo = null, raster = null) {
   const { fecha, hora } = ahora();
   const bloques = [
-    logo(),
+    logo(raster),
     titulo(soloImprimible(negocio)),
     salto(),
   ];
@@ -100,9 +100,9 @@ export function comanda({ negocio, cuenta, salieron, mesero }) {
 
 /* ── CUENTA (la que pide el cliente) ───────────────────────────────────── */
 
-export function cuenta({ negocio, cuenta: c, pie }) {
+export function cuenta({ negocio, cuenta: c, pie, logoRaster = null }) {
   const t = c.totales;
-  const doc = [...encabezado(negocio, 'CUENTA')];
+  const doc = [...encabezado(negocio, 'CUENTA', logoRaster)];
 
   doc.push(texto(soloImprimible(c.nombre), { negrita: true }));
   doc.push(separador());
@@ -129,8 +129,8 @@ export function cuenta({ negocio, cuenta: c, pie }) {
 
 /* ── TICKET (ya pagó) ──────────────────────────────────────────────────── */
 
-export function ticket({ negocio, ticket: t, cuenta: c, pie }) {
-  const doc = [...encabezado(negocio)];
+export function ticket({ negocio, ticket: t, cuenta: c, pie, logoRaster = null }) {
+  const doc = [...encabezado(negocio, null, logoRaster)];
 
   doc.push(dosColumnas(`Ticket ${t.folio}`, soloImprimible(t.nombre), { negrita: true }));
   if (t.cerradoPor) doc.push(texto(`Le atendió: ${soloImprimible(t.cerradoPor)}`));
@@ -190,9 +190,9 @@ function totales(t) {
  * Por eso la diferencia va en letras grandes al final, y si falta dinero lo
  * dice con todas sus letras en vez de con un número negativo.
  */
-export function corte({ negocio, corte: c }) {
+export function corte({ negocio, corte: c, logoRaster = null }) {
   const t = c.turno;
-  const doc = [...encabezado(negocio, 'CORTE DE CAJA')];
+  const doc = [...encabezado(negocio, 'CORTE DE CAJA', logoRaster)];
 
   doc.push(dosColumnas('Turno', `#${t.id}`, { negrita: true }));
   doc.push(dosColumnas('Abrió', soloImprimible(t.abiertoPor ?? '—')));
@@ -301,11 +301,11 @@ export function corte({ negocio, corte: c }) {
  *   · que el ancho del papel esté bien configurado,
  *   · que el corte no se coma el último renglón.
  */
-export function prueba({ negocio, anchoMm }) {
+export function prueba({ negocio, anchoMm, logoRaster = null }) {
   const { fecha, hora } = ahora();
 
   return [
-    ...encabezado(negocio, 'PRUEBA DE IMPRESION'),
+    ...encabezado(negocio, 'PRUEBA DE IMPRESION', logoRaster),
 
     texto('Si lees esto completo y derecho,', { alinear: 'centro' }),
     texto('la impresora esta bien configurada.', { alinear: 'centro' }),
