@@ -93,6 +93,39 @@ test('apagar una familia la esconde de la venta pero no borra nada', () => {
   assert.ok(listarFamilias().some((f) => f.clave === 'Comida'));
 });
 
+test('una familia vacía SÍ sale en la pantalla de venta', () => {
+  // Antes se escondían las que no tenían productos y quien acababa de crear
+  // una no la veía por ningún lado: no había forma de saber si se guardó.
+  crearFamilia({ nombre: 'Recién creada', emoji: '🆕' });
+
+  const enLaVenta = menuCompleto().familias.map((f) => f.nombre);
+  assert.ok(enLaVenta.includes('Recién creada'));
+});
+
+test('esconder una familia SÍ la quita de la venta', () => {
+  const f = familiasConCuenta().find((x) => x.nombre === 'Recién creada');
+  editarFamilia({ clave: f.clave, activa: false });
+
+  assert.ok(!menuCompleto().familias.some((x) => x.nombre === 'Recién creada'),
+    'lo que se esconde a propósito sí se va');
+});
+
+test('renombrar una familia no permite que otra choque con su clave vieja', () => {
+  // Caso real: «Souvenirs» renombrada a «CANCHAS». Su clave interna sigue
+  // siendo «Souvenirs». Crear ahora una familia llamada «Souvenirs» no debe
+  // quedarse con esa misma clave.
+  const original = crearFamilia({ nombre: 'Temporal', emoji: '📦' });
+  editarFamilia({ clave: original.clave, nombre: 'Renombrada' });
+
+  const nueva = crearFamilia({ nombre: 'Temporal' });
+
+  assert.notEqual(nueva.clave, original.clave);
+  assert.notEqual(nueva.clave.toLowerCase(), original.clave.toLowerCase());
+
+  editarFamilia({ clave: original.clave, activa: false });
+  editarFamilia({ clave: nueva.clave, activa: false });
+});
+
 test('las familias se pueden reordenar', () => {
   const antes = familiasConCuenta().map((f) => f.clave);
   moverFamilia({ clave: antes[1], haciaArriba: true });

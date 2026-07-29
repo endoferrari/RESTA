@@ -185,6 +185,95 @@ export function registrarRutasConfiguracion(app) {
     return { ok: true, producto: conTextoDeOpciones(producto) };
   });
 
+  /**
+   * IMPORTAR PRODUCTOS de una lista (CSV o Excel).
+   *
+   * El archivo lo lee y lo entiende la PANTALLA; aquí llegan ya renglones
+   * limpios. Se hace así porque leer un Excel es descomprimirlo y el
+   * navegador ya sabe hacerlo, mientras que el servidor tendría que aprender.
+   *
+   * Un renglón malo NO detiene la importación: se salta y se reporta por
+   * nombre, igual que en el importador del respaldo de la v1.
+   */
+  app.post('/api/productos/importar', async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const { renglones, crearFamiliasNuevas = true } = peticion.body ?? {};
+
+    if (!Array.isArray(renglones) || renglones.length === 0) {
+      throw alto('No llegó ningún producto que importar.');
+    }
+    if (renglones.length > 2000) {
+      throw alto('Son demasiados renglones de una vez. Pártelo en varios archivos.');
+    }
+
+    const informe = { nuevos: 0, actualizados: 0, familiasCreadas: [], omitidos: [] };
+
+    // Las familias que ya hay, por nombre en minúsculas, para reconocerlas
+    // aunque en el archivo vengan escritas de otra forma.
+    const porNombre = new Map(
+      familiasConCuenta().map((f) => [f.nombre.toLowerCase(), f.clave])
+    );
+
+    for (const r of renglones) {
+      const nombre = String(r?.nombre ?? '').trim();
+
+      try {
+        if (!nombre) throw new Error('no trae nombre');
+
+        const precio = Number(r?.precio);
+        if (!Number.isInteger(precio)) throw new Error('el precio no se entiende');
+
+        // La familia: se busca por nombre y, si no está, se crea.
+        const pedida = String(r?.familia ?? '').trim();
+        let familia;
+
+        if (!pedida) {
+          familia = porNombre.values().next().value;
+          if (!familia) throw new Error('no hay ninguna familia donde ponerlo');
+        } else if (porNombre.has(pedida.toLowerCase())) {
+          familia = porNombre.get(pedida.toLowerCase());
+        } else if (crearFamiliasNuevas) {
+          const nueva = crearFamilia({ nombre: pedida });
+          porNombre.set(nueva.nombre.toLowerCase(), nueva.clave);
+          informe.familiasCreadas.push(nueva.nombre);
+          familia = nueva.clave;
+        } else {
+          throw new Error(`la familia «${pedida}» no existe`);
+        }
+
+        const opciones = r?.submenu ? parseOpciones(r.submenu) : null;
+        const yaEstaba = listarProductos({ soloActivos: false })
+          .find((p) => p.familia === familia && p.nombre.toLowerCase() === nombre.toLowerCase());
+
+        if (yaEstaba) {
+          editarProducto({
+            id: yaEstaba.id, nombre, precio, familia,
+            icono: r?.icono || yaEstaba.icono,
+            opciones: opciones ?? undefined,
+            activo: true,
+          });
+          informe.actualizados++;
+        } else {
+          crearProducto({ nombre, precio, familia, icono: r?.icono || '🍽️', opciones });
+          informe.nuevos++;
+        }
+      } catch (e) {
+        informe.omitidos.push({ nombre: nombre || '(sin nombre)', motivo: e.message });
+      }
+    }
+
+    anotarEvento({
+      tipo: 'productos.importar', usuario,
+      detalle: {
+        nuevos: informe.nuevos, actualizados: informe.actualizados,
+        omitidos: informe.omitidos.length, familias: informe.familiasCreadas,
+      },
+    });
+    avisarCarta();
+
+    return { ok: true, informe, menu: menuCompleto() };
+  });
+
   /** La carta como la ve la venta, para refrescar tras configurar. */
   app.get('/api/menu/completo', async (peticion) => {
     exigir(peticion, 'menu.ver');

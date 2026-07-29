@@ -70,12 +70,18 @@ export function crearFamilia({ nombre, emoji = '🍽️' }) {
     .get(limpio);
   if (yaEsta) throw new Error(`Ya existe una familia llamada «${limpio}».`);
 
-  // Si la clave se repite (por acentos), se le agrega un número.
+  // Si la clave se repite, se le agrega un número.
+  //
+  // La comparación va en minúsculas a propósito: si una familia se llamaba
+  // «Souvenirs» y se renombró a «CANCHAS», su clave interna sigue siendo
+  // «Souvenirs». Sin esto, crear una familia nueva llamada «Souvenirs»
+  // generaría la clave «souvenirs» —distinta para la base, igualita a la
+  // vista— y quedarían dos familias imposibles de distinguir.
+  const existe = base().prepare('SELECT 1 FROM familias WHERE lower(clave) = lower(?)');
+
   let clave = claveDesde(limpio);
   let n = 2;
-  while (base().prepare('SELECT 1 FROM familias WHERE clave = ?').get(clave)) {
-    clave = `${claveDesde(limpio)}-${n++}`;
-  }
+  while (existe.get(clave)) clave = `${claveDesde(limpio)}-${n++}`;
 
   const { ultimo } = base().prepare('SELECT COALESCE(max(orden), 0) AS ultimo FROM familias').get();
 
@@ -361,15 +367,17 @@ export function apagarProducto(id) {
 /* ── El menú completo, como lo pide la pantalla de venta ────────────────── */
 
 export function menuCompleto() {
-  const familias = listarFamilias();
+  // Salen TODAS las familias activas, aunque estén vacías.
+  //
+  // Antes se escondían las que no tenían productos, pensando que una pestaña
+  // vacía le estorba al mesero. Fue un error: quien acaba de crear una
+  // familia no la veía por ningún lado y no podía saber si se había guardado.
+  // Si una familia molesta, se esconde a propósito desde la configuración —
+  // que el sistema haga lo que uno configuró, sin filtros escondidos.
   const productos = listarProductos();
 
-  // Sólo se muestran las pestañas que tienen algo adentro: una familia vacía
-  // en la pantalla del mesero nada más estorba.
-  const conProductos = familias.filter((f) => productos.some((p) => p.familia === f.clave));
-
   return {
-    familias: conProductos,
+    familias: listarFamilias(),
     productos,
     total: productos.length,
   };

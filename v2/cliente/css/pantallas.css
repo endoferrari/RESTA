@@ -746,6 +746,10 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
 
 /* La historia: «¿y por qué hay 38?» */
 .historia { max-height: 55vh; overflow-y: auto; }
+
+/* La vista previa de una importación NO lleva barra propia: la ventana ya
+   tiene la suya y dos barras encimadas se pelean con el dedo. */
+.lista-previa { border-top: 1px dashed var(--linea); }
 .mov {
   display: flex; gap: 10px; align-items: flex-start;
   padding: 9px 0; border-bottom: 1px dashed var(--linea);

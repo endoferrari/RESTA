@@ -67,6 +67,21 @@ function pintarFamilias() {
 function pintarProductos() {
   const dela = estado.menu.productos.filter((p) => p.familia === estado.familiaActiva);
 
+  // Una familia recién creada no tiene nada. Se dice, en vez de dejar el
+  // hueco en blanco y que uno crea que algo falló.
+  if (dela.length === 0) {
+    const familia = estado.menu.familias.find((f) => f.clave === estado.familiaActiva);
+    $('productos-cuenta').innerHTML = `
+      <div class="vacio">
+        <div class="vacio-icono">${esc(familia?.emoji ?? '🍽️')}</div>
+        <div class="vacio-titulo">«${esc(familia?.nombre ?? '')}» todavía no tiene productos</div>
+        <div class="vacio-nota">
+          Se agregan en <b>⚙️ Configurar → Productos</b>.
+        </div>
+      </div>`;
+    return;
+  }
+
   $('productos-cuenta').innerHTML = dela.map((p, i) => `
     <button class="prod-tile c${(i % 8) + 1}" data-producto="${p.id}">
       ${p.opciones ? '<span class="tiene-submenu">⚙️</span>' : ''}

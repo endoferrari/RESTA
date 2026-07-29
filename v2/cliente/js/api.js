@@ -203,6 +203,7 @@ export const api = {
   editarProducto: (id, p) => pedir('PUT', `/api/productos/${id}`, p),
   darDeBajaProducto: (id) => pedir('DELETE', `/api/productos/${id}`),
   activarProducto:   (id) => conFolio('POST', `/api/productos/${id}/activar`),
+  importarProductos: (renglones) => conFolio('POST', '/api/productos/importar', { renglones }),
 
   /* ── Almacén ── */
   almacen:      (dias = null) => pedir('GET', '/api/almacen' + (dias ? `?dias=${dias}` : '')),
