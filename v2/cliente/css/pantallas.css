@@ -676,3 +676,18 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
 .teclado-caja .tecla-exacto { font-size: .88rem; }
 
 .pista-teclado { margin-top: 10px; font-size: .76rem; }
+
+/* ── QR para emparejar tablets ──────────────────────────────────────────
+   Se calcula dentro de RESTA, sin internet: el día de la instalación es
+   justo cuando no hay red y cuando más falta hace. */
+.qr-tablet {
+  background: #fff;
+  border-radius: var(--radio-chico);
+  padding: 10px;
+  width: 210px; max-width: 100%;
+  margin: 10px auto 12px;
+  box-shadow: var(--sombra);
+}
+.qr-tablet svg { width: 100%; height: auto; display: block; }
+.caja-red .url { text-align: center; }
+.caja-red .et { text-align: center; }

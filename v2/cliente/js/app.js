@@ -15,6 +15,7 @@ import { api, paseGuardado, guardarPase } from './api.js';
 import { conectar } from './conexion.js';
 import { estado, ponerMenu } from './estado.js';
 import { $, esc, avisar, cerrarVentana } from './ui.js';
+import { svgQR } from './qr.js';
 
 import { iniciarPin, pintarPin } from './vistas/pin.js';
 import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
@@ -229,11 +230,17 @@ async function revisar() {
         </span>
       </div>`).join('');
 
+    // El QR se calcula aquí dentro, sin internet: el día de la instalación
+    // es justo cuando no hay red y cuando más falta hace.
     $('red').innerHTML = d.red?.hayRed
       ? `<div class="caja-red">
-           <div class="et">Escribe esto en el navegador de la tablet</div>
+           <div class="et">Apúntale la cámara de la tablet</div>
+           <div class="qr-tablet">${svgQR(d.red.principal.url)}</div>
            <div class="url">${esc(d.red.principal.url)}</div>
-           <div class="nota">Equipo: ${esc(d.red.equipo)} · Red: ${esc(d.red.principal.interfaz)}</div>
+           <div class="nota">
+             Si la cámara no lo lee, escribe esa dirección en el navegador.<br>
+             Equipo: ${esc(d.red.equipo)} · Red: ${esc(d.red.principal.interfaz)}
+           </div>
          </div>`
       : `<div class="caja-aviso">
            La laptop no está conectada a ninguna red. Conéctala al WiFi del local
