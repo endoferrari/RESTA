@@ -13,7 +13,7 @@
  */
 
 import { buscarCuenta, ponerCortesia, ponerDescuento, ponerPropina } from '../../datos/repos/cuentas.js';
-import { registrarCobro, anularUltimoPago, buscarTicket } from '../../datos/repos/cobro.js';
+import { registrarCobro, cerrarSinCobro, anularUltimoPago, buscarTicket } from '../../datos/repos/cobro.js';
 import { dividirRestante } from '../../nucleo/cuenta.js';
 import { exigir } from '../auth.js';
 import { conFolio } from '../idempotencia.js';
@@ -142,6 +142,27 @@ export function registrarRutasCobro(app) {
     }
 
     return { ok: true, ...r, impresion };
+  });
+
+  /**
+   * CERRAR UNA MESA QUE VA TODA DE CORTESÍA.
+   * No hay nada que cobrar, pero la mercancía sí salió: hay que cerrarla para
+   * que el almacén se entere y para que la mesa se libere.
+   */
+  app.post('/api/cuentas/:id/cerrar-cortesia', async (peticion) => {
+    const usuario = exigir(peticion, 'cobro.registrar');
+    const cuentaId = Number(peticion.params.id);
+    const { motivo = null, version } = peticion.body ?? {};
+
+    traerCuenta(cuentaId, version);
+
+    const r = conFolio(peticion, '/api/cuentas/:id/cerrar-cortesia', () =>
+      cerrarSinCobro({ cuentaId, motivo, usuario }));
+
+    avisarATodos('cuenta.cambio', { cuentaId, version: r.cuenta.version });
+    avisarATodos('cuentas.cambio', { cerro: cuentaId });
+
+    return { ok: true, ...r, impresion: imprimirTicket({ ticket: r.ticket, cuenta: r.cuenta }) };
   });
 
   /** Deshacer el último pago (se tecleó mal, o se cobró en la mesa equivocada). */

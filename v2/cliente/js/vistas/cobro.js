@@ -140,10 +140,53 @@ export function pintarCobro() {
   $('a-cobrar-et').textContent = c.totales.pagado > 0 ? 'A cobrar ahora' : 'A cobrar';
   $('a-cobrar-valor').classList.toggle('en-cero', monto <= 0);
 
-  $('boton-cobrar').disabled = monto <= 0;
-  $('boton-cobrar').textContent = monto > 0
-    ? `Cobrar ${formatear(monto)}`
-    : 'Elige cuánto cobrar';
+  // Una mesa 100% de cortesía —la del dueño, la del cumpleaños— no se cobra,
+  // pero SÍ hay que cerrarla: si no, la mesa se queda ocupada para siempre y
+  // esas cervezas nunca salen del almacén aunque salieron del refrigerador.
+  todoCortesia = c.items.length > 0 && c.totales.total === 0 && c.totales.pagado === 0;
+
+  $('boton-cobrar').disabled = !todoCortesia && monto <= 0;
+  $('boton-cobrar').classList.toggle('btn-ambar', !todoCortesia);
+  $('boton-cobrar').textContent = todoCortesia
+    ? '🎁 Cerrar: todo va de cortesía'
+    : monto > 0
+      ? `Cobrar ${formatear(monto)}`
+      : 'Elige cuánto cobrar';
+}
+
+/** ¿Esta cuenta se cierra sin cobrar? Lo decide pintarTotales. */
+let todoCortesia = false;
+
+/** Cerrar sin cobrar. Se confirma: no hay vuelta atrás y no entra dinero. */
+async function cerrarPorCortesia() {
+  const c = estado.cuenta;
+
+  const seguro = await confirmar(
+    'Cerrar sin cobrar',
+    `${c.items.length === 1 ? 'El único renglón' : `Los ${c.items.length} renglones`} ` +
+    `de «${esc(c.nombre)}» va${c.items.length === 1 ? '' : 'n'} de cortesía: ` +
+    'no entra nada a la caja.<br><br>' +
+    'La mercancía <b>sí</b> se descuenta del almacén — salió del refrigerador igual.',
+    'Sí, cerrar de cortesía',
+  );
+  if (!seguro) return;
+
+  try {
+    const r = await api.cerrarCortesia(c.id, 'Cuenta completa de cortesía', c.version);
+
+    await ventana({
+      titulo: `Cuenta cerrada · ticket ${r.ticket.folio}`,
+      cuerpo: `<p class="texto-ventana" style="text-align:center">
+                 <b>${esc(r.cuenta.nombre)}</b> se cerró de cortesía.<br>
+                 <span class="sutil">No entró dinero. El almacén ya se ajustó.</span>
+               </p>`,
+      botones: [{ texto: 'Listo', valor: true, clase: 'btn-ambar' }],
+    });
+
+    alCerrarCuenta?.();
+  } catch (e) {
+    avisar(e.message, true);
+  }
 }
 
 function pintarRenglones() {
@@ -545,6 +588,8 @@ async function preguntarCantidad() {
 /* ── Cobrar ────────────────────────────────────────────────────────────── */
 
 async function cobrar() {
+  if (todoCortesia) return cerrarPorCortesia();
+
   const c = estado.cuenta;
   const cuerpo = { metodo, version: c.version };
 

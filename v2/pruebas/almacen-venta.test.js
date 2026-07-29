@@ -23,7 +23,7 @@ process.env.RESTA_DATOS = CARPETA;
 
 let abrirBase, cerrarBase;
 let abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta;
-let registrarCobro, abrirTurno;
+let registrarCobro, cerrarSinCobro, abrirTurno;
 let existenciaDe, registrarCompra, registrarMerma, registrarConteo,
     existencias, queComprar, vendidoHoy, configurarProducto, aQuienDescuenta,
     movimientosDe;
@@ -48,7 +48,7 @@ before(async () => {
   ({ abrirBase, cerrarBase } = await import('../datos/conexion.js'));
   ({ abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta } =
     await import('../datos/repos/cuentas.js'));
-  ({ registrarCobro } = await import('../datos/repos/cobro.js'));
+  ({ registrarCobro, cerrarSinCobro } = await import('../datos/repos/cobro.js'));
   ({ abrirTurno } = await import('../datos/repos/turnos.js'));
   ({
     existenciaDe, registrarCompra, registrarMerma, registrarConteo,
@@ -174,6 +174,42 @@ test('una cortesía TAMBIÉN baja el almacén: salió del refrigerador igual', (
   registrarCobro({ cuentaId: cuenta.id, metodo: 'efectivo', recibido: total, usuario: CAJA });
 
   assert.equal(existenciaDe(cerveza.id), antes - 2, 'las regaladas también salieron');
+});
+
+/* ── La mesa que va toda de cortesía ───────────────────────────────────── */
+
+test('una mesa 100% de cortesía se puede cerrar y SÍ baja el almacén', () => {
+  // La mesa del dueño, la ronda del cumpleaños. El total queda en cero, así
+  // que no hay nada que cobrar; antes la mesa se quedaba abierta para siempre
+  // y esas cervezas nunca salían del inventario aunque salieron del refri.
+  const antes = existenciaDe(cerveza.id);
+
+  const { cuenta } = abrirCuenta({ nombre: '206', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 3, usuario: ANA });
+
+  const c = buscarCuenta(cuenta.id);
+  ponerCortesia({
+    cuentaId: cuenta.id, lineaId: c.items[0].id, esCortesia: true,
+    motivo: 'Mesa del dueño', usuario: CAJA,
+  });
+  assert.equal(buscarCuenta(cuenta.id).totales.total, 0);
+
+  const r = cerrarSinCobro({ cuentaId: cuenta.id, motivo: 'Mesa del dueño', usuario: CAJA });
+
+  assert.ok(r.ticket, 'tiene que quedar su ticket, aunque sea de cero');
+  assert.equal(existenciaDe(cerveza.id), antes - 3);
+  assert.equal(buscarCuenta(cuenta.id).estado, 'cobrada');
+});
+
+test('cerrar sin cobrar NO sirve para una cuenta que sí debe', () => {
+  // Si esto pasara, sería la puerta para cerrar cuentas sin cobrarlas.
+  const { cuenta } = abrirCuenta({ nombre: '207', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 2, usuario: ANA });
+
+  assert.throws(
+    () => cerrarSinCobro({ cuentaId: cuenta.id, usuario: CAJA }),
+    /todavía debe/,
+  );
 });
 
 test('lo que no se controla no mueve el almacén', () => {

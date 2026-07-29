@@ -38,6 +38,20 @@ export function iniciarAlmacen(cuandoVuelva) {
   $('boton-limpiar-captura').addEventListener('click', limpiarCaptura);
   $('almacen-dias').addEventListener('click', alCambiarDias);
   $('almacen-config').addEventListener('click', alTocarConfig);
+
+  $('config-almacen-familias').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fam-config]');
+    if (!b) return;
+    familiaConfig = b.dataset.famConfig;
+    pintarConfiguracion();
+  });
+
+  // Se filtra al teclear, sin botón de buscar: con 137 productos, tener que
+  // apretar «buscar» cada vez cansa a la tercera.
+  $('buscar-config-almacen').addEventListener('input', (e) => {
+    buscado = e.target.value;
+    pintarConfiguracion();
+  });
 }
 
 /* ── Cargar ────────────────────────────────────────────────────────────── */
@@ -103,6 +117,19 @@ function pintarExistencias() {
       </div>`;
     return;
   }
+
+  // Recién cargado el inventario no hay ni una venta con qué proyectar. Antes
+  // la pantalla se pintaba entera de verde, que se lee como «todo bien»
+  // cuando en realidad es «todavía no sé nada».
+  const sinDatos = datos.existencias.filter((p) => p.semaforo.color === 'gris').length;
+
+  $('nota-sin-ventas').hidden = sinDatos === 0;
+  $('nota-sin-ventas').innerHTML = sinDatos === datos.existencias.length
+    ? `⏳ Todavía no hay ventas registradas, así que no se puede decir para
+       cuántos días alcanza. En cuanto cobres unas cuantas cuentas, cada
+       renglón se pinta de verde, ámbar o rojo solo.`
+    : `⏳ ${sinDatos} producto(s) no se han vendido todavía: de ésos no se
+       puede calcular cuántos días alcanzan.`;
 
   $('almacen-existencias').innerHTML = datos.existencias.map((p) => `
     <div class="fila-almacen sem-${p.semaforo.color}" data-producto="${p.id}">
@@ -257,12 +284,27 @@ function pintarComprar() {
   ).join('');
 
   if (lista.length === 0) {
-    $('almacen-compras').innerHTML = `
-      <div class="vacio">
-        <div class="vacio-icono">👍</div>
-        <div class="vacio-titulo">No hace falta comprar nada</div>
-        <div class="vacio-nota">Con lo que hay alcanza los próximos ${diasACubrir} días.</div>
-      </div>`;
+    // Una lista vacía por falta de ventas NO es lo mismo que una lista vacía
+    // porque alcanza. Decir «no hace falta comprar nada» sin una sola venta
+    // detrás es exactamente el consejo que deja al bar sin cerveza.
+    const nuncaSeVendio = datos.existencias.length > 0 &&
+      datos.existencias.every((p) => p.semaforo.color === 'gris');
+
+    $('almacen-compras').innerHTML = nuncaSeVendio
+      ? `<div class="vacio">
+           <div class="vacio-icono">⏳</div>
+           <div class="vacio-titulo">Todavía no puedo decirte qué comprar</div>
+           <div class="vacio-nota">
+             Esta lista sale de lo que se vende cada día de la semana, y
+             todavía no hay ventas registradas.<br>
+             Después de unos días de trabajo aparece sola.
+           </div>
+         </div>`
+      : `<div class="vacio">
+           <div class="vacio-icono">👍</div>
+           <div class="vacio-titulo">No hace falta comprar nada</div>
+           <div class="vacio-nota">Con lo que hay alcanza los próximos ${diasACubrir} días.</div>
+         </div>`;
     return;
   }
 
@@ -400,42 +442,162 @@ async function verHistoria(productoId) {
 
 /* ── Qué se controla ───────────────────────────────────────────────────── */
 
+/** Lo que se teclea en el buscador y qué familia se está viendo. */
+let buscado = '';
+let familiaConfig = '*';
+
+const sinAcentos = (s) =>
+  String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 function pintarConfiguracion() {
-  const controlables = datos.configuracion;
+  const todos = datos.configuracion;
 
-  $('almacen-config').innerHTML = controlables.map((p) => `
-    <div class="fila-almacen ${p.controla ? '' : 'apagado'}" data-config="${p.id}">
-      <span class="fila-icono">${esc(p.icono || '📦')}</span>
+  const controlados = todos.filter((p) => p.controla).length;
+  const mezclas = todos.filter((p) => p.gastaNombre).length;
 
-      <span class="alm-texto">
-        <span class="alm-nombre">${esc(p.nombre)}</span>
-        <span class="alm-cuanto">
-          ${p.gastaNombre
-            ? `gasta 1 <b>${esc(p.gastaNombre)}</b>`
-            : p.controla
-              ? `1 ${esc(p.envase)} = ${p.porcionesPorEnvase} ${esc(p.unidad)}(s)`
-              : 'no se controla'}
+  // Las familias que de verdad hay, para no pintar pestañas vacías
+  const familias = [...new Set(todos.map((p) => p.familia))];
+
+  // El filtro es lo que hace usable esta pantalla. Con 137 productos, una
+  // lista corrida no sirve para nada: encontrar «Coca cola» sería rodar la
+  // pantalla medio minuto.
+  const visibles = todos.filter((p) => {
+    if (familiaConfig === 'mios' && !p.controla && !p.gastaNombre) return false;
+    if (familiaConfig !== '*' && familiaConfig !== 'mios' && p.familia !== familiaConfig) return false;
+    if (buscado && !sinAcentos(p.nombre).includes(sinAcentos(buscado))) return false;
+    return true;
+  });
+
+  $('config-almacen-resumen').innerHTML = `
+    <b>${controlados}</b> producto(s) se controlan de ${todos.length}${
+      mezclas ? ` · <b>${mezclas}</b> mezcla(s) gastan de otro` : ''}`;
+
+  $('config-almacen-familias').innerHTML = [
+    ['*', `Todos (${todos.length})`],
+    ['mios', `⚙️ Los que llevo (${controlados + mezclas})`],
+    ...familias.map((f) => [f, f]),
+  ].map(([clave, texto]) =>
+    `<button class="op ${familiaConfig === clave ? 'activo' : ''}" data-fam-config="${esc(clave)}">${esc(texto)}</button>`
+  ).join('');
+
+  if (visibles.length === 0) {
+    $('almacen-config').innerHTML = `
+      <div class="vacio">
+        <div class="vacio-icono">🔍</div>
+        <div class="vacio-titulo">Nada con ese nombre</div>
+      </div>`;
+    return;
+  }
+
+  // Con las familias a la vista, un encabezado por familia ubica de un vistazo
+  let ultimaFamilia = null;
+
+  $('almacen-config').innerHTML = visibles.map((p) => {
+    const cabecera = p.familia !== ultimaFamilia && familiaConfig === '*'
+      ? `<div class="titulo-bloque">${esc(ultimaFamilia = p.familia)}</div>`
+      : ((ultimaFamilia = p.familia), '');
+
+    return cabecera + `
+      <div class="fila-almacen ${p.controla || p.gastaNombre ? '' : 'apagado'}" data-config="${p.id}">
+        <span class="fila-icono">${esc(p.icono || '📦')}</span>
+
+        <span class="alm-texto">
+          <span class="alm-nombre">${esc(p.nombre)}</span>
+          <span class="alm-cuanto">
+            ${p.gastaNombre
+              ? `🔗 gasta 1 <b>${esc(p.gastaNombre)}</b>`
+              : p.controla
+                ? `1 ${esc(p.envase)} = ${p.porcionesPorEnvase} ${esc(p.unidad)}(s)`
+                : 'no lo llevas en almacén'}
+          </span>
         </span>
-      </span>
 
-      <span class="fila-acciones">
-        ${p.gastaNombre ? '' : `
-          <button class="btn btn-chico" data-controlar="${p.id}">
-            ${p.controla ? '✔ Se controla' : 'No se controla'}
-          </button>`}
-        ${p.controla && !p.gastaNombre
-          ? `<button class="btn btn-chico" data-envase="${p.id}" title="Cuántas trae lo que compras">✏️ ${p.porcionesPorEnvase}</button>`
-          : ''}
-      </span>
-    </div>`).join('');
+        <span class="fila-acciones">
+          ${p.gastaNombre
+            ? `<button class="btn btn-chico" data-mezcla="${p.id}">🔗 Cambiar</button>
+               <button class="btn btn-chico" data-quitar-mezcla="${p.id}">✕</button>`
+            : p.controla
+              ? `<button class="btn btn-chico" data-envase="${p.id}"
+                         title="Cuántas trae lo que compras">✏️ 1 ${esc(p.envase)} = ${p.porcionesPorEnvase}</button>
+                 <button class="btn btn-chico" data-controlar="${p.id}">✔ Se controla</button>`
+              : `<button class="btn btn-chico btn-ambar" data-controlar="${p.id}">➕ Controlar</button>
+                 <button class="btn btn-chico" data-mezcla="${p.id}"
+                         title="Esta bebida se hace con otra">🔗 Gasta de…</button>`}
+        </span>
+      </div>`;
+  }).join('');
+}
+
+/** «Esta michelada, ¿de qué cerveza sale?» */
+async function pedirMezcla(producto) {
+  const candidatos = datos.configuracion.filter((x) => x.controla && x.id !== producto.id);
+
+  if (candidatos.length === 0) {
+    avisar('Primero controla el producto del que sale, por ejemplo la cerveza.', true);
+    return;
+  }
+
+  const elegido = await ventana({
+    titulo: `${producto.icono} ${producto.nombre}`,
+    cuerpo: `
+      <p class="texto-ventana">
+        Al vender uno de éstos, ¿de qué producto sale la mercancía?<br>
+        <span class="sutil">
+          Una michelada baja <b>una cerveza</b> del refrigerador. Las salsas,
+          el limón y el hielo no se llevan: complican el inventario y no
+          mueven la aguja.
+        </span>
+      </p>
+      <label class="etiqueta-campo" for="mezcla-de">Gasta de</label>
+      <select class="campo" id="mezcla-de">
+        ${candidatos.map((c) =>
+          `<option value="${c.id}" ${c.id === producto.gastaDe ? 'selected' : ''}>
+             ${esc(c.icono || '📦')} ${esc(c.nombre)}
+           </option>`).join('')}
+      </select>`,
+    botones: [
+      { texto: 'Cancelar', valor: null },
+      {
+        texto: 'Guardar', clase: 'btn-ambar',
+        valor: (v) => Number(v.querySelector('#mezcla-de').value),
+      },
+    ],
+  });
+
+  if (!elegido) return;
+
+  try {
+    await api.guardarConfigAlmacen(producto.id, { gastaDe: elegido });
+    datos.configuracion = (await api.configAlmacen()).productos;
+    pintarConfiguracion();
+    avisar('Guardado');
+  } catch (e) { avisar(e.message, true); }
 }
 
 async function alTocarConfig(e) {
+  const dame = (attr, nodo) =>
+    datos.configuracion.find((x) => x.id === Number(nodo.dataset[attr]));
+
   const controlar = e.target.closest('[data-controlar]');
   if (controlar) {
-    const p = datos.configuracion.find((x) => x.id === Number(controlar.dataset.controlar));
+    const p = dame('controlar', controlar);
     try {
       await api.guardarConfigAlmacen(p.id, { controla: !p.controla });
+      datos.configuracion = (await api.configAlmacen()).productos;
+      pintarConfiguracion();
+      avisar(p.controla ? `${p.nombre} ya no se lleva` : `${p.nombre} ya se controla`);
+    } catch (err) { avisar(err.message, true); }
+    return;
+  }
+
+  const mezcla = e.target.closest('[data-mezcla]');
+  if (mezcla) return pedirMezcla(dame('mezcla', mezcla));
+
+  const quitar = e.target.closest('[data-quitar-mezcla]');
+  if (quitar) {
+    const p = dame('quitarMezcla', quitar);
+    try {
+      await api.guardarConfigAlmacen(p.id, { gastaDe: null });
       datos.configuracion = (await api.configAlmacen()).productos;
       pintarConfiguracion();
     } catch (err) { avisar(err.message, true); }

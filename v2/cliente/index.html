@@ -460,6 +460,7 @@
         Lo grande de cada renglón es <b>cuántos días alcanza</b>, no cuántos hay.
         Es la pregunta que de verdad se hace uno.
       </p>
+      <p class="caja-aviso" id="nota-sin-ventas" hidden></p>
       <div id="almacen-existencias"></div>
     </div>
 
@@ -485,9 +486,15 @@
     <!-- ── Qué se controla ── -->
     <div id="almacen-ajustes" hidden>
       <p class="sutil">
-        Empieza por pocos: los que de verdad duelen. Controlar 55 productos es
+        Empieza por pocos: los que de verdad duelen. Controlar toda la carta es
         la forma más rápida de abandonar un inventario.
       </p>
+      <p class="sutil" id="config-almacen-resumen"></p>
+
+      <input class="campo campo-buscar" id="buscar-config-almacen" type="search"
+             placeholder="🔍 Buscar producto…" autocomplete="off">
+
+      <div class="grupo-botones" id="config-almacen-familias"></div>
       <div id="almacen-config"></div>
     </div>
   </section>

@@ -137,6 +137,44 @@ export function registrarCobro({
 }
 
 /**
+ * CERRAR UNA CUENTA QUE NO SE COBRA.
+ *
+ * Pasa de verdad: la mesa del dueño, la ronda del cumpleaños, el proveedor.
+ * Todo va como cortesía y el total queda en cero.
+ *
+ * Sin esto la mesa se quedaba abierta para siempre —cobrar cero no se puede,
+ * y no hay nada que cobrar— y, lo peor, **la mercancía nunca salía del
+ * almacén**: esas cervezas salieron del refrigerador igual que las vendidas,
+ * pero el inventario seguía contándolas.
+ */
+export function cerrarSinCobro({ cuentaId, motivo = null, usuario }) {
+  return enTransaccion(() => {
+    exigirAbierta(cuentaId);
+
+    const cuenta = buscarCuenta(cuentaId);
+
+    if (cuenta.items.length === 0) {
+      throw new Error('Esta cuenta no tiene nada anotado. Ciérrala cancelándola.');
+    }
+    // El freno importa: si quedara un peso por cobrar, esto sería una puerta
+    // para cerrar cuentas sin pagarlas.
+    if (cuenta.totales.total > 0) {
+      throw new Error(
+        `Esta cuenta todavía debe ${cuenta.totales.total / 100}. Sólo se puede ` +
+        'cerrar así cuando TODO va de cortesía.'
+      );
+    }
+
+    anotarEvento({
+      tipo: 'cuenta.cortesia_total', referencia: cuentaId, usuario,
+      detalle: { renglones: cuenta.items.length, bruto: cuenta.totales.bruto, motivo },
+    });
+
+    return { cuenta: buscarCuenta(cuentaId), ticket: cerrarCuenta({ cuenta, usuario }) };
+  });
+}
+
+/**
  * Cierra la cuenta y le hace su ticket.
  * Los números se copian tal cual están AHORA. No se vuelven a calcular nunca:
  * el corte de hace tres meses tiene que dar lo mismo aunque después se hayan

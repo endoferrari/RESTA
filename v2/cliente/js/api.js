@@ -160,6 +160,9 @@ export const api = {
    * Cobrar. La pantalla NUNCA manda el total: manda cómo paga y, si acaso,
    * cuánto o qué renglones. El servidor calcula el resto.
    */
+  cerrarCortesia: (cuentaId, motivo, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/cerrar-cortesia`, { motivo, version }),
+
   cobrar: (cuentaId, { metodo, monto = null, recibido = null, lineas = null,
                        referencia = null, version } = {}) =>
     conFolio('POST', `/api/cuentas/${cuentaId}/cobrar`,

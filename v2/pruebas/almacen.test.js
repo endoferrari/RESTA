@@ -119,9 +119,11 @@ test('lo que se acabó sale en rojo y lo dice con esas palabras', () => {
   assert.deepEqual(semaforo(0, 7), { color: 'rojo', texto: 'se acabó' });
 });
 
-test('lo que no se vende no molesta con avisos', () => {
-  assert.equal(semaforo(Infinity, 7).color, 'verde');
-  assert.match(semaforo(Infinity, 7).texto, /no se vende/);
+test('sin ventas registradas el semáforo se calla, no dice que todo va bien', () => {
+  // Antes esto era verde con el texto «no se vende». Recién cargado el
+  // inventario toda la pantalla salía verde sin una sola venta detrás.
+  assert.equal(semaforo(Infinity, 7).color, 'gris');
+  assert.match(semaforo(Infinity, 7).texto, /sin ventas/);
 });
 
 /* ── La lista de compras ───────────────────────────────────────────────── */

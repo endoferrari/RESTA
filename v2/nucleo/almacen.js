@@ -70,23 +70,34 @@ export const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'vier
  * el fin de semana y de más para entre semana. Aquí se miran sólo los mismos
  * días de la semana.
  *
- * Si de ese día no hay historia todavía, se cae al promedio general en vez
- * de decir cero — un cero haría creer que no hace falta comprar.
+ * EL DENOMINADOR IMPORTA TANTO COMO EL NUMERADOR. En `ventasPorFecha` sólo
+ * hay renglón para los días en que SÍ se vendió algo: un martes sin ventas
+ * no aparece. Dividir entre «los días que aparecen» cuenta sólo los buenos y
+ * saca el doble de lo real. Por eso se pasa la ventana observada —desde
+ * cuándo se lleva el registro— y se divide entre TODOS los martes que
+ * cayeron dentro, hayan vendido o no.
+ *
+ * Sin ventana no hay más remedio que caer al promedio general, que es lo que
+ * pasa los primeros días, cuando todavía no hay de dónde.
  *
  * @param ventasPorFecha  { 'AAAA-MM-DD': cantidad }
  * @param diaSemana       0 = domingo … 6 = sábado
+ * @param ventana         { desde, hasta } en 'AAAA-MM-DD'
  */
-export function consumoEsperado(ventasPorFecha, diaSemana) {
+export function consumoEsperado(ventasPorFecha, diaSemana, { desde = null, hasta = null } = {}) {
   const fechas = Object.keys(ventasPorFecha);
   if (fechas.length === 0) return 0;
 
   const delDia = fechas.filter((f) => diaDeLaSemana(f) === diaSemana);
+  const totalDelDia = delDia.reduce((n, f) => n + ventasPorFecha[f], 0);
 
-  if (delDia.length > 0) {
-    const total = delDia.reduce((n, f) => n + ventasPorFecha[f], 0);
-    return total / delDia.length;
-  }
+  const veces = desde && hasta ? vecesQueCayo(diaSemana, desde, hasta) : 0;
+  if (veces > 0) return totalDelDia / veces;
 
+  if (delDia.length > 0) return totalDelDia / delDia.length;
+
+  // De ese día no hay nada: el promedio general antes que un cero, que haría
+  // creer que ese día no hace falta comprar.
   const total = fechas.reduce((n, f) => n + ventasPorFecha[f], 0);
   return total / fechas.length;
 }
@@ -97,6 +108,22 @@ export function diaDeLaSemana(fecha) {
   return new Date(Date.UTC(a, m - 1, d)).getUTCDay();
 }
 
+/** Cuántos martes (por ejemplo) hubo entre dos fechas, contando las dos. */
+export function vecesQueCayo(diaSemana, desde, hasta) {
+  const a = Date.UTC(...String(desde).split('-').map((n, i) => i === 1 ? Number(n) - 1 : Number(n)));
+  const b = Date.UTC(...String(hasta).split('-').map((n, i) => i === 1 ? Number(n) - 1 : Number(n)));
+  if (b < a) return 0;
+
+  const cuantosDias = Math.floor((b - a) / 86400000) + 1;
+  const primero = new Date(a).getUTCDay();
+
+  let veces = Math.floor(cuantosDias / 7);
+  for (let i = 0; i < cuantosDias % 7; i++) {
+    if ((primero + i) % 7 === diaSemana) veces++;
+  }
+  return veces;
+}
+
 /**
  * Cuántos días alcanza lo que hay, contando día por día hacia adelante
  * (no un promedio): así, si hoy es viernes, cuenta viernes, sábado, domingo…
@@ -104,25 +131,35 @@ export function diaDeLaSemana(fecha) {
  *
  * Devuelve `Infinity` si no se consume nada, y 0 si ya no hay existencia.
  */
-export function diasDeCobertura(existencia, ventasPorFecha, desdeDiaSemana, tope = 60) {
+export function diasDeCobertura(existencia, ventasPorFecha, desdeDiaSemana, { tope = 60, ...ventana } = {}) {
   if (existencia <= 0) return 0;
+
+  // Sin una sola venta registrada no hay con qué calcularlo. Infinity aquí
+  // NO quiere decir «te sobra»: quiere decir «no sé», y la pantalla tiene
+  // que enseñarlo distinto de un verde de verdad.
+  const hayConsumo = Object.values(ventasPorFecha).some((v) => v > 0);
+  if (!hayConsumo) return Infinity;
 
   let quedan = existencia;
   let dias = 0;
 
   for (let i = 0; i < tope; i++) {
-    const consumo = consumoEsperado(ventasPorFecha, (desdeDiaSemana + i) % 7);
-    if (consumo <= 0) continue;          // ese día no se vende: no gasta nada
-    if (quedan < consumo) break;
-    quedan -= consumo;
+    const consumo = consumoEsperado(ventasPorFecha, (desdeDiaSemana + i) % 7, ventana);
+
+    // Un día en que no se vende NO gasta, pero SÍ es un día cubierto.
+    //
+    // Contar sólo los días que se vende era el error de antes: un producto
+    // que sólo sale los sábados y aguanta tres sábados decía «alcanza 3
+    // días» en vez de «alcanza 3 semanas», y hacía pedirlo cada tres días.
+    if (consumo > 0) {
+      if (quedan < consumo) break;
+      quedan -= consumo;
+    }
+
     dias++;
   }
 
-  // Si en todo el tope no se consumió nada, es que no se vende
-  const hayConsumo = Object.keys(ventasPorFecha).length > 0 &&
-    Object.values(ventasPorFecha).some((v) => v > 0);
-
-  return hayConsumo ? dias : Infinity;
+  return dias;
 }
 
 /* ── El semáforo ───────────────────────────────────────────────────────── */
@@ -135,7 +172,14 @@ export function diasDeCobertura(existencia, ventasPorFecha, desdeDiaSemana, tope
  * quieres estar cubierto?» y de ahí sale el color.
  */
 export function semaforo(dias, diasHastaLaCompra = 7) {
-  if (dias === Infinity) return { color: 'verde', texto: 'no se vende' };
+  // Sin ventas registradas no se puede decir nada, y hay que decirlo así.
+  //
+  // Antes esto salía VERDE con el texto «no se vende». Recién cargado el
+  // inventario, la pantalla entera se pintaba de verde —«todo bien»— sin
+  // tener una sola venta con qué respaldarlo. Verde es una promesa; ésta
+  // el sistema no la puede sostener todavía.
+  if (dias === Infinity) return { color: 'gris', texto: 'aún sin ventas' };
+
   if (dias <= 0) return { color: 'rojo', texto: 'se acabó' };
   if (dias < diasHastaLaCompra) return { color: 'rojo', texto: `no llega: ${dias} día(s)` };
   if (dias < diasHastaLaCompra * 1.5) return { color: 'ambar', texto: `justo: ${dias} día(s)` };
@@ -155,13 +199,16 @@ export function semaforo(dias, diasHastaLaCompra = 7) {
  *                     unidad, ventasPorFecha }]
  */
 export function listaDeCompra(productos, { diasACubrir = 7, desdeDiaSemana = 0 } = {}) {
+  /* Cada producto lleva su propia ventana: uno que se empezó a controlar
+     ayer no se puede promediar sobre ocho semanas. */
   const lista = [];
 
   for (const p of productos) {
     // Lo que se va a consumir en los días a cubrir, día por día
     let necesita = 0;
     for (let i = 0; i < diasACubrir; i++) {
-      necesita += consumoEsperado(p.ventasPorFecha ?? {}, (desdeDiaSemana + i) % 7);
+      necesita += consumoEsperado(
+        p.ventasPorFecha ?? {}, (desdeDiaSemana + i) % 7, p.ventana ?? {});
     }
 
     const falta = necesita - (p.existencia ?? 0);

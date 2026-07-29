@@ -84,7 +84,14 @@ export function existenciaDe(productoId) {
   return total;
 }
 
-/** Las ventas por día de un producto, para proyectar el consumo. */
+/**
+ * Las ventas por día de un producto, para proyectar el consumo.
+ *
+ * Devuelve además la VENTANA observada: desde cuándo se lleva registro de
+ * este producto. Sin ella, el promedio por día de la semana se dividiría
+ * entre «los sábados que vendieron» en vez de «todos los sábados», y saldría
+ * inflado — se compraría de más para siempre.
+ */
 function ventasPorFecha(productoId, dias) {
   const filas = base().prepare(`
     SELECT fecha, -sum(cantidad) AS vendido
@@ -94,7 +101,19 @@ function ventasPorFecha(productoId, dias) {
      GROUP BY fecha
   `).all(productoId, `-${dias} days`);
 
-  return Object.fromEntries(filas.map((f) => [f.fecha, f.vendido]));
+  // La ventana empieza cuando empezó a moverse este producto, no hace ocho
+  // semanas: uno que se controla desde ayer no se puede promediar sobre
+  // ocho sábados que nadie miró.
+  const { primera } = base().prepare(`
+    SELECT min(fecha) AS primera
+      FROM movimientos_stock
+     WHERE producto_id = ? AND fecha >= date('now','localtime', ?)
+  `).get(productoId, `-${dias} days`);
+
+  return {
+    ventas: Object.fromEntries(filas.map((f) => [f.fecha, f.vendido])),
+    ventana: primera ? { desde: primera, hasta: hoy() } : {},
+  };
 }
 
 /**
@@ -108,8 +127,8 @@ export function existencias({ diasACubrir = null } = {}) {
 
   return productosControlados().map((p) => {
     const existencia = existenciaDe(p.id);
-    const ventas = ventasPorFecha(p.id, historia);
-    const dias = diasDeCobertura(existencia, ventas, diaHoy);
+    const { ventas, ventana } = ventasPorFecha(p.id, historia);
+    const dias = diasDeCobertura(existencia, ventas, diaHoy, ventana);
 
     return {
       ...p,
@@ -119,6 +138,7 @@ export function existencias({ diasACubrir = null } = {}) {
       dias: dias === Infinity ? null : dias,
       semaforo: semaforo(dias, cubrir),
       ventasPorFecha: ventas,
+      ventana,
     };
   });
 }
@@ -353,12 +373,23 @@ export function configurarProducto({ id, controla, porcionesPorEnvase, envase, u
     if (Number(gastaDe) === Number(id)) {
       throw new Error('Un producto no puede gastar de sí mismo; deja el campo vacío.');
     }
-    const otro = base().prepare('SELECT gasta_producto_id FROM productos WHERE id = ?').get(gastaDe);
+    const otro = base()
+      .prepare('SELECT nombre, controla_stock, gasta_producto_id FROM productos WHERE id = ?')
+      .get(gastaDe);
     if (!otro) throw new Error('Ese producto no existe.');
     if (otro.gasta_producto_id) {
       throw new Error('Ese producto ya gasta de otro. Apunta directo al que se compra.');
     }
+    // Sin esto la cadena se rompe en silencio: la michelada apuntaría a una
+    // cerveza que nadie cuenta, y al vender no bajaría nada de nada.
+    if (!otro.controla_stock) {
+      throw new Error(`Primero hay que controlar «${otro.nombre}» en el almacén.`);
+    }
   }
+
+  // Lo que gasta de otro NO lleva existencia propia: la michelada no se
+  // guarda en el refrigerador, la cerveza sí.
+  const controlaFinal = gastaDe ? false : controla;
 
   base().prepare(`
     UPDATE productos
@@ -370,7 +401,7 @@ export function configurarProducto({ id, controla, porcionesPorEnvase, envase, u
            actualizado          = datetime('now','localtime')
      WHERE id = ?
   `).run(
-    controla === undefined ? null : (controla ? 1 : 0),
+    controlaFinal === undefined ? null : (controlaFinal ? 1 : 0),
     porcionesPorEnvase === undefined ? null : Math.trunc(porcionesPorEnvase),
     envase === undefined ? null : String(envase).trim(),
     unidad === undefined ? null : String(unidad).trim(),
