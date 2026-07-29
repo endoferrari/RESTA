@@ -1,0 +1,62 @@
+/* ═════════════════════════════════════════════════════════════════════════
+   CLIENTE · TOKENS DE DISEÑO
+   ─────────────────────────────────────────────────────────────────────────
+   Los colores, sombras y medidas de RESTA v1, tal cual, sin cambiar un tono.
+   Copiados literalmente del :root de RESTA.html v1.3.0.
+
+   REGLA: ningún otro archivo escribe un color a mano. Todos usan estas
+   variables. Así, si algún día quieres cambiar el ámbar, se cambia aquí
+   y cambia en toda la aplicación.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Fondos y superficies ── */
+  --fondo:         #f3f2ed;
+  --tarjeta:       #ffffff;
+  --linea:         #e2e0d6;
+
+  /* ── Tinta (textos) ── */
+  --tinta:         #20302a;
+  --tinta-suave:   #5f6d66;
+
+  /* ── Verdes de la marca ── */
+  --verde-oscuro:  #16302b;
+  --verde-medio:   #24483f;
+  --verde-claro:   #e8efe9;
+
+  /* ── Ámbar: las acciones principales ── */
+  --ambar:         #d97706;
+  --ambar-oscuro:  #b45309;
+
+  /* ── Estados ── */
+  --exito:         #15803d;
+  --exito-fondo:   #e7f4ea;
+  --peligro:       #b91c1c;
+  --peligro-fondo: #fdecec;
+  --aviso:         #92400e;
+  --aviso-fondo:   #fef3c7;
+  --aviso-linea:   #f6dc9b;
+
+  /* ── Forma ── */
+  --radio:         14px;
+  --radio-chico:   10px;
+  --sombra:        0 1px 3px rgba(22,48,43,.08), 0 4px 18px rgba(22,48,43,.07);
+  --sombra-alta:   0 6px 24px rgba(22,48,43,.16);
+
+  /* ── Tipografía ── */
+  --letra: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --letra-ticket: "Consolas", "Courier New", monospace;
+
+  /* ── Colores de los mosaicos de producto ──
+     Los 8 pares (fondo, texto) de la v1.3.0, en el mismo orden. Los productos
+     los van tomando por turnos, para que la pantalla de venta se vea variada
+     y el mesero encuentre cada producto por su color. */
+  --tile-1-fondo: #fde8e8;  --tile-1-tinta: #9b2c2c;
+  --tile-2-fondo: #fdeeda;  --tile-2-tinta: #9c4a10;
+  --tile-3-fondo: #fdf6d8;  --tile-3-tinta: #8a6a08;
+  --tile-4-fondo: #e5f4e3;  --tile-4-tinta: #276437;
+  --tile-5-fondo: #dff2ee;  --tile-5-tinta: #1c5f54;
+  --tile-6-fondo: #e3edfb;  --tile-6-tinta: #1e4fa3;
+  --tile-7-fondo: #eae6fb;  --tile-7-tinta: #4c3a9e;
+  --tile-8-fondo: #fbe5f2;  --tile-8-tinta: #97266d;
+}

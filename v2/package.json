@@ -1,0 +1,70 @@
+{
+  "name": "resta",
+  "version": "2.0.0-fase1",
+  "description": "RESTA — Punto de venta para bar restaurante. ONCE Social Lounge.",
+  "author": "endoferrari",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "escritorio/principal.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "servidor": "node servidor/index.js",
+    "dev": "electron .",
+    "test": "node --test \"pruebas/*.test.js\"",
+    "empaquetar": "electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "@fastify/websocket": "^11.2.0",
+    "better-sqlite3": "^13.0.1",
+    "fastify": "^5.10.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "mx.oncesociallounge.resta",
+    "productName": "RESTA",
+    "copyright": "ONCE Social Lounge",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "escritorio/**/*",
+      "servidor/**/*",
+      "nucleo/**/*",
+      "datos/**/*",
+      "impresion/**/*",
+      "cliente/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "escritorio/icono.ico",
+      "artifactName": "RESTA-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RESTA",
+      "include": "escritorio/instalador.nsh"
+    }
+  }
+}

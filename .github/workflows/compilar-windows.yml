@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  COMPILAR EL INSTALADOR DE WINDOWS
+#  ─────────────────────────────────────────────────────────────────────────
+#  Rosendo desarrolla en Linux, pero RESTA se instala en Windows 11.
+#  Este archivo hace que GitHub compile el .exe por nosotros, en una
+#  máquina Windows de verdad. Es gratis y no hay que instalar nada en Linux.
+#
+#  CÓMO SE USA:
+#   · Cada vez que subes cambios, GitHub compila y deja el .exe para
+#     descargar (pestaña "Actions" del repositorio).
+#   · Cuando quieras una versión para instalar en el bar, creas una
+#     etiqueta y GitHub la publica sola en "Releases":
+#
+#       git tag v2.0.0
+#       git push origin v2.0.0
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Compilar instalador de Windows
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']            # una etiqueta v2.0.0 publica el instalador
+  pull_request:
+    paths: ['v2/**']
+  workflow_dispatch:        # botón para compilar a mano cuando quieras
+
+permissions:
+  contents: write           # necesario para publicar en Releases
+
+jobs:
+
+  # ── 1. Las pruebas corren en Linux: son rápidas y no necesitan Windows ──
+  pruebas:
+    name: Pruebas automáticas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: v2
+        run: npm ci
+
+      - name: Correr las pruebas
+        working-directory: v2
+        run: npm test
+
+  # ── 2. El instalador se compila en Windows de verdad ────────────────────
+  instalador:
+    name: Instalador .exe
+    needs: pruebas
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: v2
+        run: npm ci
+
+      - name: Compilar RESTA-Setup.exe
+        working-directory: v2
+        run: npm run empaquetar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Guardar el instalador para descargarlo
+        uses: actions/upload-artifact@v4
+        with:
+          name: RESTA-instalador-windows
+          path: v2/dist/*.exe
+          retention-days: 30
+
+      - name: Publicar en Releases (sólo con etiqueta)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: v2/dist/*.exe
+          generate_release_notes: true
+          body: |
+            ## Instalación en la laptop del bar
+
+            1. Descarga `RESTA-Setup-*.exe` de aquí abajo.
+            2. Doble clic. **Windows va a mostrar una advertencia azul**
+               porque el instalador no está firmado — es normal:
+               clic en **"Más información"** → **"Ejecutar de todas formas"**.
+            3. Siguiente, siguiente, Instalar.
+
+            El instalador abre solo el puerto para las tablets y deja RESTA
+            arrancando al prender la laptop. Los datos van a `C:\RESTA` y
+            **no se borran** si desinstalas.

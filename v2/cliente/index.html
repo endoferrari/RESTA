@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RESTA — Punto de venta</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍽️</text></svg>">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/menu.css">
+</head>
+<body>
+
+  <!-- Barra roja de sin conexión: bloquea la pantalla cuando se cae el WiFi -->
+  <div id="sin-conexion" hidden>
+    ⚠️ SIN CONEXIÓN CON LA CAJA — no anotes nada hasta que vuelva
+  </div>
+
+  <div class="pantalla">
+
+    <div class="cabecera">
+      <div class="marca-icono">🍽️</div>
+      <div>
+        <h1 id="nombre-negocio">RESTA</h1>
+        <div class="sub">La carta · <span id="version">—</span></div>
+      </div>
+      <div class="acciones">
+        <button class="btn" id="boton-recargar">↻ Recargar</button>
+        <button class="btn btn-ambar" id="boton-importar">
+          📥 Importar respaldo de la v1
+        </button>
+        <input type="file" id="archivo-respaldo" accept=".json" hidden>
+      </div>
+    </div>
+
+    <div id="menu-error"></div>
+
+    <div class="familias-bar" id="familias"></div>
+    <div class="rejilla-productos" id="productos"></div>
+    <div class="pie-menu" id="pie-menu"></div>
+
+    <!-- ── Diagnóstico: se abre sólo cuando algo falla ── -->
+    <details class="tarjeta" id="caja-diagnostico" style="margin-top:34px;padding:18px 22px">
+      <summary style="cursor:pointer;font-weight:700">
+        Estado del sistema y conexión de las tablets
+      </summary>
+
+      <div class="titulo-bloque">Revisiones</div>
+      <div id="revisiones">
+        <div class="revision">
+          <span class="marca-estado">⏳</span>
+          <span class="texto"><span class="nombre">Conectando…</span></span>
+        </div>
+      </div>
+
+      <div class="titulo-bloque">Para conectar las tablets</div>
+      <div id="red"></div>
+
+      <div id="notas"></div>
+    </details>
+
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
