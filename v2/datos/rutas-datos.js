@@ -32,12 +32,20 @@ export const RUTA_BASE = join(RAIZ, 'resta.db');
 export const DIR_RESPALDOS = join(RAIZ, 'respaldos');
 export const DIR_BITACORA = join(RAIZ, 'bitacora');
 
+/**
+ * Donde caen los tickets cuando la impresora está en modo «simulada».
+ * Es la forma de revisar que el ticket salga bien formado sin gastar papel
+ * —y la única manera de probarlo en la computadora de desarrollo, que no
+ * tiene la térmica conectada.
+ */
+export const DIR_TICKETS = join(RAIZ, 'tickets');
+
 /** Crea las carpetas si no existen. Se llama una vez al arrancar. */
 export function prepararCarpetas() {
-  for (const dir of [RAIZ, DIR_RESPALDOS, DIR_BITACORA]) {
+  for (const dir of [RAIZ, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS]) {
     mkdirSync(dir, { recursive: true });
   }
-  return { RAIZ, RUTA_BASE, DIR_RESPALDOS, DIR_BITACORA };
+  return { RAIZ, RUTA_BASE, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS };
 }
 
 /**

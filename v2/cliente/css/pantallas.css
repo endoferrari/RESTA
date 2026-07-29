@@ -382,6 +382,65 @@
 .cambio-nota { font-size: .85rem; color: var(--tinta-suave); }
 .cambio-falta { font-weight: 800; color: var(--peligro); font-size: 1.1rem; }
 
+/* ── Impresora ─────────────────────────────────────────────────────────── */
+
+/* El foquito de la barra: se ve en todas las pantallas, todo el tiempo.
+   Hoy, si la impresora está apagada, nadie se entera hasta que un cliente
+   reclama su ticket. */
+.foquito {
+  display: flex; align-items: center; gap: 5px;
+  background: transparent; border: 1px solid #3c5a4f;
+  border-radius: 99px; padding: 5px 10px;
+}
+.foquito:hover { background: var(--verde-medio); }
+.foquito[hidden] { display: none; }
+
+.foco {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--exito);
+  box-shadow: 0 0 6px currentColor;
+}
+.foco.grande { width: 16px; height: 16px; }
+.foquito-verde .foco, .estado-verde .foco { background: var(--exito); }
+.foquito-ambar .foco, .estado-ambar .foco { background: var(--ambar); }
+.foquito-rojo  .foco, .estado-rojo  .foco { background: var(--peligro); }
+
+/* Cuando algo falla, el foquito parpadea: hay que voltear a verlo */
+.foquito-rojo .foco { animation: latir 1.1s infinite; }
+@keyframes latir { 50% { opacity: .25; } }
+
+.foco-cuantos { font-size: .74rem; font-weight: 800; color: #dfe9e2; }
+
+.estado-impresora {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-left: 5px solid var(--exito);
+  border-radius: var(--radio-chico);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.estado-impresora.estado-ambar { border-left-color: var(--ambar); }
+.estado-impresora.estado-rojo  { border-left-color: var(--peligro); }
+.estado-impresora .foco { margin-top: 4px; }
+
+.sutil { color: var(--tinta-suave); font-size: .88rem; line-height: 1.5; }
+
+.casilla-linea {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin-top: 18px; font-size: .92rem; cursor: pointer;
+}
+.casilla-linea input { margin-top: 3px; }
+
+.trabajo {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 0; border-bottom: 1px dashed var(--linea);
+  font-size: .9rem;
+}
+.trabajo-nombre { font-weight: 700; }
+.trabajo-error { color: var(--peligro); font-size: .84rem; }
+.trabajo .btn { margin-left: auto; }
+
 .cambio-grande {
   font-size: 3.4rem; font-weight: 800; text-align: center;
   color: var(--verde-oscuro); padding: 16px 0;

@@ -18,6 +18,7 @@ import { dividirRestante } from '../../nucleo/cuenta.js';
 import { exigir } from '../auth.js';
 import { conFolio } from '../idempotencia.js';
 import { avisarATodos } from '../tiempo-real.js';
+import { imprimirTicket } from '../../impresion/index.js';
 
 function alto(mensaje, codigo = 400) {
   const e = new Error(mensaje);
@@ -131,9 +132,16 @@ export function registrarRutasCobro(app) {
       registrarCobro({ cuentaId, metodo, monto, recibido, lineas, referencia, usuario }));
 
     avisarATodos('cuenta.cambio', { cuentaId, version: r.cuenta.version });
-    if (r.ticket) avisarATodos('cuentas.cambio', { cerro: cuentaId });
 
-    return { ok: true, ...r };
+    let impresion = null;
+    if (r.ticket) {
+      avisarATodos('cuentas.cambio', { cerro: cuentaId });
+      // El ticket sale sólo cuando la cuenta quedó liquidada. Un pago parcial
+      // no imprime nada: el cliente todavía no se va.
+      impresion = imprimirTicket({ ticket: r.ticket, cuenta: r.cuenta });
+    }
+
+    return { ok: true, ...r, impresion };
   });
 
   /** Deshacer el último pago (se tecleó mal, o se cobró en la mesa equivocada). */

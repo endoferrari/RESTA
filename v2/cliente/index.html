@@ -28,6 +28,7 @@
     <div class="barra-acciones">
       <button class="btn btn-chico" id="boton-ir-mesas">🍽️ Mesas</button>
       <button class="btn btn-chico" id="boton-ir-carta" hidden>📋 Carta</button>
+      <button class="foquito" id="foquito" title="Impresora" hidden></button>
       <span class="quien" id="quien-soy"></span>
       <button class="btn btn-chico" id="boton-salir">Salir</button>
     </div>
@@ -232,6 +233,81 @@
 
         <button class="btn btn-verde ancho grande" id="boton-cobrar">Cobrar</button>
       </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: IMPRESORA ══════════════════ -->
+  <section id="pantalla-impresora" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-impresora">← Mesas</button>
+      <div>
+        <h1>Impresora</h1>
+        <div class="sub">Cómo y por dónde sale el papel</div>
+      </div>
+    </div>
+
+    <div id="impresora-estado" class="estado-impresora"></div>
+
+    <div id="aviso-linux" class="caja-aviso" hidden>
+      Estás en la computadora de desarrollo, no en la laptop del bar. Aquí la
+      impresora de verdad no se puede probar: usa el modo <b>Simulada</b>, que
+      escribe el ticket a un archivo para revisar cómo queda.
+    </div>
+
+    <form id="form-impresora">
+      <div class="titulo-bloque">Por dónde imprime</div>
+      <div class="grupo-botones" id="impresora-modos"></div>
+      <p class="sutil" id="explica-modo"></p>
+
+      <div id="campos-red" hidden>
+        <label class="etiqueta-campo" for="impresora-host">Dirección IP de la impresora</label>
+        <input class="campo" id="impresora-host" type="text" placeholder="192.168.1.60" autocomplete="off">
+        <label class="etiqueta-campo" for="impresora-puerto">Puerto</label>
+        <input class="campo" id="impresora-puerto" type="text" inputmode="numeric" placeholder="9100">
+      </div>
+
+      <div id="campos-windows" hidden>
+        <label class="etiqueta-campo" for="impresora-nombre">Nombre de la impresora en Windows</label>
+        <input class="campo" id="impresora-nombre" type="text" placeholder="POSPrinter POS80" autocomplete="off">
+        <p class="sutil">
+          Es el nombre exacto que aparece en «Dispositivos e impresoras» de Windows.
+        </p>
+      </div>
+
+      <div id="campos-com" hidden>
+        <label class="etiqueta-campo" for="impresora-com">Puerto COM</label>
+        <input class="campo" id="impresora-com" type="text" placeholder="COM3" autocomplete="off">
+        <p class="sutil">
+          ⚠️ Sólo funciona con Bluetooth clásico (SPP). Si la impresora es BLE,
+          Windows no puede imprimir en ella y hay que cambiarla.
+        </p>
+      </div>
+
+      <div class="titulo-bloque">Ancho del papel</div>
+      <div class="grupo-botones" id="impresora-ancho">
+        <button type="button" class="op" data-ancho="80">80 mm (el normal)</button>
+        <button type="button" class="op" data-ancho="58">58 mm (angosto)</button>
+      </div>
+
+      <label class="etiqueta-campo" for="impresora-pie">Mensaje al pie del ticket</label>
+      <input class="campo" id="impresora-pie" type="text" maxlength="60" autocomplete="off">
+
+      <label class="casilla-linea">
+        <input type="checkbox" id="impresora-activa">
+        <span>Imprimir. Si lo apagas, RESTA sigue cobrando pero no sale papel.</span>
+      </label>
+
+      <div class="botones-cuenta">
+        <button class="btn btn-ambar" type="submit">Guardar</button>
+        <button class="btn" type="button" id="boton-prueba">🖨️ Imprimir prueba</button>
+        <button class="btn" type="button" id="boton-reintentar">↻ Reintentar ahora</button>
+      </div>
+    </form>
+
+    <div id="bloque-cola" hidden>
+      <div class="titulo-bloque">Esperando a salir</div>
+      <div id="cola-impresion"></div>
     </div>
   </section>
 

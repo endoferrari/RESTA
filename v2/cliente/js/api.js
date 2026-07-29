@@ -164,4 +164,14 @@ export const api = {
     conFolio('POST', `/api/cuentas/${cuentaId}/anular-pago`, { motivo, version }),
 
   ticket: (folio) => pedir('GET', `/api/tickets/${folio}`),
+  reimprimir: (folio) => conFolio('POST', `/api/tickets/${folio}/reimprimir`),
+
+  /* ── Impresora ── */
+  impresion:            () => pedir('GET', '/api/impresion'),
+  impresorasDeWindows:  () => pedir('GET', '/api/impresion/impresoras'),
+  guardarImpresora:     (config) => pedir('PUT', '/api/impresion', config),
+  pruebaDeImpresion:    () => conFolio('POST', '/api/impresion/prueba'),
+  reintentarImpresion:  () => pedir('POST', '/api/impresion/reintentar'),
+  cancelarImpresion:    (id) => pedir('DELETE', `/api/impresion/cola/${id}`),
+  vaciarColaImpresion:  () => pedir('DELETE', '/api/impresion/cola'),
 };

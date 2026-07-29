@@ -45,6 +45,10 @@ export const PERMISOS = {
     'cobro.registrar',
     'corte.ver',
     'turno.cerrar',
+    // Destrabar la impresora: reintentar, quitar un trabajo atorado, hacer
+    // la tira de prueba. A las 2 de la mañana no hay a quién llamarle, y
+    // nada de esto toca dinero ni configuración.
+    'impresora.operar',
   ],
 
   admin: ['*'],             // todo, sin excepciones

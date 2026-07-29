@@ -32,19 +32,22 @@ necesidades del negocio, no conocimientos técnicos.
 | 2 | Núcleo de dinero: cortesías, descuentos, propinas, división | ✅ hecho |
 | 3 | Mesas y cuentas en vivo, PIN de mesero | ✅ hecho |
 | 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ✅ hecho |
-| 5 | Impresión ESC/POS configurable | ⬜ siguiente |
-| 6 | Corte del día, turnos, respaldos automáticos | ⬜ |
+| 5 | Impresión ESC/POS configurable | ✅ hecho — falta el logo |
+| 6 | Corte del día, turnos, respaldos automáticos | ⬜ siguiente |
 | 7 | Empaquetado final e instalador | ⬜ |
 
 El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
-**Lo siguiente: Fase 5 (la impresión).**
+**Lo siguiente: Fase 6 (corte del día, turnos y respaldos).**
 
-Lo que ya está listo para imprimirse: el ticket con su folio y su fotografía
-de los totales (`datos/repos/cobro.js`), la comanda de lo que sale a barra
-(`marcarComandado` devuelve exactamente qué salió), y la cuenta que pide el
-cliente (`marcarCuentaImpresa`). Los tres puntos donde hoy hay que enchufar
-la impresora están señalados en el código con un comentario de la fase 5.
+⚠️ **Pendiente de la fase 5: el logo del ticket.** La v1.3.0 sí lo imprime.
+En v2 el bloque `logo()` existe en el documento y `rasterABytes()` ya sabe
+mandar una imagen a la térmica, pero falta convertir el SVG de ONCE a puntos
+(en Node, sin dibujarlo en un canvas). Mientras tanto el ticket sale sin
+logo. **La v2 no está terminada hasta que eso exista.**
+
+Nada de la impresión se puede probar de verdad en Linux. Para eso está el
+modo `simulada`, que escribe el papel a `datos-dev/tickets/`.
 
 La fase 1 estaba dada por bloqueada por falta del respaldo `.json`, pero no
 hacía falta: **el menú real de ONCE estaba escrito dentro del código de la
@@ -97,7 +100,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 129/129)
+npm test             # las pruebas (deben pasar 155/155)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -135,6 +138,12 @@ v2/
 │   ├─ estado.js        qué sabe esta tablet ahora mismo
 │   ├─ ui.js            avisos y ventanitas (nada de alert())
 │   └─ vistas/          pin · mesas · cuenta · cobro · carta
+├─ impresion/    La miniprinter
+│   ├─ documento.js   bloques del papel + vista en texto (para probar sin papel)
+│   ├─ escpos.js      bytes de la térmica, CP850, el arreglo del modo chino
+│   ├─ plantillas.js  ticket · cuenta · comanda · prueba
+│   ├─ salidas.js     simulada · red 9100 · spooler Windows · puerto COM
+│   └─ cola.js        reintentos y el foquito de estado
 ├─ escritorio/   Ventana Electron, bandeja, instalador NSIS
 └─ pruebas/      node:test
 ```

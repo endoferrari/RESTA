@@ -17,6 +17,7 @@ import {
 import { exigir } from '../auth.js';
 import { conFolio } from '../idempotencia.js';
 import { avisarATodos } from '../tiempo-real.js';
+import { imprimirComanda, imprimirCuenta } from '../../impresion/index.js';
 
 function alto(mensaje, codigo = 400) {
   const e = new Error(mensaje);
@@ -131,8 +132,16 @@ export function registrarRutasCuentas(app) {
       marcarComandado({ cuentaId, usuario }));
 
     avisarCambio(r.cuenta);
-    // En la fase 5, aquí es donde el ticket sale por la impresora.
-    return { ok: true, ...r };
+
+    // El papel sale a barra/cocina. Va DESPUÉS de haberlo guardado y no se
+    // espera a que termine: si la impresora está apagada, la comanda se
+    // queda en la cola y sale sola cuando vuelva, pero el mesero no se queda
+    // parado mirando la tablet.
+    const impresion = imprimirComanda({
+      cuenta: r.cuenta, salieron: r.salieron, mesero: usuario.nombre,
+    });
+
+    return { ok: true, ...r, impresion };
   });
 
   /** El cliente pidió su cuenta (se imprime, todavía no paga). */
@@ -144,7 +153,9 @@ export function registrarRutasCuentas(app) {
       marcarCuentaImpresa({ cuentaId, usuario }));
 
     avisarCambio(cuenta);
-    return { ok: true, cuenta };
+    const impresion = imprimirCuenta({ cuenta });
+
+    return { ok: true, cuenta, impresion };
   });
 
   /** Cancelar la cuenta. Sólo caja o administrador, y siempre con motivo. */

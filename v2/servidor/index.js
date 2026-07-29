@@ -23,7 +23,9 @@ import { registrarRutasMenu } from './rutas/menu.js';
 import { registrarRutasSesion } from './rutas/sesion.js';
 import { registrarRutasCuentas } from './rutas/cuentas.js';
 import { registrarRutasCobro } from './rutas/cobro.js';
-import { registrarTiempoReal } from './tiempo-real.js';
+import { registrarRutasImpresion } from './rutas/impresion.js';
+import { alCambiarEstado } from '../impresion/index.js';
+import { registrarTiempoReal, avisarATodos } from './tiempo-real.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const DIR_CLIENTE = join(AQUI, '..', 'cliente');
@@ -84,7 +86,13 @@ export async function crearServidor() {
   registrarRutasSesion(app);
   registrarRutasCuentas(app);
   registrarRutasCobro(app);
+  registrarRutasImpresion(app);
   registrarTiempoReal(app);
+
+  // El foquito de la impresora se enciende y se apaga solo en todas las
+  // pantallas: quien esté en la caja se entera de que falta papel sin tener
+  // que ir a ver la impresora.
+  alCambiarEstado((estado) => avisarATodos('impresion.estado', { estado }));
 
   return app;
 }

@@ -21,10 +21,14 @@ import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
 import { iniciarCuenta, pintarCuenta } from './vistas/cuenta.js';
 import { iniciarCarta, cargarCarta, pintarCarta } from './vistas/carta.js';
 import { iniciarCobro, empezarCobro, pintarCobro } from './vistas/cobro.js';
+import {
+  iniciarImpresora, iniciarAncho, cargarImpresora, pintarImpresora,
+  ponerEstadoImpresion, alTocarFoquito, puedeVerImpresora,
+} from './vistas/impresora.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
 
-const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta'];
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora'];
 
 function ir(vista) {
   estado.vista = vista;
@@ -48,6 +52,7 @@ function ir(vista) {
   if (vista === 'cuenta') pintarCuenta();
   if (vista === 'cobro')  pintarCobro();
   if (vista === 'carta')  pintarCarta();
+  if (vista === 'impresora') pintarImpresora();
 }
 
 async function irACuenta(cuenta) {
@@ -73,11 +78,13 @@ function ponerUsuario(r) {
 
   // La carta sólo la administra quien puede tocarla.
   $('boton-ir-carta').hidden = !estado.permisos.includes('menu.ver');
+  // El foquito de la impresora sólo le sirve a quien puede hacer algo con él.
+  if (!puedeVerImpresora()) $('foquito').hidden = true;
 }
 
 async function entrar(r) {
   ponerUsuario(r);
-  await Promise.all([cargarCarta(), cargarMesas()]);
+  await Promise.all([cargarCarta(), cargarMesas(), cargarImpresora()]);
   ir('mesas');
 }
 
@@ -104,6 +111,9 @@ conectar({
 
     // Otra pantalla cambió la carta (o se importó un respaldo).
     if (mensaje.tipo === 'menu.cambio') cargarCarta();
+
+    // La impresora cambió de estado: se apagó, se quedó sin papel, o ya salió.
+    if (mensaje.tipo === 'impresion.estado') ponerEstadoImpresion(mensaje.estado);
 
     // Se abrió o se cerró una mesa.
     if (mensaje.tipo === 'cuentas.cambio') cargarMesas();
@@ -204,6 +214,9 @@ iniciarMesas(irACuenta);
 iniciarCuenta(volverAMesas);
 iniciarCarta(volverAMesas);
 iniciarCobro(() => ir('cuenta'), volverAMesas);
+iniciarImpresora(volverAMesas);
+iniciarAncho();
+alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
 
 $('boton-ir-cobrar').addEventListener('click', () => {
   empezarCobro();
