@@ -30,15 +30,21 @@ necesidades del negocio, no conocimientos técnicos.
 | 0 | Esqueleto: servidor, base de datos, migraciones, diagnóstico | ✅ hecho |
 | 1 | Menú, familias, importador de datos de la v1.3.0 | ✅ hecho — la carta real de ONCE ya está adentro |
 | 2 | Núcleo de dinero: cortesías, descuentos, propinas, división | ✅ hecho |
-| 3 | Mesas y cuentas en vivo, PIN de mesero | ⬜ siguiente |
-| 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ⬜ |
+| 3 | Mesas y cuentas en vivo, PIN de mesero | ✅ hecho |
+| 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ⬜ siguiente |
 | 5 | Impresión ESC/POS configurable | ⬜ |
 | 6 | Corte del día, turnos, respaldos automáticos | ⬜ |
 | 7 | Empaquetado final e instalador | ⬜ |
 
 El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
-**Lo siguiente: Fase 3.**
+**Lo siguiente: Fase 4 (el cobro).**
+
+Ya existen las tablas `cuentas` y `lineas`; falta `pagos` y `tickets`. El
+núcleo del cobro (`nucleo/cuenta.js`) ya está escrito y probado desde la
+fase 2: `revisarCobro`, `calcularCambio`, `dividirRestante` y
+`totalDeSeleccion` esperan una cuenta con `pagos:[{monto}]`, que hoy siempre
+llega vacía desde `datos/repos/cuentas.js`.
 
 La fase 1 estaba dada por bloqueada por falta del respaldo `.json`, pero no
 hacía falta: **el menú real de ONCE estaba escrito dentro del código de la
@@ -91,7 +97,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 74/74)
+npm test             # las pruebas (deben pasar 103/103)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -107,7 +113,8 @@ v2/
 ├─ nucleo/       Reglas puras de negocio. Sin pantallas, sin base de datos.
 │   ├─ dinero.js     centavos, formato, reparto sin perder centavos
 │   ├─ cuenta.js     cortesías, descuentos, propinas, cobro, cambio
-│   └─ opciones.js   el submenú del mesero (derecho/puesto/campechano…)
+│   ├─ opciones.js   el submenú del mesero (derecho/puesto/campechano…)
+│   └─ permisos.js   quién puede qué (mesero anota, caja cobra)
 ├─ datos/        SQLite y migraciones
 │   ├─ rutas-datos.js   dónde vive todo (C:\RESTA en Windows)
 │   ├─ conexion.js      WAL, pragmas, transacciones
@@ -122,8 +129,12 @@ v2/
 │   ├─ red.js           IP para las tablets
 │   ├─ idempotencia.js  el folio por acción, para no cobrar dos veces
 │   ├─ tiempo-real.js   avisa a todas las pantallas cuando algo cambia
-│   └─ rutas/
+│   ├─ auth.js          el pase de cada tablet y el freno a los PIN
+│   └─ rutas/           salud · menu · sesion · cuentas
 ├─ cliente/      Lo que se ve. JS con módulos ES, SIN paso de build.
+│   ├─ estado.js        qué sabe esta tablet ahora mismo
+│   ├─ ui.js            avisos y ventanitas (nada de alert())
+│   └─ vistas/          pin · mesas · cuenta · carta
 ├─ escritorio/   Ventana Electron, bandeja, instalador NSIS
 └─ pruebas/      node:test
 ```

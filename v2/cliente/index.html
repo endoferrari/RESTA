@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/menu.css">
+  <link rel="stylesheet" href="/css/pantallas.css">
 </head>
 <body>
 
@@ -16,50 +17,173 @@
     ⚠️ SIN CONEXIÓN CON LA CAJA — no anotes nada hasta que vuelva
   </div>
 
-  <div class="pantalla">
+  <!-- Avisos cortos que se van solos -->
+  <div id="avisos" class="aviso" hidden></div>
 
+
+  <!-- ══════════════════ BARRA DE ARRIBA ══════════════════ -->
+  <div id="barra-superior" class="barra" hidden>
+    <div class="marca-icono chico">🍽️</div>
+    <div class="barra-nombre" id="nombre-negocio">RESTA</div>
+    <div class="barra-acciones">
+      <button class="btn btn-chico" id="boton-ir-mesas">🍽️ Mesas</button>
+      <button class="btn btn-chico" id="boton-ir-carta" hidden>📋 Carta</button>
+      <span class="quien" id="quien-soy"></span>
+      <button class="btn btn-chico" id="boton-salir">Salir</button>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════ PANTALLA: PIN ══════════════════ -->
+  <section id="pantalla-pin" class="pantalla-centrada" hidden>
+
+    <!-- Entrar con PIN -->
+    <div class="panel panel-pin" id="caja-pin">
+      <div class="panel-cabeza">
+        <div class="marca-icono">🍽️</div>
+        <div>
+          <div class="marca-nombre">RESTA</div>
+          <div class="marca-sub">punto de venta</div>
+        </div>
+      </div>
+
+      <div class="panel-cuerpo">
+        <div class="pin-titulo">Teclea tu PIN</div>
+        <div class="puntos" id="puntos-pin"></div>
+
+        <div class="teclado" id="teclado-pin">
+          <button data-tecla="1">1</button>
+          <button data-tecla="2">2</button>
+          <button data-tecla="3">3</button>
+          <button data-tecla="4">4</button>
+          <button data-tecla="5">5</button>
+          <button data-tecla="6">6</button>
+          <button data-tecla="7">7</button>
+          <button data-tecla="8">8</button>
+          <button data-tecla="9">9</button>
+          <button class="tecla-vacia" disabled></button>
+          <button data-tecla="0">0</button>
+          <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primera vez: no hay ningún usuario todavía -->
+    <div class="panel panel-pin" id="caja-primera-vez" hidden>
+      <div class="panel-cabeza">
+        <div class="marca-icono">🔑</div>
+        <div>
+          <div class="marca-nombre">PRIMERA VEZ</div>
+          <div class="marca-sub">crea tu acceso</div>
+        </div>
+      </div>
+
+      <div class="panel-cuerpo">
+        <p class="texto-explica">
+          Este sistema todavía no tiene usuarios. Crea el tuyo: vas a ser el
+          <b>administrador</b>. Con este PIN entras a todo, así que no se lo des a nadie.
+        </p>
+
+        <form id="form-primera-vez">
+          <label class="etiqueta-campo" for="nombre-primero">Tu nombre</label>
+          <input class="campo" id="nombre-primero" type="text" autocomplete="off" maxlength="40">
+
+          <label class="etiqueta-campo" for="pin-primero">Tu PIN (4 números)</label>
+          <input class="campo" id="pin-primero" type="password" inputmode="numeric"
+                 maxlength="4" autocomplete="new-password">
+
+          <label class="etiqueta-campo" for="pin-primero-2">Escríbelo otra vez</label>
+          <input class="campo" id="pin-primero-2" type="password" inputmode="numeric"
+                 maxlength="4" autocomplete="new-password">
+
+          <button class="btn btn-ambar ancho" type="submit">Crear mi acceso</button>
+        </form>
+      </div>
+    </div>
+
+    <details class="tarjeta diagnostico-suelto" id="caja-diagnostico">
+      <summary>Estado del sistema y conexión de las tablets</summary>
+      <div class="titulo-bloque">Revisiones · versión <span id="version">—</span></div>
+      <div id="revisiones"></div>
+      <div class="titulo-bloque">Para conectar las tablets</div>
+      <div id="red"></div>
+    </details>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: MESAS ══════════════════ -->
+  <section id="pantalla-mesas" class="pantalla" hidden>
     <div class="cabecera">
-      <div class="marca-icono">🍽️</div>
       <div>
-        <h1 id="nombre-negocio">RESTA</h1>
-        <div class="sub">La carta · <span id="version">—</span></div>
+        <h1>Mesas abiertas</h1>
+        <div class="sub">Toca una mesa para anotar, o abre una nueva</div>
+      </div>
+      <form class="acciones" id="form-nueva-mesa">
+        <input class="campo campo-mesa" id="nueva-mesa" type="text" autocomplete="off"
+               placeholder="Número de mesa o nombre" maxlength="40">
+        <button class="btn btn-ambar" type="submit">+ Abrir</button>
+      </form>
+    </div>
+
+    <div id="lista-mesas" class="rejilla-mesas"></div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CUENTA ══════════════════ -->
+  <section id="pantalla-cuenta" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-mesas">← Mesas</button>
+      <div>
+        <h1 id="titulo-cuenta">—</h1>
+        <div class="sub" id="sub-cuenta"></div>
+      </div>
+    </div>
+
+    <div class="dos-columnas">
+      <!-- izquierda: qué anotar -->
+      <div class="columna-productos">
+        <div class="familias-bar" id="familias-cuenta"></div>
+        <div class="rejilla-productos" id="productos-cuenta"></div>
+      </div>
+
+      <!-- derecha: la cuenta -->
+      <div class="columna-ticket">
+        <div class="ticket">
+          <div class="ticket-lineas" id="ticket-lineas"></div>
+          <div class="ticket-totales" id="ticket-totales"></div>
+        </div>
+
+        <div class="botones-cuenta">
+          <button class="btn btn-ambar ancho" id="boton-comandar">🔔 Mandar a barra</button>
+          <button class="btn ancho" id="boton-pedir-cuenta" hidden>🧾 Pidió la cuenta</button>
+          <button class="btn btn-rojo ancho" id="boton-cancelar-cuenta" hidden>Cancelar cuenta</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CARTA ══════════════════ -->
+  <section id="pantalla-carta" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-carta">← Mesas</button>
+      <div>
+        <h1>La carta</h1>
+        <div class="sub">Aquí sólo se revisa. Para vender, entra a una mesa.</div>
       </div>
       <div class="acciones">
-        <button class="btn" id="boton-recargar">↻ Recargar</button>
-        <button class="btn btn-ambar" id="boton-importar">
-          📥 Importar respaldo de la v1
-        </button>
+        <button class="btn" id="boton-recargar-carta">↻ Recargar</button>
+        <button class="btn btn-ambar" id="boton-importar">📥 Importar respaldo de la v1</button>
         <input type="file" id="archivo-respaldo" accept=".json" hidden>
       </div>
     </div>
 
-    <div id="menu-error"></div>
+    <div id="resultado-carta"></div>
+    <div class="familias-bar" id="familias-carta"></div>
+    <div class="rejilla-productos" id="productos-carta"></div>
+    <div class="pie-menu" id="pie-carta"></div>
+  </section>
 
-    <div class="familias-bar" id="familias"></div>
-    <div class="rejilla-productos" id="productos"></div>
-    <div class="pie-menu" id="pie-menu"></div>
-
-    <!-- ── Diagnóstico: se abre sólo cuando algo falla ── -->
-    <details class="tarjeta" id="caja-diagnostico" style="margin-top:34px;padding:18px 22px">
-      <summary style="cursor:pointer;font-weight:700">
-        Estado del sistema y conexión de las tablets
-      </summary>
-
-      <div class="titulo-bloque">Revisiones</div>
-      <div id="revisiones">
-        <div class="revision">
-          <span class="marca-estado">⏳</span>
-          <span class="texto"><span class="nombre">Conectando…</span></span>
-        </div>
-      </div>
-
-      <div class="titulo-bloque">Para conectar las tablets</div>
-      <div id="red"></div>
-
-      <div id="notas"></div>
-    </details>
-
-  </div>
 
   <script type="module" src="/js/app.js"></script>
 </body>

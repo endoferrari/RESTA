@@ -4,8 +4,8 @@
  * El único lugar del cliente que habla con el servidor.
  *
  * Ninguna pantalla usa fetch() directamente. Todas pasan por aquí, para que
- * el manejo de errores, el folio de cada acción y el aviso de "sin conexión"
- * estén escritos una sola vez.
+ * el manejo de errores, el folio de cada acción, el pase de la sesión y el
+ * aviso de "sin conexión" estén escritos una sola vez.
  */
 
 /** Genera el folio único de cada acción, para que nunca se cobre dos veces. */
@@ -14,13 +14,39 @@ export function nuevoFolio() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
+/* ── El pase de la sesión ──────────────────────────────────────────────── */
+/* Se guarda en el navegador de la tablet para que el mesero no tenga que
+   teclear su PIN cada vez que se recarga la pantalla. Al salir, se borra. */
+
+const LLAVE_PASE = 'resta_pase';
+
+export function paseGuardado() {
+  try { return localStorage.getItem(LLAVE_PASE); } catch { return null; }
+}
+
+export function guardarPase(pase) {
+  try {
+    if (pase) localStorage.setItem(LLAVE_PASE, pase);
+    else localStorage.removeItem(LLAVE_PASE);
+  } catch { /* si el navegador no deja guardar, se pide el PIN otra vez */ }
+}
+
 /** Error que sí sabemos explicar en español. */
 export class ErrorRESTA extends Error {
-  constructor(mensaje, { codigo = 0, esRed = false } = {}) {
+  constructor(mensaje, { codigo = 0, esRed = false, cuenta = null } = {}) {
     super(mensaje);
     this.codigo = codigo;
     this.esRed = esRed;
+    // En un choque entre dos meseros, el servidor manda la cuenta como está
+    // AHORA, para que la pantalla se corrija sola.
+    this.cuenta = cuenta;
   }
+}
+
+/** Aviso de "tu sesión ya no sirve": la app lo escucha para pedir el PIN. */
+function sesionCaida() {
+  guardarPase(null);
+  globalThis.dispatchEvent(new CustomEvent('resta:sesion-caida'));
 }
 
 async function pedir(metodo, ruta, cuerpo, { folio } = {}) {
@@ -36,6 +62,9 @@ async function pedir(metodo, ruta, cuerpo, { folio } = {}) {
   // El folio va en la cabecera: si esta petición se reintenta, el servidor
   // reconoce que ya la procesó y no la vuelve a ejecutar.
   if (folio) opciones.headers['X-Folio-Operacion'] = folio;
+
+  const pase = paseGuardado();
+  if (pase) opciones.headers['X-Pase'] = pase;
 
   let respuesta;
   try {
@@ -54,23 +83,57 @@ async function pedir(metodo, ruta, cuerpo, { folio } = {}) {
   }
 
   if (!respuesta.ok) {
-    throw new ErrorRESTA(datos?.error || 'Algo salió mal', { codigo: respuesta.status });
+    if (respuesta.status === 401) sesionCaida();
+    throw new ErrorRESTA(datos?.error || 'Algo salió mal', {
+      codigo: respuesta.status,
+      cuenta: datos?.cuenta ?? null,
+    });
   }
   return datos;
 }
 
+const conFolio = (metodo, ruta, cuerpo) =>
+  pedir(metodo, ruta, cuerpo, { folio: nuevoFolio() });
+
 export const api = {
   obtener: (ruta) => pedir('GET', ruta),
-  enviar:  (ruta, cuerpo) => pedir('POST', ruta, cuerpo, { folio: nuevoFolio() }),
+  enviar:  (ruta, cuerpo) => conFolio('POST', ruta, cuerpo),
 
+  /* ── Estado del sistema ── */
   salud:       () => pedir('GET', '/api/salud'),
   diagnostico: () => pedir('GET', '/api/diagnostico'),
   red:         () => pedir('GET', '/api/red'),
 
-  menu:        () => pedir('GET', '/api/menu'),
-  ajustes:     () => pedir('GET', '/api/ajustes'),
+  /* ── Menú ── */
+  menu:    () => pedir('GET', '/api/menu'),
+  ajustes: () => pedir('GET', '/api/ajustes'),
+  importarRespaldo: (datos) => conFolio('POST', '/api/menu/importar', datos),
 
-  /** Sube el respaldo .json de la v1.3.0 para traer la carta y los ajustes. */
-  importarRespaldo: (datos) =>
-    pedir('POST', '/api/menu/importar', datos, { folio: nuevoFolio() }),
+  /* ── Sesión ── */
+  quienSoy:     () => pedir('GET', '/api/sesion'),
+  entrar:       (pin) => pedir('POST', '/api/sesion', { pin }),
+  salir:        () => pedir('DELETE', '/api/sesion'),
+  crearPrimero: (nombre, pin) => pedir('POST', '/api/usuarios/primero', { nombre, pin }),
+
+  /* ── Usuarios ── */
+  usuarios:     () => pedir('GET', '/api/usuarios'),
+  crearUsuario: (nombre, pin, rol) => conFolio('POST', '/api/usuarios', { nombre, pin, rol }),
+  darDeBaja:    (id) => pedir('DELETE', `/api/usuarios/${id}`),
+
+  /* ── Cuentas ── */
+  cuentas:     () => pedir('GET', '/api/cuentas'),
+  cuenta:      (id) => pedir('GET', `/api/cuentas/${id}`),
+  abrirCuenta: (nombre) => conFolio('POST', '/api/cuentas', { nombre }),
+
+  anotar: (cuentaId, productoId, detalle = '', cant = 1) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/lineas`, { productoId, detalle, cant }),
+
+  quitar: (cuentaId, lineaId, { cant = null, motivo = null, version } = {}) =>
+    conFolio('DELETE', `/api/cuentas/${cuentaId}/lineas/${lineaId}`, { cant, motivo, version }),
+
+  comandar: (cuentaId) => conFolio('POST', `/api/cuentas/${cuentaId}/comanda`),
+  pedirCuenta: (cuentaId) => conFolio('POST', `/api/cuentas/${cuentaId}/imprimir`),
+
+  cancelarCuenta: (cuentaId, motivo, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/cancelar`, { motivo, version }),
 };

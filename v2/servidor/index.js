@@ -20,6 +20,8 @@ import { abrirBase, cerrarBase } from '../datos/conexion.js';
 import { RAIZ, RUTA_BASE } from '../datos/rutas-datos.js';
 import { registrarRutasSalud } from './rutas/salud.js';
 import { registrarRutasMenu } from './rutas/menu.js';
+import { registrarRutasSesion } from './rutas/sesion.js';
+import { registrarRutasCuentas } from './rutas/cuentas.js';
 import { registrarTiempoReal } from './tiempo-real.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -41,10 +43,17 @@ export async function crearServidor() {
     if (codigo >= 500) {
       console.error(`✗ Error en ${peticion.method} ${peticion.url}:`, error.message);
     }
-    respuesta.code(codigo).send({
+    const cuerpo = {
       ok: false,
       error: codigo >= 500 ? 'Algo falló en el servidor' : error.message,
-    });
+    };
+
+    // Cuando dos meseros tocan la misma cuenta, además del aviso se manda la
+    // cuenta como está AHORA, para que la pantalla se corrija sola en vez de
+    // dejar a la persona mirando datos viejos.
+    if (error.cuenta) cuerpo.cuenta = error.cuenta;
+
+    respuesta.code(codigo).send(cuerpo);
   });
 
   app.setNotFoundHandler((peticion, respuesta) => {
@@ -71,6 +80,8 @@ export async function crearServidor() {
 
   registrarRutasSalud(app);
   registrarRutasMenu(app);
+  registrarRutasSesion(app);
+  registrarRutasCuentas(app);
   registrarTiempoReal(app);
 
   return app;

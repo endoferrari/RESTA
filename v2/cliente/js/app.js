@@ -1,64 +1,172 @@
 /**
  * CLIENTE · APLICACIÓN
  * ─────────────────────────────────────────────────────────────────────────────
- * Junta las piezas de la pantalla: la línea con la caja, la carta y el
- * diagnóstico.
+ * Junta las piezas: la línea con la caja, quién entró y qué pantalla se ve.
  *
- * FASE 1: la pantalla principal es la carta de ONCE. El diagnóstico de la
- * fase 0 sigue ahí, guardado en la sección de abajo, para cuando algo falle.
- * En la fase 3 la pantalla principal pasa a ser Mesas.
+ * El recorrido de una noche:
+ *   PIN → Mesas → Cuenta → (mandar comanda) → Mesas → …
+ *
+ * Todas las pantallas viven la misma realidad: cuando alguien anota algo en
+ * su tablet, el servidor avisa por la línea abierta y las demás pantallas se
+ * actualizan solas, sin que nadie recargue nada.
  */
 
-import { api } from './api.js';
+import { api, paseGuardado, guardarPase } from './api.js';
 import { conectar } from './conexion.js';
-import { cargarMenu } from './menu.js';
+import { estado, ponerMenu } from './estado.js';
+import { $, esc, avisar, cerrarVentana } from './ui.js';
 
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}[c]));
+import { iniciarPin, pintarPin } from './vistas/pin.js';
+import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
+import { iniciarCuenta, pintarCuenta } from './vistas/cuenta.js';
+import { iniciarCarta, cargarCarta, pintarCarta } from './vistas/carta.js';
 
-/* ── Línea con la caja ──────────────────────────────────────────────────── */
+/* ── Cambiar de pantalla ────────────────────────────────────────────────── */
+
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'carta'];
+
+function ir(vista) {
+  estado.vista = vista;
+  cerrarVentana();
+
+  for (const p of PANTALLAS) {
+    $(`pantalla-${p}`).hidden = p !== vista;
+  }
+
+  // La barra de arriba no se enseña en la pantalla del PIN: quien no ha
+  // entrado no tiene por qué ver el nombre de nadie.
+  $('barra-superior').hidden = vista === 'pin';
+
+  if (vista === 'pin')    pintarPin();
+  if (vista === 'mesas')  pintarMesas();
+  if (vista === 'cuenta') pintarCuenta();
+  if (vista === 'carta')  pintarCarta();
+}
+
+async function irACuenta(cuenta) {
+  estado.cuenta = cuenta;
+  ir('cuenta');
+  // Se vuelve a pedir al servidor por si cambió entre el clic y ahora.
+  await refrescarCuenta();
+}
+
+async function volverAMesas() {
+  estado.cuenta = null;
+  await cargarMesas();
+  ir('mesas');
+}
+
+/* ── Quién entró ───────────────────────────────────────────────────────── */
+
+function ponerUsuario(r) {
+  estado.usuario  = r.usuario;
+  estado.permisos = r.permisos ?? [];
+  $('quien-soy').innerHTML =
+    `<b>${esc(r.usuario.nombre)}</b> <span class="rol">${esc(r.usuario.rol)}</span>`;
+
+  // La carta sólo la administra quien puede tocarla.
+  $('boton-ir-carta').hidden = !estado.permisos.includes('menu.ver');
+}
+
+async function entrar(r) {
+  ponerUsuario(r);
+  await Promise.all([cargarCarta(), cargarMesas()]);
+  ir('mesas');
+}
+
+async function salir() {
+  try { await api.salir(); } catch { /* si no se pudo avisar, igual salimos */ }
+  guardarPase(null);
+  estado.usuario = null;
+  estado.permisos = [];
+  estado.cuenta = null;
+  ir('pin');
+}
+
+/* ── La línea con la caja ──────────────────────────────────────────────── */
 
 conectar({
   alCambiarEstado(conectado) {
     $('sin-conexion').hidden = conectado;
-    if (conectado) {
-      revisar();
-      cargarMenu();
-    }
+    if (conectado && estado.usuario) refrescarTodo();
   },
 
-  // Si otra pantalla importa un respaldo o cambia un precio, esta se entera.
   alRecibir(mensaje) {
-    if (mensaje.tipo === 'menu.cambio') cargarMenu();
+    if (!estado.usuario) return;
+
+    // Otra pantalla cambió la carta (o se importó un respaldo).
+    if (mensaje.tipo === 'menu.cambio') cargarCarta();
+
+    // Se abrió o se cerró una mesa.
+    if (mensaje.tipo === 'cuentas.cambio') cargarMesas();
+
+    // Cambió una cuenta: si es la que tengo abierta, la refresco; si no,
+    // basta con actualizar la lista de mesas.
+    if (mensaje.tipo === 'cuenta.cambio') {
+      if (estado.cuenta && mensaje.cuentaId === estado.cuenta.id) refrescarCuenta();
+      else cargarMesas();
+    }
   },
 });
 
-/* ── Nombre del negocio ─────────────────────────────────────────────────── */
-
-async function pintarNegocio() {
+async function refrescarCuenta() {
+  if (!estado.cuenta) return;
   try {
-    const { ajustes } = await api.ajustes();
-    if (ajustes['negocio.nombre']) {
-      $('nombre-negocio').textContent = ajustes['negocio.nombre'];
-      document.title = ajustes['negocio.nombre'] + ' — RESTA';
+    const { cuenta } = await api.cuenta(estado.cuenta.id);
+    estado.cuenta = cuenta;
+    if (estado.vista === 'cuenta') pintarCuenta();
+  } catch (e) {
+    // La cuenta pudo cancelarse desde otra pantalla mientras tanto.
+    if (e.codigo === 404) {
+      avisar('Esa cuenta ya no está abierta.', true);
+      volverAMesas();
     }
-  } catch { /* si falla, se queda el nombre de fábrica */ }
+  }
 }
 
-/* ── Revisión del sistema ───────────────────────────────────────────────── */
+async function refrescarTodo() {
+  await Promise.all([cargarMesas(), refrescarCuenta()]);
+  if (estado.vista === 'mesas') pintarMesas();
+}
+
+/* ── Si la sesión se cae, se vuelve al PIN ─────────────────────────────── */
+
+globalThis.addEventListener('resta:sesion-caida', () => {
+  if (estado.vista === 'pin') return;
+  estado.usuario = null;
+  estado.permisos = [];
+  estado.cuenta = null;
+  avisar('Tu sesión terminó. Vuelve a entrar con tu PIN.', true);
+  ir('pin');
+});
+
+/* ── Diagnóstico (lo de la fase 0, ahora guardado abajo) ───────────────── */
 
 async function revisar() {
   try {
     const d = await api.diagnostico();
     $('version').textContent = d.version;
-    pintarRevisiones(d.revisiones);
-    pintarRed(d.red);
-    pintarNotas(d);
 
-    // Si algo está mal, la sección de diagnóstico se abre sola: más vale que
-    // salte a la vista que esperar a que alguien la busque.
+    $('revisiones').innerHTML = d.revisiones.map((r) => `
+      <div class="revision ${r.bien ? '' : 'mal'}">
+        <span class="marca-estado">${r.bien ? '✅' : '❌'}</span>
+        <span class="texto">
+          <span class="nombre">${esc(r.nombre)}</span>
+          <span class="detalle">${esc(r.detalle)}</span>
+        </span>
+      </div>`).join('');
+
+    $('red').innerHTML = d.red?.hayRed
+      ? `<div class="caja-red">
+           <div class="et">Escribe esto en el navegador de la tablet</div>
+           <div class="url">${esc(d.red.principal.url)}</div>
+           <div class="nota">Equipo: ${esc(d.red.equipo)} · Red: ${esc(d.red.principal.interfaz)}</div>
+         </div>`
+      : `<div class="caja-aviso">
+           La laptop no está conectada a ninguna red. Conéctala al WiFi del local
+           para que las tablets puedan entrar.
+         </div>`;
+
     if (!d.ok) $('caja-diagnostico').open = true;
   } catch (e) {
     $('revisiones').innerHTML =
@@ -69,54 +177,43 @@ async function revisar() {
   }
 }
 
-function pintarRevisiones(revisiones) {
-  $('revisiones').innerHTML = revisiones.map((r) => `
-    <div class="revision ${r.bien ? '' : 'mal'}">
-      <span class="marca-estado">${r.bien ? '✅' : '❌'}</span>
-      <span class="texto">
-        <span class="nombre">${esc(r.nombre)}</span>
-        <span class="detalle">${esc(r.detalle)}</span>
-      </span>
-    </div>`).join('');
-}
-
-function pintarRed(red) {
-  if (!red?.hayRed) {
-    $('red').innerHTML = `
-      <div class="caja-aviso">
-        La laptop no está conectada a ninguna red. Conéctala al WiFi del local
-        para que las tablets puedan entrar.
-      </div>`;
-    return;
-  }
-  $('red').innerHTML = `
-    <div class="caja-red">
-      <div class="et">Escribe esto en el navegador de la tablet</div>
-      <div class="url">${esc(red.principal.url)}</div>
-      <div class="nota">
-        Equipo: ${esc(red.equipo)} · Red: ${esc(red.principal.interfaz)}
-      </div>
-    </div>`;
-}
-
-function pintarNotas(d) {
-  const notas = [];
-
-  if (!d.ok) {
-    notas.push('Hay algo marcado en rojo arriba. RESTA funciona, pero conviene revisarlo.');
-  }
-  if (d.sistema !== 'Windows') {
-    notas.push(`Estás en <b>${esc(d.sistema)}</b>, o sea la computadora de desarrollo. ` +
-      'La impresora y el instalador sólo se prueban de verdad en la laptop con Windows.');
-  }
-
-  $('notas').innerHTML = notas.length
-    ? `<div class="caja-aviso">${notas.join('<br><br>')}</div>`
-    : '';
-}
-
 /* ── Arranque ───────────────────────────────────────────────────────────── */
 
-revisar();
-pintarNegocio();
-cargarMenu();
+iniciarPin(entrar);
+iniciarMesas(irACuenta);
+iniciarCuenta(volverAMesas);
+iniciarCarta(volverAMesas);
+
+$('boton-salir').addEventListener('click', salir);
+$('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta'); });
+$('boton-ir-mesas').addEventListener('click', volverAMesas);
+
+async function arrancar() {
+  revisar();
+
+  try {
+    const { ajustes } = await api.ajustes();
+    if (ajustes['negocio.nombre']) {
+      estado.negocio = ajustes['negocio.nombre'];
+      $('nombre-negocio').textContent = estado.negocio;
+      document.title = estado.negocio + ' — RESTA';
+    }
+  } catch { /* si falla, se queda el nombre de fábrica */ }
+
+  try {
+    const quien = await api.quienSoy();
+    estado.hayUsuarios = quien.hayUsuarios;
+
+    // Si la tablet ya tenía pase guardado y sigue sirviendo, entra directo:
+    // el mesero no teclea su PIN cada vez que se recarga la pantalla.
+    if (quien.usuario) {
+      await entrar(quien);
+      return;
+    }
+  } catch { /* sin conexión: la barra roja ya lo está avisando */ }
+
+  guardarPase(null);
+  ir('pin');
+}
+
+arrancar();

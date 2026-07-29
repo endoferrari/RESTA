@@ -6,6 +6,12 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 
+/* Que `hidden` gane SIEMPRE.
+   Sin esto, cualquier regla que ponga `display:flex` o `display:grid` deja
+   visible una pantalla que el código creía escondida — y se ven dos pantallas
+   encimadas. Pasó con la del PIN. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: var(--letra);
