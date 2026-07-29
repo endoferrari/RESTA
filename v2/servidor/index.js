@@ -69,7 +69,16 @@ export async function crearServidor() {
     // Las rutas del API responden JSON; cualquier otra cosa devuelve la app
     // (para que funcionen las direcciones internas del cliente).
     if (peticion.url.startsWith('/api/')) {
-      return respuesta.code(404).send({ ok: false, error: 'Esa ruta no existe' });
+      // El mensaje dice qué hacer, no sólo qué falló. Este error aparece
+      // sobre todo cuando la pantalla ya tiene una parte nueva y el servidor
+      // todavía no: la pantalla se lee del disco en cada recarga, pero el
+      // servidor sólo al arrancar. Decir «esa ruta no existe» dejaba a
+      // cualquiera sin saber qué hacer.
+      return respuesta.code(404).send({
+        ok: false,
+        error: 'Esa parte del sistema no está disponible. ' +
+               'Si acabas de actualizar RESTA, ciérralo y vuelve a abrirlo.',
+      });
     }
     return respuesta.sendFile('index.html');
   });
