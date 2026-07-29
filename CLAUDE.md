@@ -101,7 +101,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 189/189)
+npm test             # las pruebas (deben pasar 274/274)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -119,7 +119,8 @@ v2/
 │   ├─ cuenta.js     cortesías, descuentos, propinas, cobro, cambio
 │   ├─ opciones.js   el submenú del mesero (derecho/puesto/campechano…)
 │   ├─ permisos.js   quién puede qué (mesero anota, caja cobra)
-│   └─ corte.js      totales del turno y cuánto debe haber en el cajón
+│   ├─ corte.js      totales del turno y cuánto debe haber en el cajón
+│   └─ almacen.js    porciones, cobertura y proyección por día de semana
 ├─ datos/        SQLite y migraciones
 │   ├─ rutas-datos.js   dónde vive todo (C:\RESTA en Windows)
 │   ├─ conexion.js      WAL, pragmas, transacciones
@@ -137,12 +138,13 @@ v2/
 │   ├─ tiempo-real.js   avisa a todas las pantallas cuando algo cambia
 │   ├─ auth.js          el pase de cada tablet y el freno a los PIN
 │   └─ rutas/           salud · menu · sesion · cuentas · cobro ·
-│                        impresion · turnos
+│                        impresion · turnos · configuracion · almacen
 ├─ cliente/      Lo que se ve. JS con módulos ES, SIN paso de build.
 │   ├─ estado.js        qué sabe esta tablet ahora mismo
 │   ├─ ui.js            avisos y ventanitas (nada de alert())
 │   └─ vistas/          pin · mesas · cuenta · cobro · carta ·
-│                        impresora · corte
+│                        impresora · corte · configuracion · almacen
+│   └─ qr.js            el QR de las tablets, calculado sin internet
 ├─ impresion/    La miniprinter
 │   ├─ documento.js   bloques del papel + vista en texto (para probar sin papel)
 │   ├─ escpos.js      bytes de la térmica, CP850, el arreglo del modo chino
@@ -170,7 +172,7 @@ v2/
 | Impresión | ESC/POS RAW. Tres salidas configurables desde la interfaz: red (TCP 9100), spooler de Windows, puerto COM (Bluetooth). |
 | Firma de código | **No se paga.** Windows mostrará SmartScreen; está documentado en `v2/LEEME.md`. |
 | Compilar el `.exe` | **Siempre en GitHub Actions**, nunca en Linux. Ver `.github/workflows/`. |
-| Módulos nuevos | Ninguno por ahora: sin inventario, reservaciones, CFDI ni nube. |
+| Módulos nuevos | **Almacén SÍ** (Rosendo lo pidió el 29-jul-2026). Sin reservaciones, CFDI ni nube. |
 
 ---
 

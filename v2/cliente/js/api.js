@@ -203,6 +203,21 @@ export const api = {
   darDeBajaProducto: (id) => pedir('DELETE', `/api/productos/${id}`),
   activarProducto:   (id) => conFolio('POST', `/api/productos/${id}/activar`),
 
+  /* ── Almacén ── */
+  almacen:      (dias = null) => pedir('GET', '/api/almacen' + (dias ? `?dias=${dias}` : '')),
+  queComprar:   (dias = null) => pedir('GET', '/api/almacen/compras' + (dias ? `?dias=${dias}` : '')),
+  diasACubrir:  (dias) => pedir('PUT', '/api/almacen/dias', { dias }),
+
+  registrarCompra: (compras) => conFolio('POST', '/api/almacen/compras', { compras }),
+  registrarMerma:  (productoId, porciones, motivo) =>
+    conFolio('POST', '/api/almacen/merma', { productoId, porciones, motivo }),
+  registrarConteo: (conteos) => conFolio('POST', '/api/almacen/conteo', { conteos }),
+
+  movimientosDe:      (id) => pedir('GET', `/api/almacen/productos/${id}/movimientos`),
+  vendidoHoy:         () => pedir('GET', '/api/almacen/vendido'),
+  configAlmacen:      () => pedir('GET', '/api/almacen/configuracion'),
+  guardarConfigAlmacen: (id, cambios) => pedir('PUT', `/api/almacen/configuracion/${id}`, cambios),
+
   /* ── Respaldos ── */
   respaldos:      () => pedir('GET', '/api/respaldos'),
   respaldarAhora: () => conFolio('POST', '/api/respaldos'),

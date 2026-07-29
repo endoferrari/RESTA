@@ -691,3 +691,68 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
 .qr-tablet svg { width: 100%; height: auto; display: block; }
 .caja-red .url { text-align: center; }
 .caja-red .et { text-align: center; }
+
+/* ── Almacén ───────────────────────────────────────────────────────────
+   Lo grande de cada renglón son los DÍAS que alcanza, con su color. Cuántos
+   hay se lee debajo, en botellas y copas: es el dato de apoyo, no el
+   principal. La pregunta que se hace uno es «¿me alcanza?». */
+.fila-almacen {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-left: 5px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  min-height: 64px;
+}
+.fila-almacen.apagado { opacity: .55; }
+
+.fila-almacen.sem-verde { border-left-color: var(--exito); }
+.fila-almacen.sem-ambar { border-left-color: var(--ambar); }
+.fila-almacen.sem-rojo  { border-left-color: var(--peligro); }
+
+.alm-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alm-nombre { font-weight: 700; }
+.alm-cuanto { font-size: .84rem; color: var(--tinta-suave); }
+
+.alm-dias { display: flex; align-items: center; gap: 8px; text-align: right; }
+.alm-dias-texto { font-weight: 700; font-size: .88rem; }
+.alm-foco {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--linea); flex: none;
+}
+.sem-verde .alm-foco { background: var(--exito); }
+.sem-ambar .alm-foco { background: var(--ambar); }
+.sem-rojo  .alm-foco { background: var(--peligro); }
+.sem-rojo  .alm-dias-texto { color: var(--peligro); }
+
+/* Capturar cantidades: el campo grande, para teclear de corrido */
+.alm-captura { display: flex; align-items: center; gap: 8px; }
+.campo-cantidad {
+  width: 88px; text-align: center;
+  font-size: 1.15rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.alm-unidad { font-size: .8rem; color: var(--tinta-suave); min-width: 92px; }
+
+.alm-comprar {
+  font-size: 1.05rem; text-align: right; min-width: 110px;
+}
+.alm-comprar b { font-size: 1.5rem; color: var(--verde-oscuro); }
+
+/* La historia: «¿y por qué hay 38?» */
+.historia { max-height: 55vh; overflow-y: auto; }
+.mov {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 0; border-bottom: 1px dashed var(--linea);
+  font-size: .88rem;
+}
+.mov-tipo { min-width: 108px; font-weight: 700; }
+.mov-cant {
+  min-width: 52px; text-align: right; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mov-cant.entra { color: var(--exito); }
+.mov-cant.sale  { color: var(--peligro); }
+.mov-nota { flex: 1; min-width: 0; color: var(--tinta-suave); }

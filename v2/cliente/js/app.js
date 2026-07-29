@@ -32,10 +32,11 @@ import {
 import {
   iniciarConfiguracion, cargarConfiguracion, pintarConfiguracion,
 } from './vistas/configuracion.js';
+import { iniciarAlmacen, cargarAlmacen, pintarAlmacen } from './vistas/almacen.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
 
-const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora', 'corte', 'config'];
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora', 'corte', 'config', 'almacen'];
 
 function ir(vista) {
   estado.vista = vista;
@@ -59,8 +60,10 @@ function ir(vista) {
   const DONDE_ESTOY = {
     mesas: 'boton-ir-mesas', cuenta: 'boton-ir-mesas', cobro: 'boton-ir-mesas',
     corte: 'boton-ir-corte', carta: 'boton-ir-carta', config: 'boton-ir-config',
+    almacen: 'boton-ir-almacen',
   };
-  for (const id of ['boton-ir-mesas', 'boton-ir-corte', 'boton-ir-carta', 'boton-ir-config']) {
+  for (const id of ['boton-ir-mesas', 'boton-ir-corte', 'boton-ir-almacen',
+                    'boton-ir-carta', 'boton-ir-config']) {
     $(id).classList.toggle('activo', DONDE_ESTOY[vista] === id);
   }
 
@@ -72,6 +75,7 @@ function ir(vista) {
   if (vista === 'impresora') pintarImpresora();
   if (vista === 'corte') pintarCorte();
   if (vista === 'config') pintarConfiguracion();
+  if (vista === 'almacen') pintarAlmacen();
 }
 
 async function irACuenta(cuenta) {
@@ -104,6 +108,9 @@ function ponerUsuario(r) {
   $('boton-ir-corte').hidden = !estado.permisos.includes('corte.ver');
   // Configurar la carta y dar de alta gente es sólo del administrador.
   $('boton-ir-config').hidden = !estado.permisos.includes('ajustes.cambiar');
+  // El almacén lo ve caja también: es quien está de noche y necesita saber
+  // si aguanta hasta mañana.
+  $('boton-ir-almacen').hidden = !estado.permisos.includes('corte.ver');
 }
 
 async function entrar(r) {
@@ -150,6 +157,9 @@ conectar({
 
     // Se abrió o se cerró la caja desde otra pantalla.
     if (mensaje.tipo === 'turno.cambio') cargarCorte();
+
+    // Otra pantalla movió el almacén (llegó un pedido, se anotó una merma).
+    if (mensaje.tipo === 'almacen.cambio' && estado.vista === 'almacen') cargarAlmacen();
 
     // Se abrió o se cerró una mesa.
     if (mensaje.tipo === 'cuentas.cambio') cargarMesas();
@@ -269,6 +279,12 @@ iniciarAncho();
 alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
 iniciarCorte(volverAMesas, volverAMesas);
 iniciarConfiguracion(volverAMesas);
+iniciarAlmacen(volverAMesas);
+
+$('boton-ir-almacen').addEventListener('click', async () => {
+  await cargarAlmacen();
+  ir('almacen');
+});
 
 $('boton-ir-config').addEventListener('click', async () => {
   await cargarConfiguracion();

@@ -38,6 +38,7 @@
     <nav id="menu-lateral">
       <button class="nav-btn" id="boton-ir-mesas"><span>🍽️</span> Mesas y cuentas</button>
       <button class="nav-btn" id="boton-ir-corte" hidden><span>🧮</span> Corte de caja</button>
+      <button class="nav-btn" id="boton-ir-almacen" hidden><span>📦</span> Almacén</button>
       <button class="nav-btn" id="boton-ir-carta" hidden><span>📋</span> La carta</button>
       <button class="nav-btn" id="boton-ir-config" hidden><span>⚙️</span> Configurar</button>
     </nav>
@@ -430,6 +431,57 @@
     <div id="bloque-cola" hidden>
       <div class="titulo-bloque">Esperando a salir</div>
       <div id="cola-impresion"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: ALMACÉN ══════════════════ -->
+  <section id="pantalla-almacen" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-almacen">← Mesas</button>
+      <div>
+        <h1>Almacén</h1>
+        <div class="sub">Qué hay, qué llegó y qué hay que comprar</div>
+      </div>
+    </div>
+
+    <div class="grupo-botones" id="almacen-secciones"></div>
+
+    <!-- ── Qué hay ── -->
+    <div id="almacen-panel-existencias" hidden>
+      <p class="sutil">
+        Lo grande de cada renglón es <b>cuántos días alcanza</b>, no cuántos hay.
+        Es la pregunta que de verdad se hace uno.
+      </p>
+      <div id="almacen-existencias"></div>
+    </div>
+
+    <!-- ── Llegó el pedido · Conteo (la misma lista) ── -->
+    <div id="almacen-pedido" hidden>
+      <div class="titulo-bloque" id="titulo-captura">Llegó el pedido</div>
+      <p class="sutil" id="explica-captura"></p>
+      <div id="almacen-captura"></div>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-guardar-captura" disabled>Guardar</button>
+        <button class="btn" id="boton-limpiar-captura">Limpiar</button>
+        <span class="sutil" id="resumen-captura" style="align-self:center"></span>
+      </div>
+    </div>
+
+    <!-- ── Qué comprar ── -->
+    <div id="almacen-comprar" hidden>
+      <div class="titulo-bloque">¿Para cuántos días quieres estar cubierto?</div>
+      <div class="grupo-botones" id="almacen-dias"></div>
+      <div id="almacen-compras"></div>
+    </div>
+
+    <!-- ── Qué se controla ── -->
+    <div id="almacen-ajustes" hidden>
+      <p class="sutil">
+        Empieza por pocos: los que de verdad duelen. Controlar 55 productos es
+        la forma más rápida de abandonar un inventario.
+      </p>
+      <div id="almacen-config"></div>
     </div>
   </section>
 
