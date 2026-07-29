@@ -4,7 +4,25 @@
  * Todo lo que se puede cambiar sin tocar código vive aquí.
  */
 
-export const VERSION = '2.0.0-fase0';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+/**
+ * La versión se lee de package.json, NO se escribe aquí a mano.
+ * Estaba escrita a mano y se quedó en «fase0» hasta la fase 6: el letrero
+ * del arranque y la pantalla de diagnóstico mentían sobre qué versión estaba
+ * corriendo, que es justo el dato que uno necesita cuando algo falla en el bar.
+ */
+const AQUI = dirname(fileURLToPath(import.meta.url));
+
+export const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(join(AQUI, '..', 'package.json'), 'utf8')).version;
+  } catch {
+    return 'desconocida';
+  }
+})();
 
 /** Puerto donde escucha RESTA. Las tablets entran a http://IP-DE-LA-LAPTOP:8080 */
 export const PUERTO = Number(process.env.RESTA_PUERTO) || 8080;
