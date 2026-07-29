@@ -139,8 +139,8 @@ export const api = {
   comandar: (cuentaId) => conFolio('POST', `/api/cuentas/${cuentaId}/comanda`),
   pedirCuenta: (cuentaId) => conFolio('POST', `/api/cuentas/${cuentaId}/imprimir`),
 
-  cancelarCuenta: (cuentaId, motivo, version) =>
-    conFolio('POST', `/api/cuentas/${cuentaId}/cancelar`, { motivo, version }),
+  cancelarCuenta: (cuentaId, motivo, seConsumio, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/cancelar`, { motivo, seConsumio, version }),
 
   /* ── Dinero (sólo caja) ── */
   cortesia: (cuentaId, lineaId, esCortesia, motivo, version) =>

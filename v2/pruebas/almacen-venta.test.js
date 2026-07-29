@@ -22,7 +22,7 @@ const CARPETA = mkdtempSync(join(tmpdir(), 'resta-almacen-'));
 process.env.RESTA_DATOS = CARPETA;
 
 let abrirBase, cerrarBase;
-let abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta;
+let abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta, cuentasAbiertas;
 let registrarCobro, cerrarSinCobro, abrirTurno;
 let existenciaDe, registrarCompra, registrarMerma, registrarConteo,
     existencias, queComprar, vendidoHoy, configurarProducto, aQuienDescuenta,
@@ -46,7 +46,7 @@ function venderYCobrar(nombre, cosas) {
 
 before(async () => {
   ({ abrirBase, cerrarBase } = await import('../datos/conexion.js'));
-  ({ abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta } =
+  ({ abrirCuenta, anotarLinea, cancelarCuenta, ponerCortesia, buscarCuenta, cuentasAbiertas } =
     await import('../datos/repos/cuentas.js'));
   ({ registrarCobro, cerrarSinCobro } = await import('../datos/repos/cobro.js'));
   ({ abrirTurno } = await import('../datos/repos/turnos.js'));
@@ -210,6 +210,76 @@ test('cerrar sin cobrar NO sirve para una cuenta que sí debe', () => {
     () => cerrarSinCobro({ cuentaId: cuenta.id, usuario: CAJA }),
     /todavía debe/,
   );
+});
+
+/* ── El cliente que se va sin pagar ────────────────────────────────────── */
+
+test('si se lo tomaron y se fueron, la mercancía SÍ sale del almacén', () => {
+  // El caso que de verdad pasa en un bar. El dinero se perdió, pero esas
+  // cervezas salieron del refrigerador igual que las vendidas. Si no se
+  // descuentan, el inventario las sigue contando y al mes no cuadra nada.
+  const antes = existenciaDe(cerveza.id);
+
+  const { cuenta } = abrirCuenta({ nombre: '220', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 4, usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: michelada.id, cant: 2, usuario: ANA });
+
+  cancelarCuenta({
+    cuentaId: cuenta.id, motivo: 'Se fueron sin pagar',
+    seConsumio: true, usuario: CAJA,
+  });
+
+  // 4 cervezas + 2 micheladas, que también gastan cerveza
+  assert.equal(existenciaDe(cerveza.id), antes - 6);
+});
+
+test('sale como MERMA, no como venta', () => {
+  // Si entrara como venta, la proyección de consumo creería que ese día se
+  // vendió más de lo real y haría comprar de más para siempre. Además, el
+  // motivo tiene que quedar escrito: es dinero perdido y hay que poder verlo.
+  const { cuenta } = abrirCuenta({ nombre: '221', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 3, usuario: ANA });
+
+  cancelarCuenta({
+    cuentaId: cuenta.id, motivo: 'Se fueron sin pagar',
+    seConsumio: true, usuario: CAJA,
+  });
+
+  const ultimo = movimientosDe(cerveza.id)[0];
+  assert.equal(ultimo.tipo, 'merma');
+  assert.equal(ultimo.cantidad, -3);
+  assert.match(ultimo.motivo, /sin pagar/i);
+});
+
+test('si NO se sirvió nada, el almacén no se toca', () => {
+  // Se anotó en la mesa equivocada, o se fueron antes de que les sirvieran.
+  const antes = existenciaDe(cerveza.id);
+
+  const { cuenta } = abrirCuenta({ nombre: '222', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 9, usuario: ANA });
+
+  cancelarCuenta({
+    cuentaId: cuenta.id, motivo: 'Mesa equivocada',
+    seConsumio: false, usuario: CAJA,
+  });
+
+  assert.equal(existenciaDe(cerveza.id), antes);
+});
+
+test('una cuenta cancelada desaparece de la pantalla de mesas', () => {
+  // La pregunta de Rosendo: una cuenta que nadie liquida se queda ahí
+  // para siempre y además NO deja cerrar el turno. Cancelarla la saca.
+  const { cuenta } = abrirCuenta({ nombre: '223', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, cant: 1, usuario: ANA });
+
+  assert.ok(cuentasAbiertas().some((c) => c.id === cuenta.id), 'estaba en mesas');
+
+  cancelarCuenta({
+    cuentaId: cuenta.id, motivo: 'Se fueron sin pagar',
+    seConsumio: true, usuario: CAJA,
+  });
+
+  assert.ok(!cuentasAbiertas().some((c) => c.id === cuenta.id), 'ya no estorba');
 });
 
 test('lo que no se controla no mueve el almacén', () => {

@@ -330,6 +330,39 @@ export function descontarVenta({ cuenta, folio, usuario }) {
   return movidos;
 }
 
+/**
+ * EL CLIENTE SE FUE SIN PAGAR.
+ *
+ * La cuenta se cancela —el dinero no entró y así queda registrado— pero la
+ * mercancía SÍ salió del refrigerador. Se descuenta como merma, no como
+ * venta, porque no se vendió: se perdió.
+ *
+ * Que sea merma y no venta importa para las cuentas del almacén: si entrara
+ * como venta, la proyección de consumo creería que ese día se vendió más de
+ * lo real y haría comprar de más para siempre.
+ */
+export function descontarPorCancelacion({ cuenta, motivo, usuario }) {
+  const movidos = [];
+
+  for (const linea of cuenta.items) {
+    const destino = aQuienDescuenta(linea.productoId);
+    if (!destino) continue;
+
+    anotarMovimiento({
+      productoId: destino,
+      tipo: 'merma',
+      cantidad: -Math.trunc(linea.cant),
+      motivo: `Se consumió sin pagar · ${linea.nombre} · ${motivo}`,
+      referencia: `cuenta:${cuenta.id}`,
+      usuario,
+    });
+
+    movidos.push({ productoId: destino, cant: linea.cant });
+  }
+
+  return movidos;
+}
+
 /* ── Historia ──────────────────────────────────────────────────────────── */
 
 /** Los últimos movimientos de un producto, para contestar «¿por qué hay 38?». */

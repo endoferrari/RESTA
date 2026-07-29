@@ -447,9 +447,35 @@ async function cancelar() {
   );
   if (!motivo) return;
 
+  // La segunda pregunta es la que salva el inventario.
+  //
+  // Cancelar sin más sirve cuando se anotó en la mesa equivocada o el cliente
+  // se fue antes de que le sirvieran. Pero el caso que de verdad pasa en un
+  // bar es el otro: se lo tomaron y se fueron. Ahí el dinero se perdió Y la
+  // mercancía salió del refrigerador. Si no se descuenta, el almacén las
+  // sigue contando y al mes nadie entiende por qué nunca cuadra.
+  const seConsumio = await ventana({
+    titulo: '¿Se lo llegaron a consumir?',
+    cuerpo: `
+      <p class="texto-ventana">
+        «${esc(c.nombre)}» tiene <b>${c.totales.articulos} artículo(s)</b> anotados.
+      </p>
+      <p class="sutil">
+        Esto no cambia el dinero —esa cuenta no se cobra de todos modos—,
+        cambia el <b>almacén</b>.
+      </p>`,
+    botones: [
+      { texto: 'No se sirvió nada', valor: 'no' },
+      { texto: '🍺 Sí, se lo tomaron', valor: 'si', clase: 'btn-rojo' },
+    ],
+  });
+  if (!seConsumio) return;               // cerró la ventana: no se cancela nada
+
   try {
-    await api.cancelarCuenta(c.id, motivo, c.version);
-    avisar('Cuenta cancelada. Queda registrada con el motivo.');
+    await api.cancelarCuenta(c.id, motivo, seConsumio === 'si', c.version);
+    avisar(seConsumio === 'si'
+      ? 'Cuenta cancelada. La mercancía se descontó del almacén.'
+      : 'Cuenta cancelada. Queda registrada con el motivo.');
     alVolver?.();
   } catch (e) {
     if (e.cuenta) { estado.cuenta = e.cuenta; pintarCuenta(); }

@@ -21,6 +21,7 @@
 import { base, enTransaccion } from '../conexion.js';
 import { calcularCuenta } from '../../nucleo/cuenta.js';
 import { anotarEvento } from './eventos.js';
+import { descontarPorCancelacion } from './almacen.js';
 import { leerAjuste } from './ajustes.js';
 
 /** Quita acentos y mayúsculas, para que «Mesa 4» y «mesa 4» sean la misma. */
@@ -337,13 +338,29 @@ export function marcarComandado({ cuentaId, usuario }) {
  * Cancelar NO borra: marca la cuenta como cancelada, con motivo y responsable.
  * Cuando falte dinero en la caja, aquí es donde se busca.
  */
-export function cancelarCuenta({ cuentaId, motivo, usuario }) {
+export function cancelarCuenta({ cuentaId, motivo, seConsumio = false, usuario }) {
   return enTransaccion(() => {
     const fila = exigirAbierta(cuentaId);
 
     if (!motivo?.trim()) throw new Error('Escribe por qué se cancela la cuenta.');
 
     const cuenta = armar(fila);
+
+    // ── ¿Se lo tomaron o no? ──
+    //
+    // Cancelar una cuenta tiene dos casos que no se parecen en nada:
+    //
+    //  · Se fueron ANTES de que les sirvieran, o se anotó en la mesa
+    //    equivocada. Nada salió del refrigerador y el almacén no se toca.
+    //  · **Se lo tomaron y se fueron sin pagar.** El dinero se perdió, pero
+    //    esas cervezas SÍ salieron. Si no se descuentan, el inventario las
+    //    sigue contando y al mes nadie entiende por qué nunca cuadra.
+    //
+    // Antes sólo existía el primer caso, y el segundo es el que de verdad
+    // pasa en un bar.
+    if (seConsumio) {
+      descontarPorCancelacion({ cuenta, motivo: motivo.trim(), usuario });
+    }
 
     base().prepare(`
       UPDATE cuentas
@@ -361,6 +378,7 @@ export function cancelarCuenta({ cuentaId, motivo, usuario }) {
         motivo: motivo.trim(),
         seIba: cuenta.totales.total,          // cuánto se dejó de cobrar
         articulos: cuenta.totales.articulos,
+        seConsumio,                           // si además se perdió mercancía
       },
     });
 

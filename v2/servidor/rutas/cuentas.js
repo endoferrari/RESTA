@@ -162,14 +162,14 @@ export function registrarRutasCuentas(app) {
   app.post('/api/cuentas/:id/cancelar', async (peticion) => {
     const usuario = exigir(peticion, 'cuenta.cancelar');
     const cuentaId = Number(peticion.params.id);
-    const { motivo, version } = peticion.body ?? {};
+    const { motivo, seConsumio = false, version } = peticion.body ?? {};
 
     const actual = buscarCuenta(cuentaId);
     if (!actual) throw alto('Esa cuenta no existe.', 404);
     revisarVersion(actual, version);
 
     const cuenta = conFolio(peticion, '/api/cuentas/:id/cancelar', () =>
-      cancelarCuenta({ cuentaId, motivo, usuario }));
+      cancelarCuenta({ cuentaId, motivo, seConsumio: !!seConsumio, usuario }));
 
     avisarCambio(cuenta);
     avisarATodos('cuentas.cambio', { cerro: cuentaId });
