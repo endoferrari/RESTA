@@ -21,20 +21,35 @@
   <div id="avisos" class="aviso" hidden></div>
 
 
-  <!-- ══════════════════ BARRA DE ARRIBA ══════════════════ -->
-  <div id="barra-superior" class="barra" hidden>
-    <div class="marca-icono chico">🍽️</div>
-    <div class="barra-nombre" id="nombre-negocio">RESTA</div>
-    <div class="barra-acciones">
-      <button class="btn btn-chico" id="boton-ir-mesas">🍽️ Mesas</button>
-      <button class="btn btn-chico" id="boton-ir-corte" hidden>🧮 Corte</button>
-      <button class="btn btn-chico" id="boton-ir-carta" hidden>📋 Carta</button>
-      <button class="btn btn-chico" id="boton-ir-config" hidden>⚙️ Configurar</button>
-      <button class="foquito" id="foquito" title="Impresora" hidden></button>
-      <span class="quien" id="quien-soy"></span>
-      <button class="btn btn-chico" id="boton-salir">Salir</button>
+  <div id="app">
+
+  <!-- ══════════════════ BARRA LATERAL ══════════════════
+       A la izquierda, como en la v1.3.0: la navegación no le quita alto al
+       área de trabajo, que es donde de verdad se necesita el espacio. -->
+  <aside id="lateral" hidden>
+    <div class="marca-lateral">
+      <div class="marca-icono">🍽️</div>
+      <div class="marca-textos">
+        <div class="marca-nombre-lateral" id="nombre-negocio">RESTA</div>
+        <div class="marca-sub">punto de venta</div>
+      </div>
     </div>
-  </div>
+
+    <nav id="menu-lateral">
+      <button class="nav-btn" id="boton-ir-mesas"><span>🍽️</span> Mesas y cuentas</button>
+      <button class="nav-btn" id="boton-ir-corte" hidden><span>🧮</span> Corte de caja</button>
+      <button class="nav-btn" id="boton-ir-carta" hidden><span>📋</span> La carta</button>
+      <button class="nav-btn" id="boton-ir-config" hidden><span>⚙️</span> Configurar</button>
+    </nav>
+
+    <div class="lateral-pie">
+      <button class="foquito" id="foquito" title="Impresora" hidden></button>
+      <div class="quien" id="quien-soy"></div>
+      <button class="nav-btn nav-salir" id="boton-salir"><span>🚪</span> Salir</button>
+    </div>
+  </aside>
+
+  <main id="principal">
 
 
   <!-- ══════════════════ PANTALLA: PIN ══════════════════ -->
@@ -281,6 +296,9 @@
         <div class="grupo-botones" id="cobro-modos"></div>
         <p class="sutil" id="explica-modo-cobro"></p>
 
+        <div class="titulo-bloque">Cómo paga</div>
+        <div class="grupo-botones" id="cobro-metodos"></div>
+
         <div id="cobro-pagos" class="bloque-pagos" hidden>
           <div class="titulo-bloque">Ya se pagó</div>
           <div id="lista-pagos"></div>
@@ -296,9 +314,6 @@
           <span class="a-cobrar-valor dinero" id="a-cobrar-valor">$0.00</span>
         </div>
 
-        <div class="titulo-bloque">Cómo paga</div>
-        <div class="grupo-botones" id="cobro-metodos"></div>
-
         <div id="cobro-efectivo">
           <div class="titulo-bloque">Con cuánto paga</div>
 
@@ -307,27 +322,29 @@
             <span class="recibido-valor dinero" id="cobro-recibido">—</span>
           </div>
 
-          <!-- Lo más común primero: pago justo y los billetes de siempre -->
-          <div class="grupo-botones atajos-dinero" id="cobro-atajos">
-            <button type="button" class="op op-exacto" data-tecla="exacto">Pago justo</button>
-            <button type="button" class="op" data-tecla="billete:10000">$100</button>
-            <button type="button" class="op" data-tecla="billete:20000">$200</button>
-            <button type="button" class="op" data-tecla="billete:50000">$500</button>
-          </div>
-
-          <div class="teclado teclado-dinero" id="cobro-teclado">
+          <!-- Los números a la izquierda y los atajos en una cuarta columna,
+               como en una caja registradora. Antes iban en dos renglones
+               aparte y la pantalla no cabía entera. -->
+          <div class="teclado-caja" id="cobro-teclado">
             <button data-tecla="1">1</button>
             <button data-tecla="2">2</button>
             <button data-tecla="3">3</button>
+            <button data-tecla="exacto" class="tecla-atajo tecla-exacto">Pago<br>justo</button>
+
             <button data-tecla="4">4</button>
             <button data-tecla="5">5</button>
             <button data-tecla="6">6</button>
+            <button data-tecla="billete:10000" class="tecla-atajo">$100</button>
+
             <button data-tecla="7">7</button>
             <button data-tecla="8">8</button>
             <button data-tecla="9">9</button>
+            <button data-tecla="billete:20000" class="tecla-atajo">$200</button>
+
             <button data-tecla="limpiar" class="tecla-borrar">C</button>
             <button data-tecla="0">0</button>
             <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+            <button data-tecla="billete:50000" class="tecla-atajo">$500</button>
           </div>
 
           <div class="cambio-caja" id="cobro-cambio"></div>
@@ -335,8 +352,7 @@
 
         <button class="btn btn-verde ancho grande" id="boton-cobrar">Cobrar</button>
         <p class="sutil pista-teclado">
-          También se puede teclear con el teclado de la laptop: números,
-          <b>⌫</b> para borrar y <b>Enter</b> para cobrar.
+          También con el teclado: números · <b>⌫</b> borrar · <b>Enter</b> cobrar
         </p>
       </div>
     </div>
@@ -526,6 +542,9 @@
     <div class="pie-menu" id="pie-carta"></div>
   </section>
 
+
+  </main>
+  </div>
 
   <script type="module" src="/js/app.js"></script>
 </body>

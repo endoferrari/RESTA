@@ -8,7 +8,9 @@
    Ningún color escrito a mano: todos salen de tokens.css.
    ═════════════════════════════════════════════════════════════════════════ */
 
-.pantalla { max-width: 1100px; margin: 0 auto; padding: 26px 20px 60px; }
+/* El relleno de abajo era de 60 px «por si acaso» y era justo lo que hacía
+   que la pantalla de cobro no cupiera entera. */
+.pantalla { max-width: 1100px; margin: 0 auto; padding: 20px 20px 22px; }
 
 /* ── Cabecera ──────────────────────────────────────────────────────────── */
 .cabecera {

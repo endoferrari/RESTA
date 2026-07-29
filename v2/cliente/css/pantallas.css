@@ -31,43 +31,81 @@
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:disabled:hover { border-color: var(--linea); }
 
-/* ── Barra de arriba ───────────────────────────────────────────────────── */
-.barra {
-  display: flex; align-items: center; gap: 12px;
+/* ── Barra lateral ─────────────────────────────────────────────────────
+   A la izquierda, como en la v1.3.0. Puesta arriba le quitaba alto al área
+   de trabajo, que es justo donde hace falta: la pantalla de cobro no cabía
+   entera y había que andar con la barra de desplazamiento.
+
+   Las medidas son las de la v1: 232 px de ancho, verde oscuro, botones con
+   el icono a la izquierda y el activo en ámbar. */
+#app { display: flex; min-height: 100vh; }
+
+#lateral {
+  width: 232px; flex: 0 0 232px;
   background: var(--verde-oscuro);
-  color: #fff;
-  padding: 10px 20px;
-  position: sticky; top: 0; z-index: 50;
+  color: #e9efe9;
+  display: flex; flex-direction: column;
+  padding: 20px 14px; gap: 18px;
+  position: sticky; top: 0; height: 100vh;
 }
-.barra[hidden] { display: none; }
-.marca-icono.chico { width: 34px; height: 34px; font-size: 18px; border-radius: 10px; flex: none; }
+#lateral[hidden] { display: none; }
 
-/* El nombre no se parte en dos renglones: si no cabe, se recorta.
-   Al agrandar los botones para el dedo, «ONCE Social Lounge» se partía y la
-   barra crecía al doble. */
-.barra-nombre {
-  font-weight: 800; letter-spacing: .04em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  min-width: 0;
-}
-.barra-acciones {
-  margin-left: auto; display: flex; align-items: center; gap: 8px;
-  flex-wrap: wrap; justify-content: flex-end;
-}
-.barra .btn { padding: 9px 14px; min-height: 42px; font-size: .88rem; }
+#principal { flex: 1; min-width: 0; }
 
-/* En una tablet angosta, el nombre del bar estorba más que los botones */
-@media (max-width: 720px) {
-  .barra-nombre { display: none; }
+.marca-lateral { display: flex; align-items: center; gap: 11px; padding: 2px 6px; }
+.marca-lateral .marca-icono { width: 44px; height: 44px; font-size: 24px; flex: none; }
+.marca-textos { min-width: 0; }
+/* El nombre puede ocupar dos renglones: a lo alto sobra sitio en la barra,
+   y «ONCE Social Lounge» cortado a «ONCE Social L...» se ve a medio hacer. */
+.marca-nombre-lateral {
+  font-size: 1rem; font-weight: 800; line-height: 1.2;
+  overflow-wrap: anywhere;
 }
-.barra .btn {
-  background: transparent; border-color: #3c5a4f; color: #dfe9e2;
+#lateral .marca-sub {
+  font-size: .62rem; letter-spacing: .18em; text-transform: uppercase;
+  color: #9fb5a8; margin-top: 2px;
 }
-.barra .btn:hover { background: var(--verde-medio); border-color: var(--verde-medio); color: #fff; }
-.quien { font-size: .86rem; color: #9fb5a8; }
-.quien .rol {
-  text-transform: uppercase; font-size: .66rem; letter-spacing: .1em;
-  border: 1px solid #3c5a4f; border-radius: 99px; padding: 2px 7px; margin-left: 4px;
+
+#menu-lateral { display: flex; flex-direction: column; gap: 6px; }
+
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  background: none; border: 0; color: #cfdcd2;
+  padding: 13px 12px; min-height: 50px;
+  border-radius: 10px;
+  font-size: .98rem; font-weight: 600;
+  transition: background .15s;
+}
+.nav-btn span { font-size: 1.2rem; width: 26px; text-align: center; flex: none; }
+.nav-btn:hover { background: var(--verde-medio); color: #fff; }
+.nav-btn.activo { background: var(--ambar); color: #fff; }
+.nav-btn[hidden] { display: none; }
+
+.lateral-pie {
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  border-top: 1px solid #3c5a4f; padding-top: 14px;
+}
+.lateral-pie .quien { font-size: .86rem; color: #9fb5a8; padding: 0 6px; }
+.lateral-pie .quien .rol { display: inline-block; margin-top: 3px; margin-left: 0; }
+.nav-salir { color: #9fb5a8; }
+
+/* En una tablet angosta la barra se acuesta arriba, como en la v1 */
+@media (max-width: 820px) {
+  #app { flex-direction: column; }
+  #lateral {
+    width: 100%; flex: none; height: auto; position: static;
+    flex-direction: row; align-items: center; flex-wrap: wrap;
+    padding: 10px; gap: 10px;
+  }
+  #menu-lateral { flex-direction: row; flex-wrap: wrap; }
+  .nav-btn { width: auto; }
+  .marca-textos { display: none; }
+  .lateral-pie {
+    margin-top: 0; margin-left: auto; flex-direction: row; align-items: center;
+    border-top: 0; padding-top: 0;
+  }
 }
 
 /* ── Avisos ────────────────────────────────────────────────────────────── */
@@ -604,3 +642,37 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
   .columna-cobro { margin-top: 18px; }
   .teclado-dinero button { padding: 18px 0; }
 }
+
+/* ── Teclado de caja: números + atajos en una cuarta columna ────────────
+   Antes los atajos («Pago justo» y los billetes) iban en dos renglones
+   aparte y la pantalla de cobro no cabía entera: había que usar la barra de
+   desplazamiento a media venta. Así queda todo a la vista de una sola vez. */
+.teclado-caja {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 1.15fr;
+  gap: 8px;
+}
+.teclado-caja button {
+  border: 1.5px solid var(--linea);
+  background: var(--tarjeta);
+  border-radius: var(--radio-chico);
+  min-height: 58px;
+  font-size: 1.35rem; font-weight: 700;
+  color: var(--tinta);
+  transition: transform .06s;
+}
+.teclado-caja button:hover { border-color: var(--tinta-suave); }
+.teclado-caja button:active { transform: scale(.94); background: var(--verde-claro); }
+.teclado-caja .tecla-borrar { font-size: 1.15rem; color: var(--tinta-suave); }
+
+.teclado-caja .tecla-atajo {
+  font-size: .95rem; font-weight: 800;
+  background: var(--verde-claro);
+  border-color: var(--verde-claro);
+  color: var(--verde-medio);
+  line-height: 1.15;
+}
+.teclado-caja .tecla-atajo:hover { border-color: var(--verde-medio); }
+.teclado-caja .tecla-exacto { font-size: .88rem; }
+
+.pista-teclado { margin-top: 10px; font-size: .76rem; }

@@ -49,9 +49,19 @@ function ir(vista) {
     $(`pantalla-${p}`).hidden = p !== vista;
   }
 
-  // La barra de arriba no se enseña en la pantalla del PIN: quien no ha
+  // La barra lateral no se enseña en la pantalla del PIN: quien no ha
   // entrado no tiene por qué ver el nombre de nadie.
-  $('barra-superior').hidden = vista === 'pin';
+  $('lateral').hidden = vista === 'pin';
+
+  // Se marca en ámbar dónde estás. Sin esto, con la barra a un lado uno se
+  // pierde: todas las pantallas se parecen desde lejos.
+  const DONDE_ESTOY = {
+    mesas: 'boton-ir-mesas', cuenta: 'boton-ir-mesas', cobro: 'boton-ir-mesas',
+    corte: 'boton-ir-corte', carta: 'boton-ir-carta', config: 'boton-ir-config',
+  };
+  for (const id of ['boton-ir-mesas', 'boton-ir-corte', 'boton-ir-carta', 'boton-ir-config']) {
+    $(id).classList.toggle('activo', DONDE_ESTOY[vista] === id);
+  }
 
   if (vista === 'pin')    pintarPin();
   if (vista === 'mesas')  pintarMesas();

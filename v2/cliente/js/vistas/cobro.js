@@ -41,7 +41,6 @@ export function iniciarCobro(cuandoVuelva, cuandoCierre) {
   $('cobro-modos').addEventListener('click', alTocarModo);
   $('cobro-metodos').addEventListener('click', alTocarMetodo);
   $('cobro-teclado').addEventListener('click', alTocarTecla);
-  $('cobro-atajos').addEventListener('click', alTocarTecla);
   $('boton-cobrar').addEventListener('click', cobrar);
   $('boton-descuento').addEventListener('click', preguntarDescuento);
   $('boton-propina').addEventListener('click', preguntarPropina);
