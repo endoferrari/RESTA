@@ -54,6 +54,21 @@ export const PERMISOS = {
   admin: ['*'],             // todo, sin excepciones
 };
 
+/**
+ * Las acciones que SÓLO puede el administrador.
+ *
+ * Tienen que estar escritas aquí aunque el admin ya tenga '*', porque la
+ * pantalla pregunta «¿qué puedo hacer?» para decidir qué botones enseñar.
+ * Sin esta lista, al administrador no le salían ni el botón de Configurar ni
+ * el de dar de alta gente: el servidor sí lo dejaba entrar, pero la pantalla
+ * nunca le mostraba por dónde.
+ */
+export const SOLO_ADMIN = [
+  'ajustes.cambiar',
+  'usuarios.administrar',
+  'menu.editar',
+];
+
 /** ¿Este rol puede hacer esta acción? */
 export function puede(rol, accion) {
   const lista = PERMISOS[rol];
@@ -94,8 +109,12 @@ export function permisosDe(rol) {
   const lista = PERMISOS[rol];
   if (!lista) return [];
   if (lista.includes('*')) {
-    // Todas las acciones que existen, sin repetir.
-    return [...new Set(Object.values(PERMISOS).flat().filter((a) => a !== '*'))];
+    // Todas las acciones que existen, sin repetir: las de los otros roles
+    // MÁS las que sólo el administrador puede hacer.
+    return [...new Set([
+      ...Object.values(PERMISOS).flat().filter((a) => a !== '*'),
+      ...SOLO_ADMIN,
+    ])];
   }
   return [...lista];
 }

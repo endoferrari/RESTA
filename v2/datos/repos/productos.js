@@ -10,7 +10,7 @@
  * para que quien lo use no tenga que acordarse de hacer JSON.parse.
  */
 
-import { base } from '../conexion.js';
+import { base, enTransaccion } from '../conexion.js';
 
 /** Convierte una fila de la base en un producto listo para usar. */
 function aProducto(fila) {
@@ -35,6 +35,109 @@ export function listarFamilias({ soloActivas = true } = {}) {
     .prepare(`SELECT clave, nombre, emoji, orden, activa FROM familias ${filtro} ORDER BY orden, clave`)
     .all()
     .map((f) => ({ ...f, activa: f.activa === 1 }));
+}
+
+/** Las familias con cuántos productos tiene cada una. Para configurarlas. */
+export function familiasConCuenta() {
+  return base().prepare(`
+    SELECT f.clave, f.nombre, f.emoji, f.orden, f.activa,
+           (SELECT count(*) FROM productos p WHERE p.familia = f.clave AND p.activo = 1) AS productos
+      FROM familias f
+     ORDER BY f.orden, f.clave
+  `).all().map((f) => ({ ...f, activa: f.activa === 1 }));
+}
+
+/**
+ * La `clave` es el identificador interno; el `nombre` es lo que se ve.
+ * Se separan para que renombrar «Bebidas» a «Barra» no rompa los productos
+ * que ya estaban dentro.
+ */
+function claveDesde(nombre) {
+  return String(nombre)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'familia';
+}
+
+export function crearFamilia({ nombre, emoji = '🍽️' }) {
+  const limpio = String(nombre ?? '').trim().replace(/\s+/g, ' ');
+  if (!limpio) throw new Error('Escribe el nombre de la familia.');
+  if (limpio.length > 30) throw new Error('El nombre es muy largo; usa menos de 30 letras.');
+
+  const yaEsta = base()
+    .prepare('SELECT clave FROM familias WHERE lower(nombre) = lower(?)')
+    .get(limpio);
+  if (yaEsta) throw new Error(`Ya existe una familia llamada «${limpio}».`);
+
+  // Si la clave se repite (por acentos), se le agrega un número.
+  let clave = claveDesde(limpio);
+  let n = 2;
+  while (base().prepare('SELECT 1 FROM familias WHERE clave = ?').get(clave)) {
+    clave = `${claveDesde(limpio)}-${n++}`;
+  }
+
+  const { ultimo } = base().prepare('SELECT COALESCE(max(orden), 0) AS ultimo FROM familias').get();
+
+  base().prepare(`
+    INSERT INTO familias (clave, nombre, emoji, orden) VALUES (?, ?, ?, ?)
+  `).run(clave, limpio, String(emoji || '🍽️'), ultimo + 1);
+
+  return { clave, nombre: limpio, emoji, orden: ultimo + 1, activa: true, productos: 0 };
+}
+
+export function editarFamilia({ clave, nombre, emoji, activa }) {
+  const f = base().prepare('SELECT * FROM familias WHERE clave = ?').get(clave);
+  if (!f) throw new Error('Esa familia no existe.');
+
+  if (nombre !== undefined) {
+    const limpio = String(nombre).trim().replace(/\s+/g, ' ');
+    if (!limpio) throw new Error('Escribe el nombre de la familia.');
+
+    const otra = base()
+      .prepare('SELECT clave FROM familias WHERE lower(nombre) = lower(?) AND clave <> ?')
+      .get(limpio, clave);
+    if (otra) throw new Error(`Ya existe otra familia llamada «${limpio}».`);
+
+    base().prepare('UPDATE familias SET nombre = ? WHERE clave = ?').run(limpio, clave);
+  }
+
+  if (emoji !== undefined) {
+    base().prepare('UPDATE familias SET emoji = ? WHERE clave = ?').run(String(emoji || '🍽️'), clave);
+  }
+
+  if (activa !== undefined) {
+    // Apagar una familia la esconde de la pantalla de venta; sus productos
+    // no se borran ni cambian de precio. Los tickets viejos siguen igual.
+    base().prepare('UPDATE familias SET activa = ? WHERE clave = ?').run(activa ? 1 : 0, clave);
+  }
+
+  return familiasConCuenta().find((x) => x.clave === clave);
+}
+
+/** Sube o baja una familia en el orden de las pestañas. */
+export function moverFamilia({ clave, haciaArriba = true }) {
+  return enTransaccion(() => {
+    const todas = base()
+      .prepare('SELECT clave, orden FROM familias ORDER BY orden, clave')
+      .all();
+
+    const i = todas.findIndex((f) => f.clave === clave);
+    if (i < 0) throw new Error('Esa familia no existe.');
+
+    const j = haciaArriba ? i - 1 : i + 1;
+    if (j < 0 || j >= todas.length) return familiasConCuenta();   // ya está en la orilla
+
+    // Se reescribe TODO el orden de 1 a N. Es más simple que intercambiar
+    // dos números y deja el orden limpio aunque venga desordenado de antes.
+    const nuevo = [...todas];
+    [nuevo[i], nuevo[j]] = [nuevo[j], nuevo[i]];
+
+    const poner = base().prepare('UPDATE familias SET orden = ? WHERE clave = ?');
+    nuevo.forEach((f, k) => poner.run(k + 1, f.clave));
+
+    return familiasConCuenta();
+  });
 }
 
 /* ── Productos ─────────────────────────────────────────────────────────── */
@@ -96,6 +199,109 @@ export function guardarProducto(p) {
   return base()
     .prepare('SELECT id FROM productos WHERE familia = ? AND nombre = ?')
     .get(p.familia, p.nombre).id;
+}
+
+/* ── Alta y edición desde la pantalla de configuración ─────────────────── */
+
+/** Revisa lo que se capturó y truena con un mensaje que se pueda leer. */
+function revisarProducto({ nombre, precio, familia }) {
+  const limpio = String(nombre ?? '').trim().replace(/\s+/g, ' ');
+  if (!limpio) throw new Error('Escribe el nombre del producto.');
+  if (limpio.length > 60) throw new Error('El nombre es muy largo; usa menos de 60 letras.');
+
+  if (!Number.isInteger(precio) || precio < 0) {
+    throw new Error('El precio no es válido.');
+  }
+  if (precio > 100_000_000) throw new Error('Ese precio es demasiado alto. ¿Sobran ceros?');
+
+  const f = base().prepare('SELECT clave FROM familias WHERE clave = ?').get(familia);
+  if (!f) throw new Error('Elige una familia para el producto.');
+
+  return limpio;
+}
+
+/**
+ * Da de alta un producto.
+ * `opciones` llega como TEXTO (el submenú tal como se escribe en la
+ * pantalla) y aquí se convierte. Si el texto no se entiende, el producto se
+ * guarda sin submenú en vez de trunar: es preferible un producto sin
+ * preguntas a no poder guardarlo.
+ */
+export function crearProducto({ nombre, precio, familia, icono = '🍽️', opciones = null }) {
+  const limpio = revisarProducto({ nombre, precio, familia });
+
+  const repetido = base()
+    .prepare('SELECT id, activo FROM productos WHERE familia = ? AND lower(nombre) = lower(?)')
+    .get(familia, limpio);
+
+  if (repetido) {
+    throw new Error(repetido.activo
+      ? `«${limpio}» ya está en esa familia.`
+      : `«${limpio}» ya existía en esa familia y está dado de baja. Vuélvelo a activar.`);
+  }
+
+  const { ultimo } = base()
+    .prepare('SELECT COALESCE(max(orden), 0) AS ultimo FROM productos WHERE familia = ?')
+    .get(familia);
+
+  const r = base().prepare(`
+    INSERT INTO productos (familia, nombre, icono, precio, opciones, orden)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(familia, limpio, String(icono || '🍽️'), precio,
+         opciones ? JSON.stringify(opciones) : null, ultimo + 1);
+
+  return buscarProducto(Number(r.lastInsertRowid));
+}
+
+/**
+ * Cambia un producto.
+ *
+ * OJO con el precio: cambiarlo aquí NO toca las cuentas abiertas ni los
+ * tickets viejos, porque cada renglón guardó su propio precio al anotarse.
+ * Lo nuevo que se anote sí saldrá al precio nuevo.
+ */
+export function editarProducto({ id, nombre, precio, familia, icono, opciones, activo }) {
+  const actual = buscarProducto(id);
+  if (!actual) throw new Error('Ese producto ya no existe.');
+
+  const nuevoNombre  = nombre  === undefined ? actual.nombre  : nombre;
+  const nuevoPrecio  = precio  === undefined ? actual.precio  : precio;
+  const nuevaFamilia = familia === undefined ? actual.familia : familia;
+
+  const limpio = revisarProducto({ nombre: nuevoNombre, precio: nuevoPrecio, familia: nuevaFamilia });
+
+  const choca = base()
+    .prepare('SELECT id FROM productos WHERE familia = ? AND lower(nombre) = lower(?) AND id <> ?')
+    .get(nuevaFamilia, limpio, id);
+  if (choca) throw new Error(`Ya hay otro «${limpio}» en esa familia.`);
+
+  base().prepare(`
+    UPDATE productos
+       SET nombre = ?, precio = ?, familia = ?, icono = ?, opciones = ?, activo = ?,
+           actualizado = datetime('now','localtime')
+     WHERE id = ?
+  `).run(
+    limpio,
+    nuevoPrecio,
+    nuevaFamilia,
+    icono === undefined ? actual.icono : String(icono || '🍽️'),
+    opciones === undefined
+      ? (actual.opciones ? JSON.stringify(actual.opciones) : null)
+      : (opciones ? JSON.stringify(opciones) : null),
+    activo === undefined ? (actual.activo ? 1 : 0) : (activo ? 1 : 0),
+    id,
+  );
+
+  return buscarProducto(id);
+}
+
+/** Vuelve a poner en la carta un producto dado de baja. */
+export function encenderProducto(id) {
+  base().prepare(`
+    UPDATE productos SET activo = 1, actualizado = datetime('now','localtime')
+     WHERE id = ?
+  `).run(id);
+  return buscarProducto(id);
 }
 
 /**

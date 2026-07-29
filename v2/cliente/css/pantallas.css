@@ -474,3 +474,56 @@
   min-width: 52px;
 }
 .op-ok:hover { border-color: var(--exito); filter: brightness(.93); }
+
+/* ── Configuración ─────────────────────────────────────────────────────── */
+.form-producto { padding: 18px 20px; margin: 16px 0 22px; }
+.form-producto .titulo-bloque:first-child { margin-top: 0; }
+
+.renglon-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.campo-corto  { flex: 0 0 110px; }
+.campo-medio  { flex: 0 0 190px; }
+.campo-largo  { flex: 1 1 240px; min-width: 200px; }
+.renglon-form .etiqueta-campo { margin-top: 0; }
+
+.boton-emoji { width: 100%; font-size: 1.5rem; padding: 8px 0; }
+.botones-form { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; }
+
+.grupo-config { margin-bottom: 20px; }
+
+.fila-config {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 10px 14px;
+  margin-bottom: 7px;
+}
+.fila-config.de-baja { opacity: .55; }
+.fila-icono { font-size: 1.5rem; width: 34px; text-align: center; }
+.fila-texto { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.fila-nombre { font-weight: 700; }
+.fila-nota { font-size: .82rem; color: var(--tinta-suave); }
+.fila-precio { font-weight: 800; font-variant-numeric: tabular-nums; }
+.fila-acciones { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.etiqueta-submenu {
+  font-size: .7rem; font-weight: 700;
+  background: var(--verde-claro); color: var(--verde-medio);
+  border-radius: 99px; padding: 2px 9px;
+}
+.etiqueta-baja {
+  font-size: .7rem; font-weight: 700;
+  background: var(--peligro-fondo); color: var(--peligro);
+  border-radius: 99px; padding: 2px 9px;
+}
+
+.rejilla-emojis {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px;
+}
+.rejilla-emojis button {
+  border: 1.5px solid var(--linea); background: var(--tarjeta);
+  border-radius: var(--radio-chico); padding: 10px 0; font-size: 1.5rem;
+}
+.rejilla-emojis button:hover { border-color: var(--ambar); background: var(--verde-claro); }

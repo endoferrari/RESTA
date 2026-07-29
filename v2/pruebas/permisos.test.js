@@ -59,6 +59,20 @@ test('la caja no administra usuarios ni el menú', () => {
 
 /* ── Admin ─────────────────────────────────────────────────────────────── */
 
+test('la lista del administrador incluye lo que SÓLO él puede', () => {
+  const suyos = permisosDe('admin');
+
+  // Sin esto, la pantalla no le enseña al administrador los botones de
+  // Configurar ni de dar de alta gente, aunque el servidor sí lo deje.
+  assert.ok(suyos.includes('ajustes.cambiar'), 'le falta configurar');
+  assert.ok(suyos.includes('usuarios.administrar'), 'le falta administrar gente');
+
+  // Y también todo lo de los demás roles.
+  for (const accion of [...permisosDe('mesero'), ...permisosDe('caja')]) {
+    assert.ok(suyos.includes(accion), `al admin le falta ${accion}`);
+  }
+});
+
 test('el administrador puede todo', () => {
   assert.equal(puede('admin', 'cobro.registrar'), true);
   assert.equal(puede('admin', 'usuarios.administrar'), true);

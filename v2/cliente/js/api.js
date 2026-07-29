@@ -122,6 +122,7 @@ export const api = {
   /* ── Usuarios ── */
   usuarios:     () => pedir('GET', '/api/usuarios'),
   crearUsuario: (nombre, pin, rol) => conFolio('POST', '/api/usuarios', { nombre, pin, rol }),
+  cambiarPin:   (id, pin) => conFolio('POST', `/api/usuarios/${id}/pin`, { pin }),
   darDeBaja:    (id) => pedir('DELETE', `/api/usuarios/${id}`),
 
   /* ── Cuentas ── */
@@ -188,6 +189,19 @@ export const api = {
     conFolio('POST', '/api/turno/cerrar', { efectivoContado, notas }),
   turnos:      () => pedir('GET', '/api/turnos'),
   imprimirCorte: (turnoId) => conFolio('POST', `/api/turno/${turnoId}/imprimir`),
+
+  /* ── Configurar la carta ── */
+  familias:       () => pedir('GET', '/api/familias'),
+  crearFamilia:   (nombre, emoji) => conFolio('POST', '/api/familias', { nombre, emoji }),
+  editarFamilia:  (clave, cambios) => pedir('PUT', `/api/familias/${encodeURIComponent(clave)}`, cambios),
+  moverFamilia:   (clave, haciaArriba) =>
+    pedir('POST', `/api/familias/${encodeURIComponent(clave)}/mover`, { haciaArriba }),
+
+  productos:      () => pedir('GET', '/api/productos'),
+  crearProducto:  (p) => conFolio('POST', '/api/productos', p),
+  editarProducto: (id, p) => pedir('PUT', `/api/productos/${id}`, p),
+  darDeBajaProducto: (id) => pedir('DELETE', `/api/productos/${id}`),
+  activarProducto:   (id) => conFolio('POST', `/api/productos/${id}/activar`),
 
   /* ── Respaldos ── */
   respaldos:      () => pedir('GET', '/api/respaldos'),

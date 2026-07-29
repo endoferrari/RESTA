@@ -28,10 +28,13 @@ import {
 import {
   iniciarCorte, cargarCorte, pintarCorte, pintarAvisoDeCaja, hayCaja,
 } from './vistas/corte.js';
+import {
+  iniciarConfiguracion, cargarConfiguracion, pintarConfiguracion,
+} from './vistas/configuracion.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
 
-const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora', 'corte'];
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta', 'impresora', 'corte', 'config'];
 
 function ir(vista) {
   estado.vista = vista;
@@ -57,6 +60,7 @@ function ir(vista) {
   if (vista === 'carta')  pintarCarta();
   if (vista === 'impresora') pintarImpresora();
   if (vista === 'corte') pintarCorte();
+  if (vista === 'config') pintarConfiguracion();
 }
 
 async function irACuenta(cuenta) {
@@ -87,6 +91,8 @@ function ponerUsuario(r) {
   if (!puedeVerImpresora()) $('foquito').hidden = true;
   // El corte es de caja y administración: el mesero no lo ve.
   $('boton-ir-corte').hidden = !estado.permisos.includes('corte.ver');
+  // Configurar la carta y dar de alta gente es sólo del administrador.
+  $('boton-ir-config').hidden = !estado.permisos.includes('ajustes.cambiar');
 }
 
 async function entrar(r) {
@@ -245,6 +251,12 @@ iniciarImpresora(volverAMesas);
 iniciarAncho();
 alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
 iniciarCorte(volverAMesas, volverAMesas);
+iniciarConfiguracion(volverAMesas);
+
+$('boton-ir-config').addEventListener('click', async () => {
+  await cargarConfiguracion();
+  ir('config');
+});
 
 $('boton-ir-corte').addEventListener('click', async () => {
   await cargarCorte();

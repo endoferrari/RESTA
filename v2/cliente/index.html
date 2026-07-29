@@ -29,6 +29,7 @@
       <button class="btn btn-chico" id="boton-ir-mesas">🍽️ Mesas</button>
       <button class="btn btn-chico" id="boton-ir-corte" hidden>🧮 Corte</button>
       <button class="btn btn-chico" id="boton-ir-carta" hidden>📋 Carta</button>
+      <button class="btn btn-chico" id="boton-ir-config" hidden>⚙️ Configurar</button>
       <button class="foquito" id="foquito" title="Impresora" hidden></button>
       <span class="quien" id="quien-soy"></span>
       <button class="btn btn-chico" id="boton-salir">Salir</button>
@@ -390,6 +391,93 @@
     <div id="bloque-cola" hidden>
       <div class="titulo-bloque">Esperando a salir</div>
       <div id="cola-impresion"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CONFIGURACIÓN ══════════════════ -->
+  <section id="pantalla-config" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-config">← Mesas</button>
+      <div>
+        <h1>Configuración</h1>
+        <div class="sub">La carta, las familias y quién puede entrar</div>
+      </div>
+    </div>
+
+    <div class="grupo-botones" id="config-secciones"></div>
+
+    <!-- ── Productos ── -->
+    <div id="config-productos" hidden>
+      <form id="form-producto" class="tarjeta form-producto">
+        <div class="titulo-bloque" id="titulo-formulario">Producto nuevo</div>
+
+        <div class="renglon-form">
+          <div class="campo-corto">
+            <label class="etiqueta-campo" for="prod-icono">Dibujo</label>
+            <button type="button" class="btn boton-emoji" id="prod-icono">🍽️</button>
+          </div>
+
+          <div class="campo-largo">
+            <label class="etiqueta-campo" for="prod-nombre">Nombre</label>
+            <input class="campo" id="prod-nombre" type="text" maxlength="60"
+                   placeholder="Ej. Michelada de camarón" autocomplete="off">
+          </div>
+
+          <div class="campo-corto">
+            <label class="etiqueta-campo" for="prod-precio">Precio</label>
+            <input class="campo" id="prod-precio" type="text" inputmode="decimal"
+                   placeholder="0.00" autocomplete="off">
+          </div>
+
+          <div class="campo-medio">
+            <label class="etiqueta-campo" for="prod-familia">Familia</label>
+            <select class="campo" id="prod-familia"></select>
+          </div>
+        </div>
+
+        <label class="etiqueta-campo" for="prod-opciones">
+          Submenú (opcional) — una pregunta por renglón: <i>Pregunta: opción, opción</i>
+        </label>
+        <textarea class="campo" id="prod-opciones" rows="3"
+          placeholder="Mezcla: Puesto, Campechano, Derecho&#10;Refresco [si: Puesto]: Coca, Coca Light&#10;Hielo: Con hielo, Sin hielo"></textarea>
+        <p class="sutil">
+          Trucos: <b>[varias]</b> deja marcar más de una · <b>[si: Valor, Valor]</b> hace que
+          la pregunta sólo aparezca si antes se eligió alguno de esos valores.
+        </p>
+
+        <div class="botones-form">
+          <button class="btn btn-ambar" type="submit" id="boton-guardar-producto">Agregar</button>
+          <button class="btn" type="button" id="boton-cancelar-producto" hidden>Cancelar</button>
+        </div>
+      </form>
+
+      <div class="grupo-botones" id="filtro-familia"></div>
+      <div id="lista-productos"></div>
+    </div>
+
+    <!-- ── Familias ── -->
+    <div id="config-familias" hidden>
+      <p class="sutil">
+        Las familias son las pestañas de la pantalla de venta. El orden de aquí
+        es el orden en que salen allá.
+      </p>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-nueva-familia">+ Familia nueva</button>
+      </div>
+      <div id="lista-familias"></div>
+    </div>
+
+    <!-- ── Quién entra ── -->
+    <div id="config-personas" hidden>
+      <p class="sutil">
+        Cada quien entra con su PIN de 4 números. Nadie se borra: se da de baja,
+        para que su historial siga teniendo dueño.
+      </p>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-nueva-persona">+ Dar de alta a alguien</button>
+      </div>
+      <div id="lista-personas"></div>
     </div>
   </section>
 
