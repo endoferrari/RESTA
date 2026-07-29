@@ -32,7 +32,7 @@ necesidades del negocio, no conocimientos técnicos.
 | 2 | Núcleo de dinero: cortesías, descuentos, propinas, división | ✅ hecho |
 | 3 | Mesas y cuentas en vivo, PIN de mesero | ✅ hecho |
 | 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ✅ hecho |
-| 5 | Impresión ESC/POS configurable | ✅ hecho — falta el logo |
+| 5 | Impresión ESC/POS configurable | ✅ hecho — con logo |
 | 6 | Corte del día, turnos, respaldos automáticos | ✅ hecho |
 | 7 | Empaquetado final e instalador | ⬜ siguiente |
 
@@ -42,10 +42,21 @@ El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
 ⚠️ **Pendientes que faltan para dar la v2 por terminada:**
 
-1. **El logo del ticket.** La v1.3.0 sí lo imprime. Aquí el bloque `logo()`
-   existe y `rasterABytes()` ya sabe mandar una imagen a la térmica, pero
-   falta convertir el SVG de ONCE a puntos desde Node (sin canvas).
-2. **El actualizador desde GitHub** que tenía la v1.3.0 (botón 🔄).
+1. **El actualizador desde GitHub** que tenía la v1.3.0 (botón 🔄).
+2. **La lista de «lo vendido hoy» con cantidades**, que Rosendo pidió.
+   El servidor ya la calcula —`vendidoHoy()` en `datos/repos/almacen.js`,
+   ruta `GET /api/almacen/vendido`, y `api.vendidoHoy()` en el cliente—
+   pero **ninguna pantalla la enseña**. Es código muerto.
+
+✅ **El logo del ticket YA sale** (comprobado el 29-jul-2026). Se convierte a
+puntos en el NAVEGADOR con canvas —Node no puede dibujar— una sola vez desde
+`cliente/js/logo-once.js`, se guarda en `ajustes.ticket_logo_raster` y de ahí
+va en los bytes de la térmica como `GS v 0`: 72 bytes de ancho × 161 de alto.
+
+✅ **La fase 7 ya está armada a medias:** existen `escritorio/principal.js`,
+`escritorio/instalador.nsh`, los iconos, el script `npm run empaquetar` y
+`.github/workflows/compilar-windows.yml`. Lo que falta es que el `.exe` se
+compile de verdad y se pruebe en la laptop del bar.
 
 Nada de la impresión se puede probar de verdad en Linux. Para eso está el
 modo `simulada`, que escribe el papel a `datos-dev/tickets/`.
