@@ -179,10 +179,26 @@ function preguntarOpciones(p) {
 
   const respuestasPlanas = () => [...elegidas.values()].flat();
 
+  // Qué grupo tiene abierto el campo de «otra». Sólo uno a la vez.
+  let grupoEscribiendo = null;
+
   function html() {
     return p.opciones.map((preg, i) => {
       if (!preguntaAplica(preg, respuestasPlanas())) return '';
       const puestas = elegidas.get(preg.g) ?? (preg.multi ? [] : null);
+
+      // El campo para la petición especial del cliente. Lo que se escriba
+      // aquí queda guardado como una opción más de este producto, así la
+      // próxima vez ya sale con su botón.
+      const otra = grupoEscribiendo === preg.g
+        ? `<span class="caja-otra">
+             <input type="text" class="campo-otra" data-otra-campo="${esc(preg.g)}"
+                    maxlength="60" autocomplete="off"
+                    placeholder="Escribe lo que pidió y Enter…">
+             <button type="button" class="op op-ok" data-otra-ok="${esc(preg.g)}">✔</button>
+           </span>`
+        : `<button type="button" class="op op-otra" data-otra="${esc(preg.g)}"
+             title="Algo que no está en la lista. Queda guardado para la próxima.">＋ Otra…</button>`;
 
       return `
         <div class="grupo-opciones">
@@ -195,6 +211,7 @@ function preguntarOpciones(p) {
               return `<button type="button" class="op ${activo ? 'activo' : ''}"
                         data-preg="${i}" data-op="${esc(op)}">${esc(op)}</button>`;
             }).join('')}
+            ${otra}
           </div>
         </div>`;
     }).join('');
@@ -222,7 +239,60 @@ function preguntarOpciones(p) {
     alAbrir(fondo) {
       const cuerpo = fondo.querySelector('#opciones-cuerpo');
 
+      /** Repinta y, si hay un campo de «otra» abierto, le deja el cursor. */
+      function repintar() {
+        cuerpo.innerHTML = html();
+        const campo = cuerpo.querySelector('[data-otra-campo]');
+        if (campo) setTimeout(() => campo.focus(), 30);
+      }
+
+      /** Guarda la petición especial y la deja elegida. */
+      async function guardarOtra(grupo) {
+        const campo = cuerpo.querySelector(`[data-otra-campo="${CSS.escape(grupo)}"]`);
+        if (!campo) return;
+
+        const texto = campo.value.trim();
+        if (!texto) { campo.focus(); return; }
+
+        try {
+          const r = await api.agregarOpcion(p.id, grupo, texto);
+
+          // El producto de esta pantalla se actualiza con la opción nueva,
+          // para que aparezca su botón sin tener que recargar nada.
+          p.opciones = r.producto.opciones;
+
+          const preg = p.opciones.find((o) => o.g === grupo);
+          if (preg?.multi) {
+            const lista = elegidas.get(grupo) ?? [];
+            if (!lista.includes(r.opcion)) lista.push(r.opcion);
+            elegidas.set(grupo, lista);
+          } else {
+            elegidas.set(grupo, r.opcion);
+          }
+
+          grupoEscribiendo = null;
+          repintar();
+          if (r.esNueva) avisar(`«${r.opcion}» queda guardado para la próxima`);
+        } catch (err) {
+          avisar(err.message, true);
+        }
+      }
+
+      cuerpo.addEventListener('keydown', (e) => {
+        if (!e.target.matches('[data-otra-campo]')) return;
+        if (e.key === 'Enter') { e.preventDefault(); guardarOtra(e.target.dataset.otraCampo); }
+        // Escape cierra el campo, no la ventana entera.
+        if (e.key === 'Escape') { e.stopPropagation(); grupoEscribiendo = null; repintar(); }
+      });
+
       cuerpo.addEventListener('click', (e) => {
+        // ── Abrir el campo de petición especial ──
+        const abrir = e.target.closest('[data-otra]');
+        if (abrir) { grupoEscribiendo = abrir.dataset.otra; repintar(); return; }
+
+        const ok = e.target.closest('[data-otra-ok]');
+        if (ok) { guardarOtra(ok.dataset.otraOk); return; }
+
         const b = e.target.closest('[data-op]');
         if (!b) return;
 
@@ -245,7 +315,7 @@ function preguntarOpciones(p) {
           if (!preguntaAplica(preg2, respuestasPlanas())) elegidas.delete(preg2.g);
         }
 
-        cuerpo.innerHTML = html();
+        repintar();
       });
     },
   });

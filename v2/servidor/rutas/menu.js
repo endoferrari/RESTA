@@ -9,12 +9,13 @@
  * en la base. Una tablet con el menú viejo en memoria no puede cobrar mal.
  */
 
-import { menuCompleto } from '../../datos/repos/productos.js';
+import { menuCompleto, agregarOpcion } from '../../datos/repos/productos.js';
 import { todosLosAjustes } from '../../datos/repos/ajustes.js';
 import { importarV1, resumirImportacion } from '../../datos/importar-v1.js';
 import { conFolio } from '../idempotencia.js';
 import { avisarATodos } from '../tiempo-real.js';
 import { exigir } from '../auth.js';
+import { anotarEvento } from '../../datos/repos/eventos.js';
 
 /**
  * Lo único que se enseña ANTES de entrar con PIN.
@@ -32,6 +33,34 @@ export function registrarRutasMenu(app) {
   app.get('/api/menu', async (peticion) => {
     exigir(peticion, 'menu.ver');
     return { ok: true, ...menuCompleto() };
+  });
+
+  /**
+   * Una petición especial del cliente, que queda guardada.
+   *
+   * La puede hacer un MESERO a propósito: es él quien está en la mesa
+   * oyendo «me lo pones con poco hielo». Si tuviera que pedirle permiso a
+   * alguien, nunca se anotaría y el menú no aprendería nada.
+   *
+   * Sólo AGREGA una opción a una pregunta que ya existe. No toca precios ni
+   * crea productos: eso sigue siendo del administrador.
+   */
+  app.post('/api/menu/productos/:id/opciones', async (peticion) => {
+    const usuario = exigir(peticion, 'cuenta.anotar');
+    const { grupo, opcion } = peticion.body ?? {};
+
+    const r = conFolio(peticion, '/api/menu/productos/:id/opciones', () =>
+      agregarOpcion({ productoId: Number(peticion.params.id), grupo, opcion }));
+
+    if (r.esNueva) {
+      anotarEvento({
+        tipo: 'menu.opcion.agregar', referencia: `producto:${peticion.params.id}`, usuario,
+        detalle: { producto: r.producto.nombre, grupo, opcion: r.opcion },
+      });
+      avisarATodos('menu.cambio', { productoId: r.producto.id });
+    }
+
+    return { ok: true, ...r };
   });
 
   /** Los ajustes. Sin entrar, sólo se ve el nombre del negocio. */

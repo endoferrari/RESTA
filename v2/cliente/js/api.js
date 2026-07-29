@@ -109,6 +109,10 @@ export const api = {
   ajustes: () => pedir('GET', '/api/ajustes'),
   importarRespaldo: (datos) => conFolio('POST', '/api/menu/importar', datos),
 
+  /** Petición especial del cliente: queda guardada como opción del producto. */
+  agregarOpcion: (productoId, grupo, opcion) =>
+    conFolio('POST', `/api/menu/productos/${productoId}/opciones`, { grupo, opcion }),
+
   /* ── Sesión ── */
   quienSoy:     () => pedir('GET', '/api/sesion'),
   entrar:       (pin) => pedir('POST', '/api/sesion', { pin }),

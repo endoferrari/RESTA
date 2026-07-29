@@ -452,3 +452,25 @@
 .bloque-corte .titulo-bloque:first-child { margin-top: 0; }
 .cambio-valor.falta, .cambio-grande.falta { color: var(--peligro); }
 .vacio .btn.grande { margin-top: 20px; display: inline-block; width: auto; padding: 16px 32px; }
+
+/* ── Petición especial del cliente («＋ Otra…») ─────────────────────────
+   Punteado a propósito: se ve que no es una opción del menú, sino algo que
+   se está agregando en este momento. Lo que se escriba aquí queda guardado
+   como opción del producto para la próxima vez. */
+.op-otra { border-style: dashed; color: var(--tinta-suave); font-weight: 600; }
+.op-otra:hover { border-style: solid; color: var(--tinta); }
+
+.caja-otra { display: flex; gap: 6px; flex: 1 1 100%; min-width: 0; }
+.campo-otra {
+  flex: 1; min-width: 0;
+  border: 2px solid var(--ambar);
+  border-radius: 99px;
+  padding: 10px 16px;
+  font-size: .92rem;
+  background: var(--tarjeta); color: var(--tinta);
+}
+.op-ok {
+  background: var(--exito); border-color: var(--exito); color: #fff;
+  min-width: 52px;
+}
+.op-ok:hover { border-color: var(--exito); filter: brightness(.93); }

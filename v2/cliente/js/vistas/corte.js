@@ -19,11 +19,13 @@ import { $, esc, avisar, confirmar, ventana } from '../ui.js';
 import { formatear } from '/nucleo/dinero.js';
 
 let alVolver = null;
+let alAbrirCaja = null;
 let datos = { turno: null, corte: null, fondoSugerido: 0 };
 let contado = '';         // lo que se teclea al cerrar, en centavos como texto
 
-export function iniciarCorte(cuandoVuelva) {
+export function iniciarCorte(cuandoVuelva, cuandoAbraLaCaja) {
   alVolver = cuandoVuelva;
+  alAbrirCaja = cuandoAbraLaCaja;
 
   $('volver-de-corte').addEventListener('click', () => alVolver?.());
   $('boton-abrir-caja').addEventListener('click', abrirCaja);
@@ -46,6 +48,11 @@ export async function cargarCorte() {
   } catch (e) {
     if (e.codigo !== 401 && e.codigo !== 403) avisar(e.message, true);
   }
+}
+
+/** ¿Hay caja abierta ahora mismo? Lo pregunta la app al arrancar. */
+export function hayCaja() {
+  return !!datos.turno;
 }
 
 /** La barra amarilla de «la caja no está abierta», en la pantalla de Mesas. */
@@ -217,6 +224,9 @@ async function abrirCaja() {
     await api.abrirTurno(fondo);
     await cargarCorte();
     avisar('Caja abierta');
+    // Abrir la caja es el paso previo a trabajar, no un fin en sí mismo:
+    // en cuanto queda abierta, la pantalla se va sola a Mesas.
+    alAbrirCaja?.();
   } catch (e) {
     avisar(e.message, true);
   }

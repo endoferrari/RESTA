@@ -99,6 +99,48 @@ export function guardarProducto(p) {
 }
 
 /**
+ * Agrega una opción nueva a un grupo del submenú de un producto.
+ *
+ * Esto es la petición especial del cliente: «con poco hielo», «sin sal en el
+ * vaso», «bien frío». El mesero la escribe en la mesa y QUEDA GUARDADA como
+ * una opción más de ese producto, así la próxima vez ya sale con un botón.
+ *
+ * De esa forma el menú se va llenando solo con lo que de verdad pide la
+ * gente, en vez de tener que adivinarlo el día que se captura la carta.
+ *
+ * Devuelve el producto ya actualizado, o null si el grupo no existe.
+ * Si la opción ya estaba (aunque escrita con otros acentos o mayúsculas),
+ * no se duplica: se devuelve la que ya había.
+ */
+export function agregarOpcion({ productoId, grupo, opcion }) {
+  const limpia = String(opcion ?? '').trim().replace(/\s+/g, ' ');
+  if (!limpia) throw new Error('Escribe qué pidió el cliente.');
+  if (limpia.length > 60) throw new Error('La petición es muy larga; resúmela en pocas palabras.');
+
+  const p = buscarProducto(productoId);
+  if (!p) throw new Error('Ese producto ya no está en la carta.');
+  if (!p.opciones) throw new Error('Ese producto no pregunta nada, no se le pueden agregar opciones.');
+
+  const g = p.opciones.find((o) => o.g === grupo);
+  if (!g) throw new Error(`Ese producto no tiene la pregunta «${grupo}».`);
+
+  const normalizar = (s) =>
+    String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  const yaEstaba = g.ops.find((o) => normalizar(o) === normalizar(limpia));
+  if (yaEstaba) return { producto: p, opcion: yaEstaba, esNueva: false };
+
+  g.ops.push(limpia);
+
+  base().prepare(`
+    UPDATE productos SET opciones = ?, actualizado = datetime('now','localtime')
+     WHERE id = ?
+  `).run(JSON.stringify(p.opciones), productoId);
+
+  return { producto: buscarProducto(productoId), opcion: limpia, esNueva: true };
+}
+
+/**
  * Un producto NUNCA se borra: se apaga.
  * Si se borrara, los tickets de hace meses apuntarían a la nada y el corte
  * de ese día dejaría de cuadrar.

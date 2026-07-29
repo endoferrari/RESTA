@@ -26,7 +26,7 @@ import {
   ponerEstadoImpresion, alTocarFoquito, puedeVerImpresora,
 } from './vistas/impresora.js';
 import {
-  iniciarCorte, cargarCorte, pintarCorte, pintarAvisoDeCaja,
+  iniciarCorte, cargarCorte, pintarCorte, pintarAvisoDeCaja, hayCaja,
 } from './vistas/corte.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
@@ -92,6 +92,15 @@ function ponerUsuario(r) {
 async function entrar(r) {
   ponerUsuario(r);
   await Promise.all([cargarCarta(), cargarMesas(), cargarImpresora(), cargarCorte()]);
+
+  // Si la caja no está abierta, no tiene sentido enseñar las mesas: lo
+  // primero de la noche es abrir la caja. Se entra directo a esa pantalla,
+  // y en cuanto se abre, la app se va sola a Mesas.
+  if (!hayCaja() && estado.permisos.includes('turno.cerrar')) {
+    ir('corte');
+    return;
+  }
+
   ir('mesas');
 }
 
@@ -235,7 +244,7 @@ iniciarCobro(() => ir('cuenta'), volverAMesas);
 iniciarImpresora(volverAMesas);
 iniciarAncho();
 alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
-iniciarCorte(volverAMesas);
+iniciarCorte(volverAMesas, volverAMesas);
 
 $('boton-ir-corte').addEventListener('click', async () => {
   await cargarCorte();
