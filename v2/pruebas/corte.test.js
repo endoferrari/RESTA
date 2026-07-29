@@ -254,3 +254,32 @@ test('noche completa: efectivo, tarjeta, cortesía, descuento, cancelación y an
   assert.equal(corte.cortesias, 7000);
   assert.equal(corte.canceladas.monto, 12000);
 });
+
+test('la lista completa no se corta, la del papel sí', () => {
+  // La pantalla enseña TODO lo que se vendió —para el pedido al proveedor y
+  // para contestar «¿cuántas alitas salieron?»—, pero el ticket del corte
+  // lleva sólo los diez primeros: el rollo cuesta.
+  const lineas = Array.from({ length: 25 }, (_, i) => ({
+    nombre: `Producto ${i}`, cant: 25 - i, precio: 1000, cortesia: false,
+  }));
+
+  assert.equal(loMasVendido(lineas, Infinity).length, 25);
+  assert.equal(loMasVendido(lineas, 10).length, 10);
+
+  // Y los diez del papel son de verdad los diez de arriba de la lista larga
+  const todos = loMasVendido(lineas, Infinity);
+  assert.deepEqual(loMasVendido(lineas, 10), todos.slice(0, 10));
+});
+
+test('lo regalado se cuenta aparte y no suma dinero', () => {
+  // Si las cortesías sumaran importe, el corte diría que entró dinero que
+  // nunca entró.
+  const top = loMasVendido([
+    { nombre: 'Cerveza', cant: 8, precio: 4000, cortesia: false },
+    { nombre: 'Cerveza', cant: 2, precio: 4000, cortesia: true },
+  ], Infinity);
+
+  assert.equal(top[0].piezas, 10);        // salieron 10 del refrigerador
+  assert.equal(top[0].regaladas, 2);
+  assert.equal(top[0].importe, 8 * 4000); // pero sólo se cobraron 8
+});

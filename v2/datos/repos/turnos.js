@@ -141,10 +141,19 @@ export function corteDeTurno(turnoId) {
     efectivoContado: turno.efectivoContado,
   });
 
+  // La lista se saca UNA vez y se corta en dos: el papel lleva los diez
+  // primeros —el rollo cuesta— y la pantalla los enseña todos, que es lo que
+  // pidió Rosendo para saber qué se movió en el turno.
+  //
+  // Sale de los renglones de los tickets, NO de los movimientos de almacén:
+  // el almacén sólo sigue 17 productos y aquí tienen que salir los 137.
+  const vendido = loMasVendido(lineasDelTurno(turnoId), Infinity);
+
   return {
     turno,
     ...numeros,
-    masVendido: loMasVendido(lineasDelTurno(turnoId), 10),
+    vendido,
+    masVendido: vendido.slice(0, 10),
     // Las mesas que siguen abiertas: si se cierra el turno con cuentas
     // abiertas, ese dinero todavía no ha entrado y hay que saberlo.
     cuentasAbiertas: base()

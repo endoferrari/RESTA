@@ -158,15 +158,12 @@ export function pintarCorte() {
         <span class="dinero"><b>${formatear(c.canceladas.monto)}</b></span></div>` : '') +
     (c.anulados ? `<p class="sutil">${c.anulados} ticket(s) anulado(s) en este turno.</p>` : '');
 
-  // ── Lo más vendido ──
-  $('corte-mas-vendido').hidden = !c.masVendido.length;
-  $('corte-mas-vendido').innerHTML = c.masVendido.length ? `
-    <div class="titulo-bloque">Lo más vendido</div>
-    ${c.masVendido.map((p) => `
-      <div class="fila-total sutil">
-        <span>${p.piezas} × ${esc(p.nombre)}${p.regaladas ? ` (${p.regaladas} de cortesía)` : ''}</span>
-        <span class="dinero">${formatear(p.importe)}</span>
-      </div>`).join('')}` : '';
+  // ── Lo que se vendió ──
+  //
+  // Al llegar salen los diez de arriba, que es lo que se mira siempre. La
+  // lista entera está a un toque: sirve para el pedido del proveedor y para
+  // contestar «¿cuántas alitas salieron?» sin ponerse a sumar tickets.
+  pintarVendido();
 
   // ── Se puede cerrar? ──
   const cerrar = $('boton-cerrar-caja');
@@ -174,6 +171,50 @@ export function pintarCorte() {
   cerrar.textContent = c.cuentasAbiertas > 0
     ? `Hay ${c.cuentasAbiertas} mesa(s) abierta(s)`
     : contado ? 'Cerrar la caja' : 'Cuenta el efectivo primero';
+}
+
+/** Cuántos productos distintos se enseñan antes de decir «ver todos». */
+const DE_ENTRADA = 10;
+let verTodoLoVendido = false;
+
+function pintarVendido() {
+  const lista = datos.corte?.vendido ?? [];
+  const caja = $('corte-mas-vendido');
+
+  caja.hidden = lista.length === 0;
+  if (lista.length === 0) return;
+
+  const seVen = verTodoLoVendido ? lista : lista.slice(0, DE_ENTRADA);
+  const piezas = lista.reduce((n, p) => n + p.piezas, 0);
+  const regaladas = lista.reduce((n, p) => n + p.regaladas, 0);
+
+  caja.innerHTML = `
+    <div class="titulo-bloque">
+      ${verTodoLoVendido ? 'Todo lo que se vendió' : 'Lo más vendido'}
+    </div>
+    <p class="sutil">
+      <b>${piezas}</b> pieza(s) de <b>${lista.length}</b> producto(s) distinto(s)${
+        regaladas ? ` · ${regaladas} de cortesía` : ''}
+    </p>
+
+    ${seVen.map((p) => `
+      <div class="fila-total sutil">
+        <span><b>${p.piezas}</b> × ${esc(p.nombre)}${
+          p.regaladas ? ` <span style="color:var(--ambar)">(${p.regaladas} de cortesía)</span>` : ''}</span>
+        <span class="dinero">${formatear(p.importe)}</span>
+      </div>`).join('')}
+
+    ${lista.length > DE_ENTRADA ? `
+      <button class="btn btn-chico" id="boton-ver-todo-vendido" style="margin-top:10px">
+        ${verTodoLoVendido
+          ? '▲ Ver sólo los 10 primeros'
+          : `▼ Ver los ${lista.length} productos`}
+      </button>` : ''}`;
+
+  $('boton-ver-todo-vendido')?.addEventListener('click', () => {
+    verTodoLoVendido = !verTodoLoVendido;
+    pintarVendido();
+  });
 }
 
 const nombreMetodo = (m) => ({
