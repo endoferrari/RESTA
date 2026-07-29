@@ -220,6 +220,10 @@ export const api = {
 
   movimientosDe:      (id) => pedir('GET', `/api/almacen/productos/${id}/movimientos`),
   vendidoHoy:         () => pedir('GET', '/api/almacen/vendido'),
+
+  /* ── El sistema ── */
+  actualizacion:      (forzar = false) =>
+    pedir('GET', `/api/actualizacion${forzar ? '?forzar=1' : ''}`),
   configAlmacen:      () => pedir('GET', '/api/almacen/configuracion'),
   guardarConfigAlmacen: (id, cambios) => pedir('PUT', `/api/almacen/configuracion/${id}`, cambios),
 

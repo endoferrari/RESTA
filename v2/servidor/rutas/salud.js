@@ -10,6 +10,8 @@
  *     navegador y te dice exactamente qué está mal, en español.
  */
 
+import { exigir } from '../auth.js';
+import { buscarActualizacion } from '../actualizaciones.js';
 import { VERSION } from '../config.js';
 import { resumenRed } from '../red.js';
 import { base } from '../../datos/conexion.js';
@@ -24,6 +26,17 @@ export function registrarRutasSalud(app) {
     version: VERSION,
     momento: new Date().toISOString(),
   }));
+
+  /**
+   * ¿Hay una versión nueva? El botón 🔄 de la v1.3.0.
+   *
+   * Pregunta el SERVIDOR y no la pantalla: GitHub no deja que una página de
+   * otro sitio le pregunte, y así las tablets no necesitan internet propio.
+   */
+  app.get('/api/actualizacion', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+    return { ok: true, ...await buscarActualizacion({ forzar: peticion.query.forzar === '1' }) };
+  });
 
   /** El informe completo, para cuando algo falla. */
   app.get('/api/diagnostico', async () => {
@@ -75,6 +88,11 @@ export function registrarRutasSalud(app) {
     return {
       ok: revisiones.every((r) => r.bien),
       version: VERSION,
+      // La carpeta y la base, como datos sueltos y no sólo dentro del texto
+      // de una revisión: es lo primero que se pregunta por teléfono cuando
+      // algo va mal, y ahora se lee en la pantalla de «El sistema».
+      carpeta: RAIZ,
+      base: RUTA_BASE,
       sistema: esWindows ? 'Windows' : process.platform,
       node: process.version,
       enPieDesde: Math.round(process.uptime()) + ' segundos',

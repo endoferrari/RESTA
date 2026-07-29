@@ -46,6 +46,7 @@ export function iniciarConfiguracion(cuandoVuelva) {
   $('lista-personas').addEventListener('click', alTocarPersona);
   $('boton-nueva-persona').addEventListener('click', nuevaPersona);
   $('filtro-familia').addEventListener('click', alTocarFiltro);
+  $('boton-buscar-actualizacion').addEventListener('click', () => buscarActualizacion(true));
 }
 
 /* ── Cargar ────────────────────────────────────────────────────────────── */
@@ -73,6 +74,7 @@ export function pintarConfiguracion() {
     ['productos', '📋 Productos'],
     ['familias', '🗂️ Familias'],
     ['personas', '👥 Quién entra'],
+    ['sistema', 'ℹ️ El sistema'],
   ];
 
   $('config-secciones').innerHTML = secciones.map(([clave, texto]) =>
@@ -82,10 +84,101 @@ export function pintarConfiguracion() {
   $('config-productos').hidden = seccion !== 'productos';
   $('config-familias').hidden  = seccion !== 'familias';
   $('config-personas').hidden  = seccion !== 'personas';
+  $('config-sistema').hidden   = seccion !== 'sistema';
 
   if (seccion === 'productos') { pintarFormulario(); pintarProductos(); }
   if (seccion === 'familias')  pintarFamilias();
   if (seccion === 'personas')  pintarPersonas();
+  if (seccion === 'sistema')   pintarSistema();
+}
+
+/* ── El sistema ────────────────────────────────────────────────────────── */
+
+/**
+ * Dónde vive todo y qué versión es.
+ *
+ * No es adorno: es lo primero que hace falta cuando algo va mal por teléfono
+ * —«¿qué versión tienes?», «¿dónde está la base?»— y ahora se lee en la
+ * pantalla en vez de tener que abrir carpetas.
+ */
+async function pintarSistema() {
+  try {
+    const d = await api.diagnostico();
+
+    $('sistema-datos').innerHTML = `
+      <div class="fila-total"><span>Versión instalada</span>
+        <span><b>${esc(d.version ?? '—')}</b></span></div>
+      <div class="fila-total"><span>Los datos y respaldos viven en</span>
+        <span class="sutil">${esc(d.carpeta ?? d.raiz ?? '—')}</span></div>
+      <div class="fila-total"><span>Para las tablets</span>
+        <span class="sutil">${esc(d.red?.principal?.url ?? 'sin red')}</span></div>`;
+
+    $('sistema-version').innerHTML =
+      `Estás en la versión <b>${esc(d.version ?? '—')}</b>.`;
+  } catch (e) {
+    $('sistema-datos').innerHTML = `<div class="caja-error">${esc(e.message)}</div>`;
+  }
+
+  buscarActualizacion(false);
+}
+
+/**
+ * El botón 🔄 de la v1.3.0.
+ *
+ * Aquí NO se instala nada. La v1 era un solo archivo y se podía escribir
+ * encima; la v2 son varios archivos, una base de datos y una biblioteca
+ * compilada, y reemplazarlos con el punto de venta corriendo es la mejor
+ * forma de dejarlo inservible un sábado. Se avisa y se abre la descarga; el
+ * instalador se corre con RESTA cerrado.
+ */
+async function buscarActualizacion(forzar) {
+  const caja = $('sistema-actualizacion');
+  caja.innerHTML = '<p class="sutil">Preguntando a GitHub…</p>';
+
+  let r;
+  try {
+    r = await api.actualizacion(forzar);
+  } catch (e) {
+    caja.innerHTML = `<div class="caja-error">${esc(e.message)}</div>`;
+    return;
+  }
+
+  if (!r.sePudo) {
+    caja.innerHTML = `
+      <div class="caja-aviso">
+        ${esc(r.motivo)}<br>
+        <span class="sutil">RESTA funciona igual sin internet; sólo no puede avisarte
+        si hay algo nuevo.</span>
+      </div>`;
+    return;
+  }
+
+  if (!r.hayNueva) {
+    caja.innerHTML = `
+      <div class="caja-exito">
+        ✔ Estás al día${r.ultima ? ` — la última publicada es la ${esc(r.ultima)}` : ''}.
+        ${r.motivo ? `<br><span class="sutil">${esc(r.motivo)}</span>` : ''}
+      </div>`;
+    return;
+  }
+
+  const megas = r.tamano ? ` · ${(r.tamano / 1048576).toFixed(1)} MB` : '';
+
+  caja.innerHTML = `
+    <div class="caja-aviso">
+      <b>Hay una versión nueva: la ${esc(r.ultima)}</b>${megas}
+      ${r.notas ? `<p class="sutil" style="white-space:pre-line;margin-top:8px">${esc(r.notas.slice(0, 400))}</p>` : ''}
+      <p class="sutil" style="margin-top:10px">
+        Se descarga el instalador y se corre <b>con RESTA cerrado</b>.
+        Tus ventas, tu carta y tus respaldos <b>no se tocan</b>: viven aparte
+        de la carpeta del programa.
+      </p>
+      <div class="botones-form">
+        <a class="btn btn-ambar" href="${esc(r.descarga)}" target="_blank" rel="noopener">
+          ⬇️ Descargar la ${esc(r.ultima)}
+        </a>
+      </div>
+    </div>`;
 }
 
 /* ── Productos ─────────────────────────────────────────────────────────── */
