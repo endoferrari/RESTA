@@ -11,7 +11,7 @@ import {
   contarUsuarios, listarUsuarios, crearUsuario, apagarUsuario, cambiarPin,
   usuarioConPin, pinYaUsado, abrirSesion, cerrarSesion, buscarUsuario,
 } from '../../datos/repos/usuarios.js';
-import { anotarEvento } from '../../datos/repos/eventos.js';
+import { anotarEvento, refUsuario } from '../../datos/repos/eventos.js';
 import { permisosDe, pinValido } from '../../nucleo/permisos.js';
 import { usuarioDe, exigir, frenoActivo, anotarIntentoFallido, limpiarIntentos } from '../auth.js';
 
@@ -60,7 +60,7 @@ export function registrarRutasSesion(app) {
     limpiarIntentos(desde);
     const token = abrirSesion(usuario.id, desde);
 
-    anotarEvento({ tipo: 'sesion.entrar', referencia: usuario.id, usuario, detalle: { desde } });
+    anotarEvento({ tipo: 'sesion.entrar', referencia: refUsuario(usuario.id), usuario, detalle: { desde } });
 
     return { ok: true, pase: token, usuario, permisos: permisosDe(usuario.rol) };
   });
@@ -70,7 +70,7 @@ export function registrarRutasSesion(app) {
     const pase = peticion.headers['x-pase'];
     const usuario = usuarioDe(peticion);
     if (pase) cerrarSesion(pase);
-    if (usuario) anotarEvento({ tipo: 'sesion.salir', referencia: usuario.id, usuario });
+    if (usuario) anotarEvento({ tipo: 'sesion.salir', referencia: refUsuario(usuario.id), usuario });
     return { ok: true };
   });
 
@@ -91,7 +91,7 @@ export function registrarRutasSesion(app) {
     const usuario = crearUsuario({ nombre: nombre.trim(), pin, rol: 'admin' });
     const token = abrirSesion(usuario.id, peticion.ip);
 
-    anotarEvento({ tipo: 'usuario.crear', referencia: usuario.id, usuario,
+    anotarEvento({ tipo: 'usuario.crear', referencia: refUsuario(usuario.id), usuario,
       detalle: { nombre: usuario.nombre, rol: 'admin', primero: true } });
 
     return { ok: true, pase: token, usuario, permisos: permisosDe(usuario.rol) };
@@ -121,7 +121,7 @@ export function registrarRutasSesion(app) {
 
     const usuario = crearUsuario({ nombre: nombre.trim(), pin, rol });
 
-    anotarEvento({ tipo: 'usuario.crear', referencia: usuario.id, usuario: quien,
+    anotarEvento({ tipo: 'usuario.crear', referencia: refUsuario(usuario.id), usuario: quien,
       detalle: { nombre: usuario.nombre, rol } });
 
     return { ok: true, usuario };
@@ -139,7 +139,7 @@ export function registrarRutasSesion(app) {
     if (pinYaUsado(pin, id)) throw alto('Ese PIN ya es de otra persona. Pon otro.');
 
     cambiarPin(id, pin);
-    anotarEvento({ tipo: 'usuario.pin', referencia: id, usuario: quien,
+    anotarEvento({ tipo: 'usuario.pin', referencia: refUsuario(id), usuario: quien,
       detalle: { nombre: usuario.nombre } });
 
     return { ok: true };
@@ -162,7 +162,7 @@ export function registrarRutasSesion(app) {
     }
 
     apagarUsuario(id);
-    anotarEvento({ tipo: 'usuario.baja', referencia: id, usuario: quien,
+    anotarEvento({ tipo: 'usuario.baja', referencia: refUsuario(id), usuario: quien,
       detalle: { nombre: usuario.nombre, rol: usuario.rol } });
 
     return { ok: true };

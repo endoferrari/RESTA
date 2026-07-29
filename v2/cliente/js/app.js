@@ -20,14 +20,20 @@ import { iniciarPin, pintarPin } from './vistas/pin.js';
 import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
 import { iniciarCuenta, pintarCuenta } from './vistas/cuenta.js';
 import { iniciarCarta, cargarCarta, pintarCarta } from './vistas/carta.js';
+import { iniciarCobro, empezarCobro, pintarCobro } from './vistas/cobro.js';
 
 /* ── Cambiar de pantalla ────────────────────────────────────────────────── */
 
-const PANTALLAS = ['pin', 'mesas', 'cuenta', 'carta'];
+const PANTALLAS = ['pin', 'mesas', 'cuenta', 'cobro', 'carta'];
 
 function ir(vista) {
   estado.vista = vista;
-  cerrarVentana();
+
+  // Ojo: aquí NO se cierran las ventanitas abiertas.
+  // Al cobrar, el servidor avisa por la línea que la cuenta se cerró y esta
+  // pantalla se va sola a Mesas; si eso cerrara la ventana, el cambio para
+  // el cliente desaparecería antes de que a nadie le diera tiempo de leerlo.
+  // Las ventanas se cierran solas al contestarlas, o al salir de la sesión.
 
   for (const p of PANTALLAS) {
     $(`pantalla-${p}`).hidden = p !== vista;
@@ -40,6 +46,7 @@ function ir(vista) {
   if (vista === 'pin')    pintarPin();
   if (vista === 'mesas')  pintarMesas();
   if (vista === 'cuenta') pintarCuenta();
+  if (vista === 'cobro')  pintarCobro();
   if (vista === 'carta')  pintarCarta();
 }
 
@@ -76,6 +83,7 @@ async function entrar(r) {
 
 async function salir() {
   try { await api.salir(); } catch { /* si no se pudo avisar, igual salimos */ }
+  cerrarVentana();
   guardarPase(null);
   estado.usuario = null;
   estado.permisos = [];
@@ -114,9 +122,20 @@ async function refrescarCuenta() {
   try {
     const { cuenta } = await api.cuenta(estado.cuenta.id);
     estado.cuenta = cuenta;
+
+    // Otra pantalla pudo cobrarla o cancelarla mientras esta la tenía
+    // abierta. En ese caso no tiene sentido quedarse ahí.
+    if (cuenta.estado !== 'abierta' && ['cuenta', 'cobro'].includes(estado.vista)) {
+      avisar(cuenta.estado === 'cobrada'
+        ? `${cuenta.nombre} ya se cobró desde otra pantalla.`
+        : `${cuenta.nombre} se canceló desde otra pantalla.`);
+      volverAMesas();
+      return;
+    }
+
     if (estado.vista === 'cuenta') pintarCuenta();
+    if (estado.vista === 'cobro')  pintarCobro();
   } catch (e) {
-    // La cuenta pudo cancelarse desde otra pantalla mientras tanto.
     if (e.codigo === 404) {
       avisar('Esa cuenta ya no está abierta.', true);
       volverAMesas();
@@ -133,6 +152,7 @@ async function refrescarTodo() {
 
 globalThis.addEventListener('resta:sesion-caida', () => {
   if (estado.vista === 'pin') return;
+  cerrarVentana();
   estado.usuario = null;
   estado.permisos = [];
   estado.cuenta = null;
@@ -183,6 +203,12 @@ iniciarPin(entrar);
 iniciarMesas(irACuenta);
 iniciarCuenta(volverAMesas);
 iniciarCarta(volverAMesas);
+iniciarCobro(() => ir('cuenta'), volverAMesas);
+
+$('boton-ir-cobrar').addEventListener('click', () => {
+  empezarCobro();
+  ir('cobro');
+});
 
 $('boton-salir').addEventListener('click', salir);
 $('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta'); });

@@ -123,6 +123,8 @@ function pintarBotones() {
     : '🔔 Nada nuevo que mandar';
 
   // Los botones de dinero sólo se le enseñan a quien puede usarlos.
+  // Aunque alguien se saltara la pantalla, el servidor los rechaza igual.
+  $('boton-ir-cobrar').hidden = !puede('cobro.registrar');
   $('boton-pedir-cuenta').hidden = !puede('cuenta.imprimir');
   $('boton-cancelar-cuenta').hidden = !puede('cuenta.cancelar');
 }

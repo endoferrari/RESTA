@@ -136,4 +136,32 @@ export const api = {
 
   cancelarCuenta: (cuentaId, motivo, version) =>
     conFolio('POST', `/api/cuentas/${cuentaId}/cancelar`, { motivo, version }),
+
+  /* ── Dinero (sólo caja) ── */
+  cortesia: (cuentaId, lineaId, esCortesia, motivo, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/cortesia`,
+      { lineaId, esCortesia, motivo, version }),
+
+  descuento: (cuentaId, tipo, valor, motivo, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/descuento`, { tipo, valor, motivo, version }),
+
+  propina: (cuentaId, tipo, valor, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/propina`, { tipo, valor, version }),
+
+  dividir: (cuentaId, personas) =>
+    pedir('GET', `/api/cuentas/${cuentaId}/dividir?personas=${personas}`),
+
+  /**
+   * Cobrar. La pantalla NUNCA manda el total: manda cómo paga y, si acaso,
+   * cuánto o qué renglones. El servidor calcula el resto.
+   */
+  cobrar: (cuentaId, { metodo, monto = null, recibido = null, lineas = null,
+                       referencia = null, version } = {}) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/cobrar`,
+      { metodo, monto, recibido, lineas, referencia, version }),
+
+  anularPago: (cuentaId, motivo, version) =>
+    conFolio('POST', `/api/cuentas/${cuentaId}/anular-pago`, { motivo, version }),
+
+  ticket: (folio) => pedir('GET', `/api/tickets/${folio}`),
 };

@@ -291,6 +291,24 @@ test('la mesa se puede volver a abrir después de cancelarla', () => {
   assert.notEqual(nueva.id, cuenta.id, 'es una cuenta nueva, no la cancelada');
 });
 
+/* ── La bitácora no se mezcla ──────────────────────────────────────────── */
+
+test('la historia de una mesa no trae los eventos de un usuario con el mismo número', async () => {
+  const { anotarEvento, refUsuario } = await import('../datos/repos/eventos.js');
+
+  const { cuenta } = abrirCuenta({ nombre: '80', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: cerveza.id, usuario: ANA });
+
+  // Un usuario cuyo número coincide con el de la cuenta entra al sistema.
+  anotarEvento({ tipo: 'sesion.entrar', referencia: refUsuario(cuenta.id), usuario: ANA });
+
+  const tipos = eventosDe(cuenta.id).map((e) => e.tipo);
+  assert.ok(!tipos.includes('sesion.entrar'),
+    'entrar con PIN no tiene nada que ver con lo que pasó en la mesa');
+  assert.ok(tipos.includes('cuenta.abrir'));
+  assert.ok(tipos.includes('linea.anotar'));
+});
+
 /* ── Los números los pone el núcleo ────────────────────────────────────── */
 
 test('el total sale del núcleo, con cortesías y descuento', () => {

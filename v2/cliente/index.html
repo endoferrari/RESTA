@@ -155,9 +155,82 @@
 
         <div class="botones-cuenta">
           <button class="btn btn-ambar ancho" id="boton-comandar">🔔 Mandar a barra</button>
+          <button class="btn btn-verde ancho" id="boton-ir-cobrar" hidden>💵 Cobrar</button>
           <button class="btn ancho" id="boton-pedir-cuenta" hidden>🧾 Pidió la cuenta</button>
           <button class="btn btn-rojo ancho" id="boton-cancelar-cuenta" hidden>Cancelar cuenta</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: COBRO ══════════════════ -->
+  <section id="pantalla-cobro" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-cobro">← Cuenta</button>
+      <div>
+        <h1 id="titulo-cobro">Cobrar</h1>
+        <div class="sub">El total y el cambio los calcula la caja, no esta pantalla</div>
+      </div>
+    </div>
+
+    <div class="dos-columnas">
+      <!-- izquierda: qué se está cobrando -->
+      <div>
+        <div class="ticket">
+          <div class="ticket-lineas" id="cobro-renglones"></div>
+          <div class="ticket-totales" id="cobro-resumen"></div>
+        </div>
+
+        <div class="botones-cuenta">
+          <button class="btn" id="boton-descuento">% Descuento</button>
+          <button class="btn" id="boton-propina">＋ Propina</button>
+        </div>
+
+        <div id="cobro-pagos" class="bloque-pagos" hidden>
+          <div class="titulo-bloque">Ya se pagó</div>
+          <div id="lista-pagos"></div>
+          <button class="btn btn-chico" id="boton-anular-pago">Deshacer el último pago</button>
+        </div>
+      </div>
+
+      <!-- derecha: cómo se cobra -->
+      <div class="columna-cobro">
+        <div class="titulo-bloque">Cuánto</div>
+        <div class="grupo-botones" id="cobro-modos"></div>
+
+        <div class="titulo-bloque">Cómo paga</div>
+        <div class="grupo-botones" id="cobro-metodos"></div>
+
+        <div id="cobro-efectivo">
+          <div class="titulo-bloque">Con cuánto paga</div>
+          <div class="recibido-caja">
+            <span class="recibido-et">Recibido</span>
+            <span class="recibido-valor dinero" id="cobro-recibido">—</span>
+          </div>
+
+          <div class="teclado teclado-dinero" id="cobro-teclado">
+            <button data-tecla="1">1</button>
+            <button data-tecla="2">2</button>
+            <button data-tecla="3">3</button>
+            <button data-tecla="4">4</button>
+            <button data-tecla="5">5</button>
+            <button data-tecla="6">6</button>
+            <button data-tecla="7">7</button>
+            <button data-tecla="8">8</button>
+            <button data-tecla="9">9</button>
+            <button data-tecla="limpiar" class="tecla-borrar">C</button>
+            <button data-tecla="0">0</button>
+            <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+            <button data-tecla="billete:10000" class="tecla-billete">$100</button>
+            <button data-tecla="billete:20000" class="tecla-billete">$200</button>
+            <button data-tecla="billete:50000" class="tecla-billete">$500</button>
+          </div>
+
+          <div class="cambio-caja" id="cobro-cambio"></div>
+        </div>
+
+        <button class="btn btn-verde ancho grande" id="boton-cobrar">Cobrar</button>
       </div>
     </div>
   </section>

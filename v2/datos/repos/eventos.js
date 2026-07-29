@@ -13,6 +13,17 @@
 import { base } from '../conexion.js';
 
 /**
+ * A qué se refiere un evento.
+ *
+ * Las cuentas se guardan por su número a secas ('4'), pero los usuarios
+ * llevan prefijo ('usuario:4'). Sin esto, buscar la historia de la Mesa 4
+ * devolvería también las entradas y salidas del mesero número 4, que no
+ * tienen nada que ver. Pasó, y ensuciaba justo la pantalla donde uno va a
+ * buscar por qué falta dinero.
+ */
+export const refUsuario = (id) => `usuario:${id}`;
+
+/**
  * Anota un evento.
  * @param tipo       'cuenta.abrir', 'linea.quitar', 'cobro.registrar'…
  * @param referencia a qué cuenta o ticket se refiere

@@ -298,3 +298,92 @@
   border-radius: 99px; padding: 6px 12px; font-size: .82rem;
 }
 .sugerencias button:hover { border-style: solid; color: var(--tinta); }
+
+/* ── Cobro ─────────────────────────────────────────────────────────────── */
+.btn-verde {
+  background: var(--exito); border-color: var(--exito); color: #fff;
+}
+.btn-verde:hover { filter: brightness(.93); }
+.btn.grande { padding: 18px; font-size: 1.15rem; margin-top: 18px; }
+
+.columna-cobro {
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 16px 18px 20px;
+}
+.columna-cobro .titulo-bloque:first-child { margin-top: 0; }
+
+/* Un renglón ya cobrado, o regalado, se ve distinto de un vistazo */
+.linea-pagada { opacity: .5; }
+.linea-marca.pagada { color: var(--exito); }
+.linea-elegida { background: var(--verde-claro); }
+.linea .casilla { font-size: 1.1rem; color: var(--verde-medio); }
+.tachado { text-decoration: line-through; opacity: .6; }
+
+.boton-regalo {
+  border: 0; background: none; font-size: 1rem;
+  opacity: .35; padding: 2px 4px; border-radius: 8px;
+}
+.boton-regalo:hover { opacity: 1; background: var(--aviso-fondo); }
+
+.bloque-pagos { margin-top: 18px; }
+.pago {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 7px 0; border-bottom: 1px dashed var(--linea);
+  font-size: .9rem;
+}
+.pago .dinero { font-weight: 700; margin-left: auto; }
+.pago-quien { color: var(--tinta-suave); font-size: .8rem; min-width: 60px; text-align: right; }
+
+/* Cuánto dieron */
+.recibido-caja {
+  display: flex; align-items: baseline; gap: 10px;
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.recibido-et {
+  font-size: .72rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--tinta-suave);
+}
+.recibido-valor {
+  margin-left: auto; font-size: 1.4rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.teclado-dinero button { padding: 15px 0; font-size: 1.25rem; }
+.teclado-dinero .tecla-billete {
+  font-size: .95rem; font-weight: 800;
+  color: var(--verde-medio); border-color: var(--verde-claro);
+  background: var(--verde-claro);
+}
+.teclado-dinero .tecla-billete:hover { border-color: var(--verde-medio); }
+
+/* El cambio, en grande: es lo que se lee con prisa */
+.cambio-caja {
+  margin-top: 14px; padding: 14px 16px;
+  border-radius: var(--radio-chico);
+  background: var(--verde-claro);
+  display: flex; align-items: baseline; gap: 10px;
+  min-height: 62px;
+}
+.cambio-et {
+  font-size: .72rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--verde-medio);
+}
+.cambio-valor {
+  margin-left: auto; font-size: 2rem; font-weight: 800;
+  color: var(--verde-oscuro); font-variant-numeric: tabular-nums;
+}
+.cambio-nota { font-size: .85rem; color: var(--tinta-suave); }
+.cambio-falta { font-weight: 800; color: var(--peligro); font-size: 1.1rem; }
+
+.cambio-grande {
+  font-size: 3.4rem; font-weight: 800; text-align: center;
+  color: var(--verde-oscuro); padding: 16px 0;
+  font-variant-numeric: tabular-nums;
+}

@@ -31,20 +31,20 @@ necesidades del negocio, no conocimientos técnicos.
 | 1 | Menú, familias, importador de datos de la v1.3.0 | ✅ hecho — la carta real de ONCE ya está adentro |
 | 2 | Núcleo de dinero: cortesías, descuentos, propinas, división | ✅ hecho |
 | 3 | Mesas y cuentas en vivo, PIN de mesero | ✅ hecho |
-| 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ⬜ siguiente |
-| 5 | Impresión ESC/POS configurable | ⬜ |
+| 4 | Cobro completo (efectivo, tarjeta, mixto, parciales) | ✅ hecho |
+| 5 | Impresión ESC/POS configurable | ⬜ siguiente |
 | 6 | Corte del día, turnos, respaldos automáticos | ⬜ |
 | 7 | Empaquetado final e instalador | ⬜ |
 
 El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
-**Lo siguiente: Fase 4 (el cobro).**
+**Lo siguiente: Fase 5 (la impresión).**
 
-Ya existen las tablas `cuentas` y `lineas`; falta `pagos` y `tickets`. El
-núcleo del cobro (`nucleo/cuenta.js`) ya está escrito y probado desde la
-fase 2: `revisarCobro`, `calcularCambio`, `dividirRestante` y
-`totalDeSeleccion` esperan una cuenta con `pagos:[{monto}]`, que hoy siempre
-llega vacía desde `datos/repos/cuentas.js`.
+Lo que ya está listo para imprimirse: el ticket con su folio y su fotografía
+de los totales (`datos/repos/cobro.js`), la comanda de lo que sale a barra
+(`marcarComandado` devuelve exactamente qué salió), y la cuenta que pide el
+cliente (`marcarCuentaImpresa`). Los tres puntos donde hoy hay que enchufar
+la impresora están señalados en el código con un comentario de la fase 5.
 
 La fase 1 estaba dada por bloqueada por falta del respaldo `.json`, pero no
 hacía falta: **el menú real de ONCE estaba escrito dentro del código de la
@@ -97,7 +97,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 103/103)
+npm test             # las pruebas (deben pasar 129/129)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -130,11 +130,11 @@ v2/
 │   ├─ idempotencia.js  el folio por acción, para no cobrar dos veces
 │   ├─ tiempo-real.js   avisa a todas las pantallas cuando algo cambia
 │   ├─ auth.js          el pase de cada tablet y el freno a los PIN
-│   └─ rutas/           salud · menu · sesion · cuentas
+│   └─ rutas/           salud · menu · sesion · cuentas · cobro
 ├─ cliente/      Lo que se ve. JS con módulos ES, SIN paso de build.
 │   ├─ estado.js        qué sabe esta tablet ahora mismo
 │   ├─ ui.js            avisos y ventanitas (nada de alert())
-│   └─ vistas/          pin · mesas · cuenta · carta
+│   └─ vistas/          pin · mesas · cuenta · cobro · carta
 ├─ escritorio/   Ventana Electron, bandeja, instalador NSIS
 └─ pruebas/      node:test
 ```

@@ -22,6 +22,7 @@ import { registrarRutasSalud } from './rutas/salud.js';
 import { registrarRutasMenu } from './rutas/menu.js';
 import { registrarRutasSesion } from './rutas/sesion.js';
 import { registrarRutasCuentas } from './rutas/cuentas.js';
+import { registrarRutasCobro } from './rutas/cobro.js';
 import { registrarTiempoReal } from './tiempo-real.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -82,6 +83,7 @@ export async function crearServidor() {
   registrarRutasMenu(app);
   registrarRutasSesion(app);
   registrarRutasCuentas(app);
+  registrarRutasCobro(app);
   registrarTiempoReal(app);
 
   return app;

@@ -69,6 +69,24 @@ function lineasDe(cuentaId) {
   }));
 }
 
+function pagosDe(cuentaId) {
+  return base().prepare(`
+    SELECT id, metodo, monto, recibido, cambio, referencia, cobrado_nom, momento
+      FROM pagos
+     WHERE cuenta_id = ?
+     ORDER BY id
+  `).all(cuentaId).map((p) => ({
+    id: p.id,
+    metodo: p.metodo,
+    monto: p.monto,
+    recibido: p.recibido,
+    cambio: p.cambio,
+    referencia: p.referencia,
+    cobradoPor: p.cobrado_nom,
+    momento: p.momento,
+  }));
+}
+
 function armar(fila) {
   if (!fila) return null;
 
@@ -86,7 +104,7 @@ function armar(fila) {
     motivo: fila.motivo,
     cuentaImpresa: fila.cuenta_impresa,
     items,
-    pagos: [],                     // los pagos llegan en la fase 4
+    pagos: pagosDe(fila.id),
     descuento: fila.descuento_tipo
       ? { tipo: fila.descuento_tipo, valor: fila.descuento_valor } : null,
     propina: fila.propina_tipo
@@ -145,11 +163,11 @@ export function abrirCuenta({ nombre, usuario }) {
 /* ── Anotar ────────────────────────────────────────────────────────────── */
 
 /** Sube la versión: cualquiera que tenga la cuenta en pantalla se entera. */
-function tocar(cuentaId) {
+export function tocar(cuentaId) {
   base().prepare(`UPDATE cuentas SET version = version + 1 WHERE id = ?`).run(cuentaId);
 }
 
-function exigirAbierta(cuentaId) {
+export function exigirAbierta(cuentaId) {
   const fila = base().prepare('SELECT * FROM cuentas WHERE id = ?').get(cuentaId);
   if (!fila) throw new Error('Esa cuenta no existe.');
   if (fila.estado !== 'abierta') {
@@ -347,6 +365,120 @@ export function cancelarCuenta({ cuentaId, motivo, usuario }) {
     });
 
     return buscarCuenta(cuentaId);
+  });
+}
+
+/* ── Cortesías ─────────────────────────────────────────────────────────── */
+
+/**
+ * Marca (o desmarca) un renglón como cortesía.
+ *
+ * Una cortesía NO se borra de la cuenta: se sigue viendo y se sigue
+ * imprimiendo, pero no se cobra. Eso importa porque al final del turno hay
+ * que poder contestar «¿cuánto se regaló hoy y quién lo autorizó?».
+ */
+export function ponerCortesia({ cuentaId, lineaId, esCortesia, motivo = null, usuario }) {
+  return enTransaccion(() => {
+    exigirAbierta(cuentaId);
+
+    const l = base()
+      .prepare('SELECT * FROM lineas WHERE id = ? AND cuenta_id = ?')
+      .get(lineaId, cuentaId);
+    if (!l) throw new Error('Ese renglón ya no está en la cuenta.');
+    if (l.pagado) throw new Error('Ese renglón ya se cobró; ya no se puede regalar.');
+
+    if (esCortesia && !motivo?.trim()) {
+      throw new Error('Escribe por qué se regala este producto.');
+    }
+
+    base().prepare(`
+      UPDATE lineas
+         SET cortesia = ?, cortesia_motivo = ?, cortesia_por = ?
+       WHERE id = ?
+    `).run(
+      esCortesia ? 1 : 0,
+      esCortesia ? motivo.trim() : null,
+      esCortesia ? (usuario?.nombre ?? null) : null,
+      lineaId,
+    );
+
+    tocar(cuentaId);
+    anotarEvento({
+      tipo: esCortesia ? 'linea.cortesia' : 'linea.cortesia.quitar',
+      referencia: cuentaId, usuario,
+      detalle: {
+        producto: l.nombre, cant: l.cant,
+        seRegala: esCortesia ? l.precio * l.cant : 0,
+        motivo: esCortesia ? motivo.trim() : null,
+      },
+    });
+
+    return buscarCuenta(cuentaId);
+  });
+}
+
+/* ── Descuento y propina de toda la cuenta ─────────────────────────────── */
+
+/**
+ * Pone (o quita, con valor 0) el descuento de la cuenta.
+ * El núcleo se encarga de que nunca sea mayor que el consumo: una cuenta no
+ * puede quedar en negativo y el bar terminar debiéndole al cliente.
+ */
+export function ponerDescuento({ cuentaId, tipo, valor, motivo = null, usuario }) {
+  return enTransaccion(() => {
+    exigirAbierta(cuentaId);
+
+    const cantidad = Math.trunc(valor ?? 0);
+    if (cantidad < 0) throw new Error('El descuento no puede ser negativo.');
+    if (cantidad > 0 && !['porcentaje', 'monto'].includes(tipo)) {
+      throw new Error('El descuento tiene que ser por porcentaje o por cantidad.');
+    }
+    if (tipo === 'porcentaje' && cantidad > 100) {
+      throw new Error('El descuento no puede pasar del 100%.');
+    }
+
+    base().prepare(`
+      UPDATE cuentas SET descuento_tipo = ?, descuento_valor = ?, version = version + 1
+       WHERE id = ?
+    `).run(cantidad > 0 ? tipo : null, cantidad, cuentaId);
+
+    const cuenta = buscarCuenta(cuentaId);
+    anotarEvento({
+      tipo: cantidad > 0 ? 'cuenta.descuento' : 'cuenta.descuento.quitar',
+      referencia: cuentaId, usuario,
+      detalle: {
+        tipo: cantidad > 0 ? tipo : null, valor: cantidad, motivo,
+        seDescuenta: cuenta.totales.descuento,
+      },
+    });
+
+    return cuenta;
+  });
+}
+
+/** Pone (o quita, con valor 0) la propina. Se calcula sobre el subtotal. */
+export function ponerPropina({ cuentaId, tipo, valor, usuario }) {
+  return enTransaccion(() => {
+    exigirAbierta(cuentaId);
+
+    const cantidad = Math.trunc(valor ?? 0);
+    if (cantidad < 0) throw new Error('La propina no puede ser negativa.');
+    if (cantidad > 0 && !['porcentaje', 'monto'].includes(tipo)) {
+      throw new Error('La propina tiene que ser por porcentaje o por cantidad.');
+    }
+
+    base().prepare(`
+      UPDATE cuentas SET propina_tipo = ?, propina_valor = ?, version = version + 1
+       WHERE id = ?
+    `).run(cantidad > 0 ? tipo : null, cantidad, cuentaId);
+
+    const cuenta = buscarCuenta(cuentaId);
+    anotarEvento({
+      tipo: 'cuenta.propina', referencia: cuentaId, usuario,
+      detalle: { tipo: cantidad > 0 ? tipo : null, valor: cantidad, propina: cuenta.totales.propina },
+    });
+
+    return cuenta;
   });
 }
 
