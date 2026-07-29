@@ -1,6 +1,6 @@
 {
   "name": "resta",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "RESTA — Punto de venta para bar restaurante. ONCE Social Lounge.",
   "author": "endoferrari",
   "license": "UNLICENSED",
@@ -67,6 +67,17 @@
       "createStartMenuShortcut": true,
       "shortcutName": "RESTA",
       "include": "escritorio/instalador.nsh"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "endoferrari",
+        "repo": "RESTA"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/endoferrari/RESTA.git"
   }
 }
