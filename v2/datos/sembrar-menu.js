@@ -15,6 +15,59 @@
 import { MENU_ONCE } from './menu-once.js';
 import { parseOpciones } from '../nucleo/opciones.js';
 
+/**
+ * Cómo arranca el almacén con la carta de ONCE.
+ *
+ * Se deja controlado lo que de verdad duele —licores y cerveza— y el resto
+ * apagado. Empezar controlando 55 productos es la forma más rápida de
+ * abandonar un inventario. Todo esto se cambia desde la pantalla.
+ *
+ * Vive aquí y NO sólo en la migración 006 porque el orden importa: en una
+ * instalación nueva las migraciones corren ANTES de que existan los
+ * productos, así que allá los UPDATE no encuentran nada. La migración sirve
+ * para las bases que ya tenían la carta; esto, para las nuevas.
+ */
+const DESTILADOS = [
+  'Whisky Etiqueta Negra', "Whisky Buchanan's 12 años", 'Whisky Chivas',
+  'Ron Bacardí blanco', 'Ron Matusalem clásico',
+  'Brandy Torres 10', 'Brandy Azteca de Oro',
+  'Tequila Maestro Tequilero', 'Tequila Don Julio 70',
+  'Ginebra Beefeater', 'Vodka Absolut Azul', 'Vodka Stolichnaya',
+  'Licor 43', 'Baileys', 'Sambuca Vaccari',
+];
+
+const CON_CERVEZA = ['Chelada (limón y sal)', 'Michelada (salsas)', 'Chelato (salsas y clamato)'];
+
+export function configurarAlmacenDeFabrica(bd) {
+  const porNombre = bd.prepare(`
+    UPDATE productos
+       SET controla_stock = 1, porciones_por_envase = ?, envase = ?, unidad = ?
+     WHERE familia = 'Bebidas' AND nombre = ?
+  `);
+
+  // Los destilados se venden por copa: 1 botella = 15 copas (≈50 ml).
+  for (const nombre of DESTILADOS) porNombre.run(15, 'botella', 'copa', nombre);
+
+  // La cerveza se compra por caja de 24 y se vende de una en una.
+  porNombre.run(24, 'caja', 'cerveza', 'Cerveza');
+
+  // El vino se vende por botella completa.
+  porNombre.run(1, 'botella', 'botella', 'Vino Cune Crianza (botella)');
+
+  // Las mezclas no tienen existencia propia: gastan una cerveza cada una.
+  const cerveza = bd.prepare(
+    `SELECT id FROM productos WHERE familia = 'Bebidas' AND nombre = 'Cerveza'`
+  ).get();
+
+  if (cerveza) {
+    const apuntar = bd.prepare(`
+      UPDATE productos SET gasta_producto_id = ?
+       WHERE familia = 'Bebidas' AND nombre = ?
+    `);
+    for (const nombre of CON_CERVEZA) apuntar.run(cerveza.id, nombre);
+  }
+}
+
 export function sembrarMenu(bd, { silencioso = false } = {}) {
   const { total } = bd.prepare('SELECT count(*) AS total FROM productos').get();
 
@@ -38,6 +91,9 @@ export function sembrarMenu(bd, { silencioso = false } = {}) {
       insertar.run(familia, nombre, icono, precio, opciones ? JSON.stringify(opciones) : null, i);
     });
     marcarOrigen.run('menú de fábrica');
+
+    // El almacén arranca con lo que de verdad duele ya controlado.
+    configurarAlmacenDeFabrica(bd);
   });
 
   sembrar();

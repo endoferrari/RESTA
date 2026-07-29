@@ -17,6 +17,7 @@ import { revisarCobro, calcularCambio, totalDeSeleccion } from '../../nucleo/cue
 import { buscarCuenta, exigirAbierta, tocar } from './cuentas.js';
 import { anotarEvento } from './eventos.js';
 import { leerAjuste, escribirAjuste } from './ajustes.js';
+import { descontarVenta } from './almacen.js';
 
 export const METODOS = ['efectivo', 'tarjeta', 'transferencia'];
 
@@ -188,6 +189,15 @@ function cerrarCuenta({ cuenta, usuario }) {
     tipo: 'cuenta.cerrar', referencia: cuenta.id, usuario,
     detalle: { folio, nombre: cuenta.nombre, total: t.total, articulos: t.articulos },
   });
+
+  // El almacén baja solo al cerrar el ticket: nadie captura la salida de
+  // mercancía, ya quedó registrada al cobrar. Va dentro de la misma
+  // transacción que el ticket, así es imposible que se cobre y no baje el
+  // inventario, o al revés.
+  //
+  // Se hace aquí y no al anotar porque una cuenta cancelada NO debe descontar:
+  // si además se sirvió, eso es una merma y se registra como tal.
+  descontarVenta({ cuenta, folio, usuario });
 
   return buscarTicket(folio);
 }

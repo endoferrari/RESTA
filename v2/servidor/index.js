@@ -26,6 +26,7 @@ import { registrarRutasCobro } from './rutas/cobro.js';
 import { registrarRutasImpresion } from './rutas/impresion.js';
 import { registrarRutasTurnos } from './rutas/turnos.js';
 import { registrarRutasConfiguracion } from './rutas/configuracion.js';
+import { registrarRutasAlmacen } from './rutas/almacen.js';
 import {
   arrancarRespaldoAutomatico, detenerRespaldoAutomatico, respaldarAhora,
 } from '../datos/respaldo.js';
@@ -94,6 +95,7 @@ export async function crearServidor() {
   registrarRutasImpresion(app);
   registrarRutasTurnos(app);
   registrarRutasConfiguracion(app);
+  registrarRutasAlmacen(app);
   registrarTiempoReal(app);
 
   // El foquito de la impresora se enciende y se apaga solo en todas las
