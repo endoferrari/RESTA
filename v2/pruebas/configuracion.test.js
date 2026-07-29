@@ -336,3 +336,20 @@ test('a un producto sin submenú se avisa que no se le pueden agregar opciones',
     /no pregunta nada/
   );
 });
+
+/* ── Editar un producto no le cambia la familia ────────────────────────── */
+
+test('cambiarle el nombre a un producto lo deja en su familia', () => {
+  // La pantalla tenía un error: al abrir un producto para editarlo, el
+  // desplegable de familia se iba a la primera («Bebidas»), así que guardar
+  // un cambio de nombre le movía la familia sin avisar. Aquí se fija la
+  // regla del lado del servidor: si no se manda familia, no se toca.
+  const fam = crearFamilia({ nombre: 'Canchas de padel' });
+  const p = crearProducto({ nombre: 'CANCHA 1', precio: 15000, familia: fam.clave });
+
+  editarProducto({ id: p.id, nombre: 'CANCHA 1 (techada)' });
+
+  const despues = buscarProducto(p.id);
+  assert.equal(despues.nombre, 'CANCHA 1 (techada)');
+  assert.equal(despues.familia, fam.clave, 'la familia no se movió');
+});

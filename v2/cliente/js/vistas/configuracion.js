@@ -18,6 +18,7 @@ import { api } from '../api.js';
 import { estado } from '../estado.js';
 import { $, esc, avisar, confirmar, ventana, pedirTexto } from '../ui.js';
 import { formatear, aCentavos } from '/nucleo/dinero.js';
+import { parseOpciones } from '/nucleo/opciones.js';
 
 let alVolver = null;
 let seccion = 'productos';          // 'productos' · 'familias' · 'personas'
@@ -166,6 +167,26 @@ async function guardarProducto(e) {
 
   if (!nombre) { avisar('Escribe el nombre del producto.', true); $('prod-nombre').focus(); return; }
 
+  // El submenú se revisa AQUÍ y no al guardar.
+  //
+  // Antes, un renglón que no se entendía tiraba el submenú entero y el
+  // producto se guardaba sin él, sin decir nada. Se escribía «Pala 1»,
+  // se guardaba, y no pasaba nada: ni submenú ni explicación.
+  if (opcionesTexto.trim() && parseOpciones(opcionesTexto) === null) {
+    const mala = opcionesTexto.split('\n').map((l) => l.trim()).filter(Boolean)
+      .find((l) => !l.replace(/\[[^\]]*\]/g, '').includes(':'));
+
+    avisar(
+      mala
+        ? `«${mala}» no se entiende: falta el «:». Se escribe ` +
+          'PREGUNTA: opción, opción — por ejemplo «Pala: Pala 1, Pala 2».'
+        : 'Cada renglón del submenú va como PREGUNTA: opción, opción',
+      true,
+    );
+    $('prod-opciones').focus();
+    return;
+  }
+
   // El precio lo lee el núcleo, que nunca multiplica por 100 (ahí se perdía
   // un centavo con precios como 1.005).
   let precio;
@@ -204,12 +225,20 @@ function limpiarFormulario() {
 
 function cargarEnFormulario(p) {
   editando = p.id;
+
+  // pintarFormulario() vuelve a escribir la lista de familias, y al hacerlo
+  // el desplegable se va a la primera opción. Si se pone la familia ANTES,
+  // se pierde: al abrir «CANCHA 1» decía «Bebidas», y guardar sin darse
+  // cuenta le cambiaba la familia al producto. Primero se pinta, luego se
+  // elige.
+  pintarFormulario();
+
   $('prod-nombre').value = p.nombre;
   $('prod-precio').value = (p.precio / 100).toFixed(2);
   $('prod-familia').value = p.familia;
   $('prod-icono').textContent = p.icono || '🍽️';
   $('prod-opciones').value = p.opcionesTexto ?? '';
-  pintarFormulario();
+
   $('prod-nombre').focus();
   $('prod-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
