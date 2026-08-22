@@ -86,7 +86,12 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: v2/dist/*.exe
+          # Además del instalador, los scripts para instalarla junto a la v1.
+          # Van aquí para que todo lo que hace falta se baje de la misma
+          # página, sin tener que ir a buscarlos al repositorio.
+          files: |
+            v2/dist/*.exe
+            v2/instalacion/*.bat
           generate_release_notes: true
           body: |
             ## Instalación en la laptop del bar
@@ -100,3 +105,13 @@ jobs:
             El instalador abre solo el puerto para las tablets y deja RESTA
             arrancando al prender la laptop. Los datos van a `C:\RESTA` y
             **no se borran** si desinstalas.
+
+            ## Si la v1 todavía es la caja del bar
+
+            Descarga también `1-PREPARAR-V2-AISLADA.bat` y ejecútalo con botón
+            derecho → **"Ejecutar como administrador"** después de instalar.
+
+            Manda los datos de la v2 a `C:\RESTA-V2`, le quita el arranque
+            automático y deja un acceso directo **"RESTA v2 (PRUEBAS)"**. Así
+            las dos versiones conviven sin mezclar nada y la v1 sigue
+            trabajando igual. Para deshacerlo: `2-DESHACER-LA-V2.bat`.
