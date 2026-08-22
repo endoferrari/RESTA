@@ -223,6 +223,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Ventas de un día ─────────────────────────────────────────────────
+         Aparte del corte del turno, y siempre visible: las ventas que se
+         importan de la v1 no pertenecen a ningún turno —la v1 no sabía de
+         turnos—, así que sin este bloque quedarían guardadas y correctas
+         pero invisibles. Es también con lo que se comprueba una migración
+         contra el corte que imprimió la v1 ese mismo día. -->
+    <div class="tarjeta bloque-corte" id="corte-por-dia">
+      <div class="titulo-bloque">Ventas de un día</div>
+      <div class="renglon-form">
+        <div>
+          <label class="etiqueta-campo" for="corte-fecha-dia">Día</label>
+          <input type="date" id="corte-fecha-dia">
+        </div>
+        <button class="btn btn-chico" id="boton-ver-dia">Ver</button>
+      </div>
+      <div id="corte-dia-resultado"></div>
+    </div>
   </section>
 
 

@@ -104,10 +104,14 @@ export const api = {
   diagnostico: () => pedir('GET', '/api/diagnostico'),
   red:         () => pedir('GET', '/api/red'),
 
+  /** Todo lo vendido en un día, con sus totales. Incluye lo importado de la v1. */
+  ventasDelDia: (fecha) => pedir('GET', `/api/ventas?fecha=${encodeURIComponent(fecha)}`),
+
   /* ── Menú ── */
   menu:    () => pedir('GET', '/api/menu'),
   ajustes: () => pedir('GET', '/api/ajustes'),
-  importarRespaldo: (datos) => conFolio('POST', '/api/menu/importar', datos),
+  importarRespaldo: (datos, { conHistorial = false } = {}) =>
+    conFolio('POST', `/api/menu/importar${conHistorial ? '?historial=1' : ''}`, datos),
 
   /** Petición especial del cliente: queda guardada como opción del producto. */
   agregarOpcion: (productoId, grupo, opcion) =>

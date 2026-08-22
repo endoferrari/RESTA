@@ -32,6 +32,7 @@ export function iniciarCorte(cuandoVuelva, cuandoAbraLaCaja) {
   $('boton-cerrar-caja').addEventListener('click', cerrarCaja);
   $('boton-imprimir-corte').addEventListener('click', imprimir);
   $('corte-teclado').addEventListener('click', alTocarTecla);
+  $('boton-ver-dia').addEventListener('click', verDia);
 }
 
 /* ── Cargar ────────────────────────────────────────────────────────────── */
@@ -45,6 +46,10 @@ export async function cargarCorte() {
     contado = '';
     pintarCorte();
     pintarAvisoDeCaja();
+
+    // El día de hoy queda puesto, que es lo que se consulta el 90% de las veces.
+    const campo = $('corte-fecha-dia');
+    if (campo && !campo.value) campo.value = new Date().toLocaleDateString('sv-SE');
   } catch (e) {
     if (e.codigo !== 401 && e.codigo !== 403) avisar(e.message, true);
   }
@@ -351,4 +356,79 @@ async function imprimir() {
   } catch (e) {
     avisar(e.message, true);
   }
+}
+
+/* ── Ventas de un día ──────────────────────────────────────────────────── */
+
+/**
+ * El corte de la pantalla es por turno, que es lo correcto para cuadrar el
+ * cajón. Esto es lo otro que hace falta: ver un día entero.
+ *
+ * Sin esto, las ventas importadas de la v1 no se verían en ningún lado —no
+ * pertenecen a ningún turno— y no habría forma de comprobar que la migración
+ * trajo el dinero completo.
+ */
+async function verDia() {
+  const fecha = $('corte-fecha-dia').value;
+  if (!fecha) { avisar('Elige un día', true); return; }
+
+  $('corte-dia-resultado').innerHTML = '<p class="sutil">Buscando…</p>';
+  try {
+    const r = await api.ventasDelDia(fecha);
+    pintarDia(r.dia);
+  } catch (e) {
+    $('corte-dia-resultado').innerHTML = `<p class="sutil">${esc(e.message)}</p>`;
+  }
+}
+
+function pintarDia(d) {
+  if (!d.ventas) {
+    $('corte-dia-resultado').innerHTML = '<p class="sutil">Ese día no se vendió nada.</p>';
+    return;
+  }
+
+  const t = d.totales;
+  const importadas = d.tickets.filter((x) => x.importado).length;
+
+  // Mismos renglones y mismo orden que el corte del turno, para que las dos
+  // cifras se puedan comparar de un vistazo sin traducir nada.
+  const filas = [
+    ['Cuentas cobradas', String(d.ventas)],
+    ['Productos', String(t.articulos)],
+    ['Consumo cobrado', formatear(t.consumo)],
+  ];
+  if (t.descuento) filas.push(['Descuentos', `− ${formatear(t.descuento)}`]);
+  if (t.propina)   filas.push(['Propinas', formatear(t.propina)]);
+
+  const metodos = Object.entries(d.porMetodo)
+    .map(([m, v]) => `<div class="fila-total sutil">
+         <span>${nombreMetodo(m)}</span>
+         <span class="dinero">${formatear(v)}</span></div>`).join('');
+
+  $('corte-dia-resultado').innerHTML = `
+    ${filas.map(([e, v]) => `
+      <div class="fila-total sutil"><span>${e}</span>
+        <span class="dinero">${v}</span></div>`).join('')}
+    <div class="fila-total fila-gran">
+      <span>Total del día</span>
+      <span class="dinero">${formatear(t.total)}</span>
+    </div>
+    ${t.cortesias ? `<div class="fila-total sutil">
+       <span>Se regaló en cortesías</span>
+       <span class="dinero">${formatear(t.cortesias)}</span></div>` : ''}
+
+    <div class="titulo-bloque">Cómo pagaron</div>
+    ${metodos}
+
+    <div class="titulo-bloque">Los tickets</div>
+    ${d.tickets.map((x) => `
+      <div class="fila-total sutil">
+        <span>${String(x.folio).padStart(4, '0')} · ${esc(x.nombre)}
+          ${x.importado ? '<span class="sutil">· v1</span>' : ''}</span>
+        <span class="dinero">${formatear(x.total)}</span>
+      </div>`).join('')}
+
+    ${importadas ? `<p class="sutil">${importadas} de esos tickets vienen importados de la
+       v1 y no pertenecen a ningún turno; por eso se ven aquí y no en el corte
+       del turno.</p>` : ''}`;
 }

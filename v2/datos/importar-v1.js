@@ -18,15 +18,18 @@
  *  · Si un producto viene con algo raro (precio en letras, sin nombre), NO
  *    se detiene la importación: se salta ese producto y se reporta al final,
  *    por nombre, para que se pueda revisar a mano.
- *  · Las ventas y cuentas viejas TODAVÍA NO se importan: sus tablas se
- *    construyen en la fase 4. Aquí sólo se cuentan y se avisa, para que
- *    quede claro que están en el archivo y no se perdieron.
+ *  · Las ventas y las mesas abiertas se importan si se pide con
+ *    `{ conHistorial: true }`. Eso vive en `importar-historial-v1.js`, que
+ *    corre dentro de esta misma transacción: o entra el respaldo entero, o
+ *    no entra nada. Sin esa opción se trae sólo la carta, y las ventas
+ *    únicamente se cuentan y se avisa.
  */
 
 import { base, enTransaccion } from './conexion.js';
 import { parseOpciones } from '../nucleo/opciones.js';
 import { esValido } from '../nucleo/dinero.js';
 import { escribirAjuste } from './repos/ajustes.js';
+import { importarHistorial, resumirHistorial } from './importar-historial-v1.js';
 
 /** Revisa que el archivo sea de verdad un respaldo de RESTA. */
 export function revisarRespaldo(datos) {
@@ -69,17 +72,18 @@ function asegurarFamilia(clave, orden) {
  * Importa el respaldo. Todo o nada: si algo truena a la mitad, la base queda
  * como estaba. Nunca a medias.
  */
-export function importarV1(datos, { origen = 'respaldo v1.3.0' } = {}) {
+export function importarV1(datos, { origen = 'respaldo v1.3.0', conHistorial = false } = {}) {
   const problema = revisarRespaldo(datos);
   if (problema) throw new Error(problema);
 
   const informe = {
     productos: { nuevos: 0, actualizados: 0, omitidos: [] },
     ajustes: [],
-    sinImportar: {
+    sinImportar: conHistorial ? null : {
       tickets: Array.isArray(datos.tickets) ? datos.tickets.length : 0,
       cuentas: Array.isArray(datos.cuentas) ? datos.cuentas.length : 0,
     },
+    historial: null,
   };
 
   const yaExiste = base().prepare(
@@ -168,6 +172,11 @@ export function importarV1(datos, { origen = 'respaldo v1.3.0' } = {}) {
     }
 
     escribirAjuste('menu.origen', origen);
+
+    // Después de la carta a propósito: los renglones de las mesas abiertas se
+    // vuelven a enlazar a sus productos por el id que traían de la v1, y para
+    // eso los productos tienen que estar ya adentro.
+    if (conHistorial) importarHistorial(datos, informe);
   });
 
   return informe;
@@ -191,13 +200,17 @@ export function resumirImportacion(informe) {
     lineas.push('Se trajo también: ' + informe.ajustes.join(', '));
   }
 
-  const { tickets, cuentas } = informe.sinImportar;
-  if (tickets || cuentas) {
-    lineas.push(
-      `El archivo trae ${tickets} venta(s) y ${cuentas} cuenta(s) abierta(s) que ` +
-      'todavía no se importan: eso llega en la fase de cobro. No se perdieron, ' +
-      'siguen en el archivo.'
-    );
+  if (informe.historial) {
+    lineas.push(...resumirHistorial(informe.historial));
+  } else if (informe.sinImportar) {
+    const { tickets, cuentas } = informe.sinImportar;
+    if (tickets || cuentas) {
+      lineas.push(
+        `El archivo trae ${tickets} venta(s) y ${cuentas} cuenta(s) abierta(s) que ` +
+        'NO se importaron porque no se pidió el historial. No se perdieron, ' +
+        'siguen en el archivo.'
+      );
+    }
   }
 
   return lineas;

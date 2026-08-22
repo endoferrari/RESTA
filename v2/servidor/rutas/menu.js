@@ -97,7 +97,13 @@ export function registrarRutasMenu(app) {
 
     const datos = peticion.body;
 
-    const informe = conFolio(peticion, '/api/menu/importar', () => importarV1(datos));
+    // ¿Se traen también las ventas y las mesas abiertas?
+    // Va como parámetro y no dentro del archivo porque el archivo es el
+    // respaldo tal cual lo bajó la v1: no se le toca ni una coma.
+    const conHistorial = String(peticion.query?.historial ?? '') === '1';
+
+    const informe = conFolio(peticion, '/api/menu/importar',
+      () => importarV1(datos, { conHistorial }));
 
     // Todas las pantallas abiertas se enteran de que cambió la carta.
     avisarATodos('menu.cambio', { total: informe.productos.nuevos + informe.productos.actualizados });

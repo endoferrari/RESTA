@@ -24,8 +24,11 @@ import { anotarEvento } from './eventos.js';
 import { descontarPorCancelacion } from './almacen.js';
 import { leerAjuste } from './ajustes.js';
 
-/** Quita acentos y mayúsculas, para que «Mesa 4» y «mesa 4» sean la misma. */
-const normalizar = (s) =>
+/** Quita acentos y mayúsculas, para que «Mesa 4» y «mesa 4» sean la misma.
+ *  Se exporta porque el importador de la v1 tiene que calcular la misma clave:
+ *  si ahí se normalizara distinto, una «Mesa 4» importada podría convivir con
+ *  otra «mesa 4» abierta en la v2 y la comanda se partiría en dos. */
+export const claveDeCuenta = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
 
 /** El día de hoy en la laptop, no en hora del meridiano. */
@@ -140,7 +143,7 @@ export function abrirCuenta({ nombre, usuario }) {
   const limpio = nombreDeCuenta(nombre);
   if (!limpio) throw new Error('Escribe el número de mesa o el nombre del cliente.');
 
-  const clave = normalizar(limpio);
+  const clave = claveDeCuenta(limpio);
 
   return enTransaccion(() => {
     const yaAbierta = base()

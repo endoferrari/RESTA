@@ -213,7 +213,7 @@ function escribirAnchoConocido() {
   importarV1(respaldo({ impresion: { ancho: 80 } }));
 }
 
-/* ── Lo que todavía no se importa ──────────────────────────────────────── */
+/* ── Sin pedir el historial (el importador de ventas vive aparte) ──────── */
 
 test('las ventas viejas se cuentan y se avisa que no se perdieron', () => {
   const informe = importarV1(respaldo({

@@ -11,7 +11,7 @@
 
 import { api } from '../api.js';
 import { estado, ponerMenu, puede } from '../estado.js';
-import { $, esc, avisar, ventana } from '../ui.js';
+import { $, esc, avisar, ventana, confirmar } from '../ui.js';
 import { leerTabla, interpretar } from '../leer-tabla.js';
 import { formatear } from '/nucleo/dinero.js';
 
@@ -279,8 +279,29 @@ async function importarRespaldoV1(archivo) {
     return;
   }
 
+  // Si el respaldo trae ventas o mesas abiertas, se pregunta. Traerlas es lo
+  // normal el día del cambio; NO traerlas es lo correcto cuando sólo se
+  // quieren actualizar los precios de la carta con un respaldo más reciente.
+  const ventas = Array.isArray(datos.tickets) ? datos.tickets.length : 0;
+  const mesas = Array.isArray(datos.cuentas) ? datos.cuentas.length : 0;
+  let conHistorial = false;
+
+  if (ventas || mesas) {
+    conHistorial = await confirmar(
+      '¿Traer también las ventas?',
+      `Este respaldo trae <b>${ventas} venta(s)</b> y <b>${mesas} mesa(s) abierta(s)</b>.<br><br>` +
+      'Si las traes, entran al corte con las cuentas del día en que se hicieron y ' +
+      'la numeración de tickets sigue donde la dejó la v1. El almacén no se mueve: ' +
+      'esa mercancía ya salió en su día.<br><br>' +
+      'Importar el mismo archivo dos veces no las duplica.',
+      'Sí, traer las ventas',
+    );
+  }
+
+  $('resultado-carta').innerHTML = '<div class="caja-aviso">Importando…</div>';
+
   try {
-    const r = await api.importarRespaldo(datos);
+    const r = await api.importarRespaldo(datos, { conHistorial });
     ponerMenu(r.menu);
     pintarCarta();
     $('resultado-carta').innerHTML = `

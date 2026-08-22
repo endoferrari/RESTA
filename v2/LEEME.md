@@ -93,6 +93,53 @@ SQLite se corrompe ahí. RESTA te avisa si detecta que pasó.
 Para empezar de cero en desarrollo: borra la carpeta `datos-dev` y vuelve a
 arrancar. Se crea sola.
 
+**Se puede cambiar la carpeta** con la variable de entorno `RESTA_DATOS`. Es lo
+que usa `instalacion/1-PREPARAR-V2-AISLADA.bat` para que, mientras la v1 siga
+siendo la caja del bar, la v2 guarde en `C:\RESTA-V2` y no comparta ni una
+carpeta con ella.
+
+---
+
+## Traer los datos de la v1.3.0
+
+**Carta → Importar respaldo → el `.json` que descarga la v1.**
+
+Si el archivo trae ventas, pregunta si se traen también. Con eso entran:
+
+| | |
+|---|---|
+| Carta | familias, productos, precios, iconos y submenús |
+| Configuración | nombre del negocio, logo del ticket, pie, ancho de papel |
+| Ventas cobradas | con sus pagos, cortesías, descuentos y propinas |
+| Mesas abiertas | con lo que llevaban y lo que ya habían pagado |
+| Bitácora | los movimientos de cada cuenta y las cancelaciones |
+
+Cuatro decisiones que hay que conocer antes de usarlo:
+
+- **Los totales se recalculan, no se copian.** La v1 dejaba la propina fuera
+  del total del ticket y la v2 la mete dentro. Se reconstruyen las líneas y se
+  pasan por el mismo `calcularCuenta()` de siempre, así que el histórico queda
+  sumado con las reglas de la v2 y no con una segunda aritmética.
+- **El almacén no se mueve.** Esa mercancía salió del refrigerador en su día;
+  descontarla hoy dejaría el inventario en negativo y la lista de compras
+  pidiendo de más para siempre.
+- **Sin turno.** La v1 no sabía de turnos y no hay forma de inventárselos sin
+  mentir. Las ventas importadas se ven en **Corte → «Ventas de un día»**, no en
+  el corte del turno.
+- **Reimportar no duplica.** Cada cuenta y cada ticket guardan el `id_v1` que
+  traían, con índice único. Se puede corregir la carta y volver a importar el
+  mismo archivo las veces que haga falta.
+
+La numeración de tickets continúa donde la dejó la v1, para que no haya dos
+folios iguales en la historia del negocio.
+
+**Cómo se comprueba que quedó bien:** en **Corte → «Ventas de un día»**, el
+total de un día tiene que dar exactamente lo mismo que el corte que imprimió la
+v1 ese mismo día. Prueba con un día que haya tenido cortesías o descuentos, que
+es donde las dos versiones podrían no sumar igual.
+
+Para instalarla junto a la v1 sin que se mezclen: `instalacion/LEEME.md`.
+
 ---
 
 ## Cómo se genera el instalador de Windows

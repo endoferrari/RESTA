@@ -12,6 +12,7 @@ import {
   turnoAbierto, buscarTurno, ultimosTurnos, abrirTurno, cerrarTurno,
   corteDeTurno, ticketsSinTurno,
 } from '../../datos/repos/turnos.js';
+import { resumenDelDia } from '../../datos/repos/cobro.js';
 import { respaldarAhora, resumenRespaldos } from '../../datos/respaldo.js';
 import { leerAjuste } from '../../datos/repos/ajustes.js';
 import { imprimirCorte } from '../../impresion/index.js';
@@ -59,6 +60,24 @@ export function registrarRutasTurnos(app) {
     if (!id) throw alto('No hay ningún turno abierto.', 404);
 
     return { ok: true, corte: corteDeTurno(id) };
+  });
+
+  /**
+   * Todo lo vendido en un día, con sus totales.
+   *
+   * Aparte del corte por turno porque las ventas importadas de la v1 no
+   * pertenecen a ningún turno: sin esto quedarían guardadas y correctas,
+   * pero invisibles. Es también la pantalla con la que se comprueba una
+   * migración contra el corte que imprimió la v1 ese mismo día.
+   */
+  app.get('/api/ventas', async (peticion) => {
+    exigir(peticion, 'corte.ver');
+
+    const fecha = String(peticion.query.fecha ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      throw alto('Elige un día para ver sus ventas.', 400);
+    }
+    return { ok: true, dia: resumenDelDia(fecha) };
   });
 
   /** Los turnos anteriores, para volver a ver un corte pasado. */

@@ -282,6 +282,59 @@ export function ticketsDelDia(fecha, { incluirAnulados = false } = {}) {
 }
 
 /**
+ * TODO LO VENDIDO EN UN DÍA, con sus totales sumados.
+ *
+ * El corte de la pantalla es por TURNO, que es lo correcto para cuadrar el
+ * cajón de esa noche. Pero hay dos cosas que un corte por turno no puede
+ * enseñar:
+ *
+ *   · las ventas importadas de la v1, que no pertenecen a ningún turno
+ *     porque la v1 no sabía de turnos;
+ *   · un día pasado que se quiere revisar sin buscar a qué turno tocaba.
+ *
+ * Es también con lo que se comprueba una migración: este total tiene que dar
+ * exactamente lo mismo que el corte de ese día en la v1.
+ */
+export function resumenDelDia(fecha) {
+  const tickets = ticketsDelDia(fecha);
+
+  const totales = tickets.reduce((s, t) => ({
+    bruto:     s.bruto     + t.totales.bruto,
+    cortesias: s.cortesias + t.totales.cortesias,
+    consumo:   s.consumo   + t.totales.consumo,
+    descuento: s.descuento + t.totales.descuento,
+    subtotal:  s.subtotal  + t.totales.subtotal,
+    propina:   s.propina   + t.totales.propina,
+    total:     s.total     + t.totales.total,
+    articulos: s.articulos + t.totales.articulos,
+  }), { bruto: 0, cortesias: 0, consumo: 0, descuento: 0,
+        subtotal: 0, propina: 0, total: 0, articulos: 0 });
+
+  // Cómo pagaron, sumado por método.
+  const porMetodo = {};
+  for (const t of tickets) {
+    for (const p of t.pagos) {
+      porMetodo[p.metodo] = (porMetodo[p.metodo] ?? 0) + p.monto;
+    }
+  }
+
+  return {
+    fecha,
+    ventas: tickets.length,
+    totales,
+    porMetodo,
+    tickets: tickets.map((t) => ({
+      folio: t.folio,
+      nombre: t.nombre,
+      momento: t.momento,
+      total: t.totales.total,
+      articulos: t.totales.articulos,
+      importado: t.cerradoPor === 'importado de la v1',
+    })),
+  };
+}
+
+/**
  * Deshace el último pago: se tecleó de más, o se cobró en la mesa equivocada.
  *
  * Se puede aunque la cuenta ya se haya cerrado, y a propósito: el error más
