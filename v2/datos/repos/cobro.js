@@ -329,7 +329,8 @@ export function resumenDelDia(fecha) {
       momento: t.momento,
       total: t.totales.total,
       articulos: t.totales.articulos,
-      importado: t.cerradoPor === 'importado de la v1',
+      // Lo escribe el importador (QUIEN, en datos/importar-historial-v1.js).
+      importado: t.cerradoPor === 'la v1',
     })),
   };
 }

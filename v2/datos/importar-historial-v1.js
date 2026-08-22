@@ -43,7 +43,10 @@ import { escribirAjuste, leerAjuste } from './repos/ajustes.js';
 const METODOS = ['efectivo', 'tarjeta', 'transferencia'];
 
 const HORA_VACIA = '00:00:00';
-const QUIEN = 'importado de la v1';
+/* Va en «quién abrió» y «quién cobró» de todo lo importado. Corto a propósito:
+   la pantalla de mesas lo pega detrás de «abrió», y «abrió la v1» se lee;
+   «abrió importado de la v1» no. */
+const QUIEN = 'la v1';
 
 const entero = (v) => (Number.isInteger(v) ? v : null);
 
