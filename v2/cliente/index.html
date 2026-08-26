@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>RESTA — Punto de venta</title>
+
+  <!-- Aplicación instalable: con «Agregar a pantalla principal» la tablet
+       abre RESTA a pantalla completa, sin barra del navegador. El color del
+       marco es el verde de la marca (--verde-oscuro); va escrito porque los
+       manifiestos y estas etiquetas no saben leer variables de CSS. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#16302b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍽️</text></svg>">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/menu.css">
+  <link rel="stylesheet" href="/css/pantallas.css">
+</head>
+<body>
+
+  <!-- Barra roja de sin conexión: bloquea la pantalla cuando se cae el WiFi -->
+  <div id="sin-conexion" hidden>
+    ⚠️ SIN CONEXIÓN CON LA CAJA — no anotes nada hasta que vuelva
+  </div>
+
+  <!-- Avisos cortos que se van solos -->
+  <div id="avisos" class="aviso" hidden></div>
+
+
+  <div id="app">
+
+  <!-- ══════════════════ BARRA LATERAL ══════════════════
+       A la izquierda, como en la v1.3.0: la navegación no le quita alto al
+       área de trabajo, que es donde de verdad se necesita el espacio. -->
+  <aside id="lateral" hidden>
+    <!-- El logo va dibujado, no es un archivo: se ve nítido a cualquier
+         tamaño y no hay nada que se pueda borrar por accidente. -->
+    <div class="marca-logo" id="logo-lateral"></div>
+    <div class="marca-sub marca-sub-centro" id="nombre-negocio">RESTA</div>
+
+    <nav id="menu-lateral">
+      <button class="nav-btn" id="boton-ir-mesas"><span>🍽️</span> Mesas y cuentas</button>
+      <button class="nav-btn" id="boton-ir-corte" hidden><span>🧮</span> Corte de caja</button>
+      <button class="nav-btn" id="boton-ir-almacen" hidden><span>📦</span> Almacén</button>
+      <button class="nav-btn" id="boton-ir-carta" hidden><span>📋</span> La carta</button>
+      <button class="nav-btn" id="boton-ir-config" hidden><span>⚙️</span> Configurar</button>
+    </nav>
+
+    <div class="lateral-pie">
+      <button class="foquito" id="foquito" title="Impresora" hidden></button>
+      <div class="quien" id="quien-soy"></div>
+      <button class="nav-btn" id="boton-pantalla-completa"><span>⛶</span> Pantalla completa</button>
+      <button class="nav-btn nav-salir" id="boton-salir"><span>🚪</span> Salir</button>
+    </div>
+  </aside>
+
+  <main id="principal">
+
+
+  <!-- ══════════════════ PANTALLA: PIN ══════════════════ -->
+  <section id="pantalla-pin" class="pantalla-centrada" hidden>
+
+    <!-- Entrar con PIN -->
+    <div class="panel panel-pin" id="caja-pin">
+      <div class="panel-cabeza">
+        <div class="marca-icono">🍽️</div>
+        <div>
+          <div class="marca-nombre">RESTA</div>
+          <div class="marca-sub">punto de venta</div>
+        </div>
+      </div>
+
+      <div class="panel-cuerpo">
+        <div class="pin-titulo">Teclea tu PIN</div>
+        <div class="puntos" id="puntos-pin"></div>
+
+        <div class="teclado" id="teclado-pin">
+          <button data-tecla="1">1</button>
+          <button data-tecla="2">2</button>
+          <button data-tecla="3">3</button>
+          <button data-tecla="4">4</button>
+          <button data-tecla="5">5</button>
+          <button data-tecla="6">6</button>
+          <button data-tecla="7">7</button>
+          <button data-tecla="8">8</button>
+          <button data-tecla="9">9</button>
+          <button class="tecla-vacia" disabled></button>
+          <button data-tecla="0">0</button>
+          <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primera vez: no hay ningún usuario todavía -->
+    <div class="panel panel-pin" id="caja-primera-vez" hidden>
+      <div class="panel-cabeza">
+        <div class="marca-icono">🔑</div>
+        <div>
+          <div class="marca-nombre">PRIMERA VEZ</div>
+          <div class="marca-sub">crea tu acceso</div>
+        </div>
+      </div>
+
+      <div class="panel-cuerpo">
+        <p class="texto-explica">
+          Este sistema todavía no tiene usuarios. Crea el tuyo: vas a ser el
+          <b>administrador</b>. Con este PIN entras a todo, así que no se lo des a nadie.
+        </p>
+
+        <form id="form-primera-vez">
+          <label class="etiqueta-campo" for="nombre-primero">Tu nombre</label>
+          <input class="campo" id="nombre-primero" type="text" autocomplete="off" maxlength="40">
+
+          <label class="etiqueta-campo" for="pin-primero">Tu PIN (4 números)</label>
+          <input class="campo" id="pin-primero" type="password" inputmode="numeric"
+                 maxlength="4" autocomplete="new-password">
+
+          <label class="etiqueta-campo" for="pin-primero-2">Escríbelo otra vez</label>
+          <input class="campo" id="pin-primero-2" type="password" inputmode="numeric"
+                 maxlength="4" autocomplete="new-password">
+
+          <button class="btn btn-ambar ancho" type="submit">Crear mi acceso</button>
+        </form>
+      </div>
+    </div>
+
+    <details class="tarjeta diagnostico-suelto" id="caja-diagnostico">
+      <summary>Estado del sistema y conexión de las tablets</summary>
+      <div class="titulo-bloque">Revisiones · versión <span id="version">—</span></div>
+      <div id="revisiones"></div>
+      <div class="titulo-bloque">Para conectar las tablets</div>
+      <div id="red"></div>
+    </details>
+
+    <button class="btn btn-chico" id="boton-pantalla-completa-pin">⛶ Pantalla completa</button>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: MESAS ══════════════════ -->
+  <section id="pantalla-mesas" class="pantalla" hidden>
+    <div class="cabecera">
+      <div>
+        <h1>Mesas abiertas</h1>
+        <div class="sub">Toca una mesa para anotar, o abre una nueva</div>
+      </div>
+      <form class="acciones" id="form-nueva-mesa">
+        <input class="campo campo-mesa" id="nueva-mesa" type="text" autocomplete="off"
+               placeholder="Número de mesa o nombre" maxlength="40">
+        <button class="btn btn-ambar" type="submit">+ Abrir</button>
+      </form>
+    </div>
+
+    <div id="aviso-caja" class="caja-aviso" hidden></div>
+    <div id="lista-mesas" class="rejilla-mesas"></div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CORTE ══════════════════ -->
+  <section id="pantalla-corte" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-corte">← Mesas</button>
+      <div>
+        <h1 id="titulo-corte">Corte de caja</h1>
+        <div class="sub" id="sub-corte"></div>
+      </div>
+    </div>
+
+    <!-- Todavía no se abre la caja -->
+    <div id="corte-sin-turno" hidden>
+      <div class="vacio">
+        <div class="vacio-icono">🧮</div>
+        <div class="vacio-titulo">La caja no está abierta</div>
+        <div class="vacio-nota">
+          Antes de empezar la noche, abre la caja anotando con cuánto dinero
+          empieza el cajón. Sin eso, al final no hay contra qué comparar.<br>
+          Lo de siempre: <b id="fondo-sugerido">—</b>
+        </div>
+        <button class="btn btn-ambar grande" id="boton-abrir-caja">Abrir la caja</button>
+      </div>
+    </div>
+
+    <!-- Turno abierto -->
+    <div id="corte-con-turno" hidden>
+      <div class="dos-columnas">
+
+        <!-- izquierda: lo vendido -->
+        <div>
+          <div class="tarjeta bloque-corte">
+            <div class="titulo-bloque">Ventas del turno</div>
+            <div id="corte-ventas"></div>
+
+            <div class="titulo-bloque">Cómo pagaron</div>
+            <div id="corte-metodos"></div>
+          </div>
+
+          <div class="tarjeta bloque-corte" id="corte-canceladas" hidden></div>
+          <div class="tarjeta bloque-corte" id="corte-mas-vendido" hidden></div>
+        </div>
+
+        <!-- derecha: el cajón -->
+        <div class="columna-cobro">
+          <div class="titulo-bloque">El cajón</div>
+          <div id="corte-cajon"></div>
+
+          <div class="titulo-bloque">Cuenta el dinero que hay</div>
+          <div class="recibido-caja">
+            <span class="recibido-et">Contado</span>
+            <span class="recibido-valor dinero" id="corte-contado">—</span>
+          </div>
+
+          <div class="teclado teclado-dinero" id="corte-teclado">
+            <button data-tecla="1">1</button>
+            <button data-tecla="2">2</button>
+            <button data-tecla="3">3</button>
+            <button data-tecla="4">4</button>
+            <button data-tecla="5">5</button>
+            <button data-tecla="6">6</button>
+            <button data-tecla="7">7</button>
+            <button data-tecla="8">8</button>
+            <button data-tecla="9">9</button>
+            <button data-tecla="limpiar" class="tecla-borrar">C</button>
+            <button data-tecla="0">0</button>
+            <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+          </div>
+
+          <div class="cambio-caja" id="corte-diferencia"></div>
+
+          <div class="botones-cuenta">
+            <button class="btn btn-rojo ancho grande" id="boton-cerrar-caja">Cerrar la caja</button>
+            <button class="btn" id="boton-imprimir-corte">🖨️ Imprimir el corte</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ventas de un día ─────────────────────────────────────────────────
+         Aparte del corte del turno, y siempre visible: las ventas que se
+         importan de la v1 no pertenecen a ningún turno —la v1 no sabía de
+         turnos—, así que sin este bloque quedarían guardadas y correctas
+         pero invisibles. Es también con lo que se comprueba una migración
+         contra el corte que imprimió la v1 ese mismo día. -->
+    <div class="tarjeta bloque-corte" id="corte-por-dia">
+      <div class="titulo-bloque">Ventas de un día</div>
+      <div class="renglon-form">
+        <div>
+          <label class="etiqueta-campo" for="corte-fecha-dia">Día</label>
+          <input type="date" id="corte-fecha-dia">
+        </div>
+        <button class="btn btn-chico" id="boton-ver-dia">Ver</button>
+      </div>
+      <div id="corte-dia-resultado"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CUENTA ══════════════════ -->
+  <section id="pantalla-cuenta" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-mesas">← Mesas</button>
+      <div>
+        <h1 id="titulo-cuenta">—</h1>
+        <div class="sub" id="sub-cuenta"></div>
+      </div>
+    </div>
+
+    <div class="dos-columnas">
+      <!-- izquierda: qué anotar -->
+      <div class="columna-productos">
+        <div class="familias-bar" id="familias-cuenta"></div>
+        <div class="rejilla-productos" id="productos-cuenta"></div>
+      </div>
+
+      <!-- derecha: la cuenta -->
+      <div class="columna-ticket">
+        <div class="ticket">
+          <div class="ticket-lineas" id="ticket-lineas"></div>
+          <div class="ticket-totales" id="ticket-totales"></div>
+        </div>
+
+        <div class="botones-cuenta">
+          <button class="btn btn-ambar ancho" id="boton-comandar">🔔 Mandar a barra</button>
+          <button class="btn btn-verde ancho" id="boton-ir-cobrar" hidden>💵 Cobrar</button>
+          <button class="btn ancho" id="boton-pedir-cuenta" hidden>🧾 Pidió la cuenta</button>
+          <button class="btn btn-rojo ancho" id="boton-cancelar-cuenta" hidden>Cancelar cuenta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- En pantalla angosta (tablet parada o teléfono) el ticket queda abajo
+         de todos los productos y el mesero anota sin ver cuánto lleva la
+         mesa. Esta pastilla enseña el total en todo momento; al tocarla,
+         baja directo a la cuenta completa. En pantalla ancha no existe. -->
+    <button class="total-flotante" id="total-flotante">
+      Total <span class="dinero" id="total-flotante-monto">—</span>
+    </button>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: COBRO ══════════════════ -->
+  <section id="pantalla-cobro" class="pantalla ancha" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-cobro">← Cuenta</button>
+      <div>
+        <h1 id="titulo-cobro">Cobrar</h1>
+        <div class="sub">El total y el cambio los calcula la caja, no esta pantalla</div>
+      </div>
+    </div>
+
+    <!-- IZQUIERDA = la cuenta (qué se cobra) · DERECHA = el pago (cómo paga).
+         El bloque «Cuánto se cobra» va a la izquierda a propósito: cuando se
+         elige «Cada quien lo suyo» hay que marcar renglones ahí mismo. Antes
+         el botón estaba de un lado y lo que había que tocar del otro. -->
+    <div class="dos-columnas">
+
+      <!-- ── LA CUENTA ── -->
+      <div>
+        <div class="ticket">
+          <div class="ticket-lineas" id="cobro-renglones"></div>
+          <div class="ticket-totales" id="cobro-resumen"></div>
+        </div>
+
+        <div class="titulo-bloque">Ajustes de la cuenta</div>
+        <div class="botones-cuenta fila">
+          <button class="btn" id="boton-descuento">% Descuento</button>
+          <button class="btn" id="boton-propina">＋ Propina</button>
+        </div>
+
+        <div class="titulo-bloque">Cuánto se cobra ahora</div>
+        <div class="grupo-botones" id="cobro-modos"></div>
+        <p class="sutil" id="explica-modo-cobro"></p>
+
+        <div class="titulo-bloque">Cómo paga</div>
+        <div class="grupo-botones" id="cobro-metodos"></div>
+
+        <div id="cobro-pagos" class="bloque-pagos" hidden>
+          <div class="titulo-bloque">Ya se pagó</div>
+          <div id="lista-pagos"></div>
+          <button class="btn btn-chico" id="boton-anular-pago">Deshacer el último pago</button>
+        </div>
+      </div>
+
+      <!-- ── EL PAGO ── -->
+      <div class="columna-cobro">
+        <!-- Lo primero que se busca con la vista: cuánto hay que cobrar -->
+        <div class="a-cobrar">
+          <span class="a-cobrar-et" id="a-cobrar-et">A cobrar</span>
+          <span class="a-cobrar-valor dinero" id="a-cobrar-valor">$0.00</span>
+        </div>
+
+        <div id="cobro-efectivo">
+          <div class="titulo-bloque">Con cuánto paga</div>
+
+          <div class="recibido-caja">
+            <span class="recibido-et">Recibido</span>
+            <span class="recibido-valor dinero" id="cobro-recibido">—</span>
+          </div>
+
+          <!-- Los números a la izquierda y los atajos en una cuarta columna,
+               como en una caja registradora. Antes iban en dos renglones
+               aparte y la pantalla no cabía entera. -->
+          <div class="teclado-caja" id="cobro-teclado">
+            <button data-tecla="1">1</button>
+            <button data-tecla="2">2</button>
+            <button data-tecla="3">3</button>
+            <button data-tecla="exacto" class="tecla-atajo tecla-exacto">Pago<br>justo</button>
+
+            <button data-tecla="4">4</button>
+            <button data-tecla="5">5</button>
+            <button data-tecla="6">6</button>
+            <button data-tecla="billete:10000" class="tecla-atajo">$100</button>
+
+            <button data-tecla="7">7</button>
+            <button data-tecla="8">8</button>
+            <button data-tecla="9">9</button>
+            <button data-tecla="billete:20000" class="tecla-atajo">$200</button>
+
+            <button data-tecla="limpiar" class="tecla-borrar">C</button>
+            <button data-tecla="0">0</button>
+            <button data-tecla="borrar" class="tecla-borrar">⌫</button>
+            <button data-tecla="billete:50000" class="tecla-atajo">$500</button>
+          </div>
+
+          <div class="cambio-caja" id="cobro-cambio"></div>
+        </div>
+
+        <button class="btn btn-verde ancho grande" id="boton-cobrar">Cobrar</button>
+        <p class="sutil pista-teclado">
+          También con el teclado: números · <b>⌫</b> borrar · <b>Enter</b> cobrar
+        </p>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: IMPRESORA ══════════════════ -->
+  <section id="pantalla-impresora" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-impresora">← Mesas</button>
+      <div>
+        <h1>Impresora</h1>
+        <div class="sub">Cómo y por dónde sale el papel</div>
+      </div>
+    </div>
+
+    <div id="impresora-estado" class="estado-impresora"></div>
+
+    <div id="aviso-linux" class="caja-aviso" hidden>
+      Estás en la computadora de desarrollo, no en la laptop del bar. Aquí la
+      impresora de verdad no se puede probar: usa el modo <b>Simulada</b>, que
+      escribe el ticket a un archivo para revisar cómo queda.
+    </div>
+
+    <form id="form-impresora">
+      <div class="titulo-bloque">Por dónde imprime</div>
+      <div class="grupo-botones" id="impresora-modos"></div>
+      <p class="sutil" id="explica-modo"></p>
+
+      <div id="campos-red" hidden>
+        <label class="etiqueta-campo" for="impresora-host">Dirección IP de la impresora</label>
+        <input class="campo" id="impresora-host" type="text" placeholder="192.168.1.60" autocomplete="off">
+        <label class="etiqueta-campo" for="impresora-puerto">Puerto</label>
+        <input class="campo" id="impresora-puerto" type="text" inputmode="numeric" placeholder="9100">
+      </div>
+
+      <div id="campos-windows" hidden>
+        <label class="etiqueta-campo" for="impresora-nombre">Nombre de la impresora en Windows</label>
+        <input class="campo" id="impresora-nombre" type="text" placeholder="POSPrinter POS80" autocomplete="off">
+        <p class="sutil">
+          Es el nombre exacto que aparece en «Dispositivos e impresoras» de Windows.
+        </p>
+      </div>
+
+      <div id="campos-com" hidden>
+        <label class="etiqueta-campo" for="impresora-com">Puerto COM</label>
+        <input class="campo" id="impresora-com" type="text" placeholder="COM3" autocomplete="off">
+        <p class="sutil">
+          ⚠️ Sólo funciona con Bluetooth clásico (SPP). Si la impresora es BLE,
+          Windows no puede imprimir en ella y hay que cambiarla.
+        </p>
+      </div>
+
+      <div class="titulo-bloque">Ancho del papel</div>
+      <div class="grupo-botones" id="impresora-ancho">
+        <button type="button" class="op" data-ancho="80">80 mm (el normal)</button>
+        <button type="button" class="op" data-ancho="58">58 mm (angosto)</button>
+      </div>
+
+      <label class="etiqueta-campo" for="impresora-pie">Mensaje al pie del ticket</label>
+      <input class="campo" id="impresora-pie" type="text" maxlength="60" autocomplete="off">
+
+      <label class="casilla-linea">
+        <input type="checkbox" id="impresora-activa">
+        <span>Imprimir. Si lo apagas, RESTA sigue cobrando pero no sale papel.</span>
+      </label>
+
+      <div class="titulo-bloque">Logo del ticket</div>
+      <div class="caja-logo">
+        <div class="logo-vista" id="logo-vista"></div>
+        <p class="sutil">
+          El logo va dibujado, no es una foto. Para que salga en la térmica hay
+          que convertirlo a puntos una sola vez: eso lo hace esta pantalla.
+        </p>
+        <button class="btn" type="button" id="boton-mandar-logo">📤 Mandar el logo a la impresora</button>
+      </div>
+
+      <div class="botones-cuenta">
+        <button class="btn btn-ambar" type="submit">Guardar</button>
+        <button class="btn" type="button" id="boton-prueba">🖨️ Imprimir prueba</button>
+        <button class="btn" type="button" id="boton-reintentar">↻ Reintentar ahora</button>
+      </div>
+    </form>
+
+    <div id="bloque-cola" hidden>
+      <div class="titulo-bloque">Esperando a salir</div>
+      <div id="cola-impresion"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: ALMACÉN ══════════════════ -->
+  <section id="pantalla-almacen" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-almacen">← Mesas</button>
+      <div>
+        <h1>Almacén</h1>
+        <div class="sub">Qué hay, qué llegó y qué hay que comprar</div>
+      </div>
+    </div>
+
+    <div class="grupo-botones" id="almacen-secciones"></div>
+
+    <!-- ── Qué hay ── -->
+    <div id="almacen-panel-existencias" hidden>
+      <p class="sutil">
+        Lo grande de cada renglón es <b>cuántos días alcanza</b>, no cuántos hay.
+        Es la pregunta que de verdad se hace uno.
+      </p>
+      <p class="caja-aviso" id="nota-sin-ventas" hidden></p>
+      <div id="almacen-existencias"></div>
+    </div>
+
+    <!-- ── Llegó el pedido · Conteo (la misma lista) ── -->
+    <div id="almacen-pedido" hidden>
+      <div class="titulo-bloque" id="titulo-captura">Llegó el pedido</div>
+      <p class="sutil" id="explica-captura"></p>
+      <div id="almacen-captura"></div>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-guardar-captura" disabled>Guardar</button>
+        <button class="btn" id="boton-limpiar-captura">Limpiar</button>
+        <span class="sutil" id="resumen-captura" style="align-self:center"></span>
+      </div>
+    </div>
+
+    <!-- ── Qué comprar ── -->
+    <div id="almacen-comprar" hidden>
+      <div class="titulo-bloque">¿Para cuántos días quieres estar cubierto?</div>
+      <div class="grupo-botones" id="almacen-dias"></div>
+      <div id="almacen-compras"></div>
+    </div>
+
+    <!-- ── Qué se controla ── -->
+    <div id="almacen-ajustes" hidden>
+      <p class="sutil">
+        Empieza por pocos: los que de verdad duelen. Controlar toda la carta es
+        la forma más rápida de abandonar un inventario.
+      </p>
+      <p class="sutil" id="config-almacen-resumen"></p>
+
+      <input class="campo campo-buscar" id="buscar-config-almacen" type="search"
+             placeholder="🔍 Buscar producto…" autocomplete="off">
+
+      <div class="grupo-botones" id="config-almacen-familias"></div>
+      <div id="almacen-config"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CONFIGURACIÓN ══════════════════ -->
+  <section id="pantalla-config" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-config">← Mesas</button>
+      <div>
+        <h1>Configuración</h1>
+        <div class="sub">La carta, las familias y quién puede entrar</div>
+      </div>
+    </div>
+
+    <div class="grupo-botones" id="config-secciones"></div>
+
+    <!-- ── El sistema ── -->
+    <div id="config-sistema" hidden>
+      <div class="tarjeta">
+        <div class="titulo-bloque">Esta instalación</div>
+        <div id="sistema-datos"></div>
+      </div>
+
+      <div class="tarjeta" style="margin-top:14px">
+        <div class="titulo-bloque">Versión</div>
+        <p class="sutil" id="sistema-version">…</p>
+        <div id="sistema-actualizacion"></div>
+        <div class="botones-form">
+          <button class="btn" id="boton-buscar-actualizacion">🔄 Buscar actualización</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Productos ── -->
+    <div id="config-productos" hidden>
+      <form id="form-producto" class="tarjeta form-producto">
+        <div class="titulo-bloque" id="titulo-formulario">Producto nuevo</div>
+
+        <div class="renglon-form">
+          <div class="campo-corto">
+            <label class="etiqueta-campo" for="prod-icono">Dibujo</label>
+            <button type="button" class="btn boton-emoji" id="prod-icono">🍽️</button>
+          </div>
+
+          <div class="campo-largo">
+            <label class="etiqueta-campo" for="prod-nombre">Nombre</label>
+            <input class="campo" id="prod-nombre" type="text" maxlength="60"
+                   placeholder="Ej. Michelada de camarón" autocomplete="off">
+          </div>
+
+          <div class="campo-corto">
+            <label class="etiqueta-campo" for="prod-precio">Precio</label>
+            <input class="campo" id="prod-precio" type="text" inputmode="decimal"
+                   placeholder="0.00" autocomplete="off">
+          </div>
+
+          <div class="campo-medio">
+            <label class="etiqueta-campo" for="prod-familia">Familia</label>
+            <select class="campo" id="prod-familia"></select>
+          </div>
+        </div>
+
+        <label class="etiqueta-campo" for="prod-opciones">
+          Submenú (opcional) — una pregunta por renglón: <i>Pregunta: opción, opción</i>
+        </label>
+        <textarea class="campo" id="prod-opciones" rows="3"
+          placeholder="Mezcla: Puesto, Campechano, Derecho&#10;Refresco [si: Puesto]: Coca, Coca Light&#10;Hielo: Con hielo, Sin hielo"></textarea>
+        <p class="sutil">
+          Trucos: <b>[varias]</b> deja marcar más de una · <b>[si: Valor, Valor]</b> hace que
+          la pregunta sólo aparezca si antes se eligió alguno de esos valores.
+        </p>
+
+        <div class="botones-form">
+          <button class="btn btn-ambar" type="submit" id="boton-guardar-producto">Agregar</button>
+          <button class="btn" type="button" id="boton-cancelar-producto" hidden>Cancelar</button>
+        </div>
+      </form>
+
+      <div class="grupo-botones" id="filtro-familia"></div>
+      <div id="lista-productos"></div>
+    </div>
+
+    <!-- ── Familias ── -->
+    <div id="config-familias" hidden>
+      <p class="sutil">
+        Las familias son las pestañas de la pantalla de venta. El orden de aquí
+        es el orden en que salen allá.
+      </p>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-nueva-familia">+ Familia nueva</button>
+      </div>
+      <div id="lista-familias"></div>
+    </div>
+
+    <!-- ── Quién entra ── -->
+    <div id="config-personas" hidden>
+      <p class="sutil">
+        Cada quien entra con su PIN de 4 números. Nadie se borra: se da de baja,
+        para que su historial siga teniendo dueño.
+      </p>
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-nueva-persona">+ Dar de alta a alguien</button>
+      </div>
+      <div id="lista-personas"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════ PANTALLA: CARTA ══════════════════ -->
+  <section id="pantalla-carta" class="pantalla" hidden>
+    <div class="cabecera">
+      <button class="btn btn-chico" id="volver-de-carta">← Mesas</button>
+      <div>
+        <h1>La carta</h1>
+        <div class="sub">Aquí sólo se revisa. Para vender, entra a una mesa.</div>
+      </div>
+      <div class="acciones">
+        <button class="btn" id="boton-recargar-carta">↻ Recargar</button>
+        <button class="btn btn-ambar" id="boton-importar">📥 Importar de Excel o CSV</button>
+        <input type="file" id="archivo-respaldo" accept=".xlsx,.csv,.txt,.json" hidden>
+      </div>
+    </div>
+
+    <div id="resultado-carta"></div>
+    <div class="familias-bar" id="familias-carta"></div>
+    <div class="rejilla-productos" id="productos-carta"></div>
+    <div class="pie-menu" id="pie-carta"></div>
+  </section>
+
+
+  </main>
+  </div>
+
+  <!-- VIGILANTE DE ARRANQUE ──────────────────────────────────────────────
+       A propósito NO es un módulo: tiene que funcionar justo cuando los
+       módulos son los que no llegaron (WiFi malo, servidor apagado, archivo
+       atorado). Si en 10 segundos la aplicación no da señales de vida, se
+       enseña un aviso con botón de reintentar, en vez de dejar a la persona
+       mirando una pantalla vacía sin saber si esperar o llamar a alguien. -->
+  <script>
+    setTimeout(function () {
+      if (globalThis.__restaArranco) return;
+      var aviso = document.createElement('div');
+      // Los colores llevan aquí un valor de respaldo escrito —excepción a la
+      // regla de tokens.css— porque este aviso aparece precisamente cuando
+      // tokens.css puede no haber llegado. Si llegó, mandan las variables.
+      aviso.style.cssText =
+        'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;' +
+        'align-items:center;justify-content:center;gap:16px;text-align:center;' +
+        'padding:30px;background:var(--fondo,#f3f2ed);color:var(--tinta,#20302a);' +
+        'font-family:var(--letra,sans-serif);font-size:1.1rem;';
+      aviso.innerHTML =
+        '<div style="font-size:2.6rem">📶</div>' +
+        '<div style="font-weight:800;font-size:1.3rem">No pude cargar RESTA</div>' +
+        '<div>Revisa que esta pantalla esté en el WiFi del local<br>' +
+        'y que la computadora de la caja esté prendida.</div>' +
+        '<button style="padding:14px 28px;font-size:1.1rem;font-weight:700;border:0;' +
+        'border-radius:12px;cursor:pointer;background:var(--ambar,#d97706);color:#fff"' +
+        ' onclick="location.reload()">↻ Reintentar</button>';
+      document.body.appendChild(aviso);
+    }, 10000);
+  </script>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+/* ═════════════════════════════════════════════════════════════════════════
+   CLIENTE · PANTALLA DEL MENÚ
+   ─────────────────────────────────────────────────────────────────────────
+   Las pestañas de familias y los mosaicos de producto, con la misma forma y
+   los mismos colores de la v1.3.0. En la fase 3 estos mosaicos empiezan a
+   anotar en la cuenta; por ahora sólo muestran la carta.
+
+   Ningún color escrito a mano: todos salen de tokens.css.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* El relleno de abajo era de 60 px «por si acaso» y era justo lo que hacía
+   que la pantalla de cobro no cupiera entera. */
+.pantalla { max-width: 1100px; margin: 0 auto; padding: 20px 20px 22px; }
+
+/* ── Cabecera ──────────────────────────────────────────────────────────── */
+.cabecera {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 22px; flex-wrap: wrap;
+}
+.cabecera .marca-icono { width: 46px; height: 46px; font-size: 24px; }
+.cabecera h1 { font-size: 1.4rem; margin: 0; letter-spacing: .02em; }
+.cabecera .sub { color: var(--tinta-suave); font-size: .86rem; margin-top: 2px; }
+.cabecera .acciones { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* TODOS los botones se tocan con el dedo, no con el ratón.
+   48 px de alto mínimo: es la medida por debajo de la cual un dedo empieza a
+   fallar. En una tablet apoyada en la barra, con prisa y las manos ocupadas,
+   un botón chico se convierte en dos intentos. */
+.btn {
+  border: 1.5px solid var(--linea);
+  background: var(--tarjeta);
+  color: var(--tinta);
+  border-radius: 99px;
+  padding: 12px 22px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: .95rem;
+}
+.btn:hover { border-color: var(--tinta-suave); }
+.btn-ambar {
+  background: var(--ambar); border-color: var(--ambar); color: #fff;
+}
+.btn-ambar:hover { background: var(--ambar-oscuro); border-color: var(--ambar-oscuro); }
+
+/* ── Pestañas de familia ───────────────────────────────────────────────── */
+.familias-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.familias-bar button {
+  border: 1.5px solid var(--linea);
+  background: var(--tarjeta);
+  border-radius: 99px;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--tinta-suave);
+}
+.familias-bar button:hover { border-color: var(--tinta-suave); }
+.familias-bar button.activo {
+  background: var(--verde-oscuro);
+  border-color: var(--verde-oscuro);
+  color: #fff;
+}
+
+/* ── Mosaicos de producto ──────────────────────────────────────────────── */
+.rejilla-productos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.prod-tile {
+  border: 0;
+  border-radius: 13px;
+  padding: 13px 8px 11px;
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  box-shadow: var(--sombra);
+  transition: transform .08s;
+  position: relative;
+}
+.prod-tile:hover { transform: translateY(-2px); }
+.prod-tile:active { transform: scale(.95); }
+.prod-tile .ic { font-size: 2rem; line-height: 1.15; }
+.prod-tile .nm { font-weight: 700; font-size: .86rem; line-height: 1.15; }
+.prod-tile .pr {
+  font-size: .82rem; font-weight: 700; opacity: .75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Marquita para los productos que preguntan algo al mesero (submenú) */
+.prod-tile .tiene-submenu {
+  position: absolute; top: 6px; right: 8px;
+  font-size: .7rem; opacity: .55;
+}
+
+/* Los 8 colores de la v1, por turnos */
+.prod-tile.c1 { background: var(--tile-1-fondo); color: var(--tile-1-tinta); }
+.prod-tile.c2 { background: var(--tile-2-fondo); color: var(--tile-2-tinta); }
+.prod-tile.c3 { background: var(--tile-3-fondo); color: var(--tile-3-tinta); }
+.prod-tile.c4 { background: var(--tile-4-fondo); color: var(--tile-4-tinta); }
+.prod-tile.c5 { background: var(--tile-5-fondo); color: var(--tile-5-tinta); }
+.prod-tile.c6 { background: var(--tile-6-fondo); color: var(--tile-6-tinta); }
+.prod-tile.c7 { background: var(--tile-7-fondo); color: var(--tile-7-tinta); }
+.prod-tile.c8 { background: var(--tile-8-fondo); color: var(--tile-8-tinta); }
+
+/* ── Pie con el conteo ─────────────────────────────────────────────────── */
+.pie-menu {
+  margin-top: 26px; padding-top: 16px;
+  border-top: 1px dashed var(--linea);
+  color: var(--tinta-suave); font-size: .88rem;
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+
+/* ── Resultado de la importación ───────────────────────────────────────── */
+.caja-exito {
+  background: var(--exito-fondo);
+  border: 1px solid #c6e3cd;
+  color: var(--exito);
+  border-radius: var(--radio-chico);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  font-size: .92rem;
+}
+.caja-exito ul { margin: 8px 0 0; padding-left: 20px; }
+.caja-exito li { margin: 3px 0; }
+
+.caja-error {
+  background: var(--peligro-fondo);
+  border: 1px solid #f3cccc;
+  color: var(--peligro);
+  border-radius: var(--radio-chico);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  font-size: .92rem;
+  font-weight: 600;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "RESTA — ONCE Social Lounge",
+  "short_name": "RESTA",
+  "description": "Punto de venta del bar. Funciona sólo dentro de la red del local.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#f3f2ed",
+  "theme_color": "#16302b",
+  "icons": [
+    {
+      "src": "/icono-app.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
