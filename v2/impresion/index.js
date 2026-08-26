@@ -16,6 +16,7 @@ import {
 } from './plantillas.js';
 import { encolar, configurarSalida } from './cola.js';
 import { MODOS } from './salidas.js';
+import { puntosDelLogo } from './escpos.js';
 
 export { estadoImpresion, alCambiarEstado, cancelar, vaciar, reintentarYa } from './cola.js';
 export { MODOS, impresorasDeWindows } from './salidas.js';
@@ -68,8 +69,22 @@ export function guardarLogo(raster) {
     throw new Error('Ese logo es demasiado grande para la impresora.');
   }
 
+  // Se cuentan los puntos ANTES de guardar. Antes se aceptaba cualquier cosa
+  // que trajera las tres piezas, y un logo mal formado se guardaba tan
+  // campante: el fallo aparecía después, en la impresora, como un rectángulo
+  // en blanco sin explicación. Vale más negarse aquí, con la pantalla
+  // enfrente y el botón de volver a mandarlo a la mano.
+  const puntos = puntosDelLogo(bytes);
+  const esperados = anchoEnBytes * alto;
+  if (puntos.length !== esperados) {
+    throw new Error(
+      `Ese logo llegó incompleto (${puntos.length} puntos en vez de ${esperados}). ` +
+      'Vuelve a mandarlo desde la pantalla.',
+    );
+  }
+
   escribirAjuste('ticket.logo_raster', JSON.stringify({ bytes, anchoEnBytes, alto }));
-  return { guardado: true, alto, anchoEnBytes };
+  return { guardado: true, alto, anchoEnBytes, puntos: puntos.length };
 }
 
 /**

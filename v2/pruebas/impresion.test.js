@@ -24,7 +24,7 @@ import {
   columnas, partirEnRenglones, alinearDosColumnas, centrar, aTexto,
   texto, titulo, dosColumnas, separador, salto, cortar,
 } from '../impresion/documento.js';
-import { aBytes, byteCP850, soloImprimible } from '../impresion/escpos.js';
+import { aBytes, byteCP850, soloImprimible, rasterABytes, puntosDelLogo } from '../impresion/escpos.js';
 import { comanda, cuenta, ticket, prueba } from '../impresion/plantillas.js';
 
 /* ── El ancho del papel ────────────────────────────────────────────────── */
@@ -262,4 +262,60 @@ test('el texto centrado va centrado', () => {
 test('un bloque desconocido no truena la impresión', () => {
   const t = aTexto([texto('antes'), { tipo: 'inventado' }, texto('después')]);
   assert.equal(t, 'antes\ndespués');
+});
+
+/* ── El logo del ticket ────────────────────────────────────────────────── */
+/* Hasta la v2.0.5 el logo salía en blanco: la pantalla lo manda como TEXTO
+   en base64 y aquí se recorría letra por letra creyendo que eran números,
+   así que todos los puntos acababan en cero. Salía papel, sin dibujo y sin
+   ningún aviso. Estas pruebas son para que no vuelva a pasar callado. */
+
+test('los puntos del logo se descifran del texto que manda la pantalla', () => {
+  // Cuatro puntos conocidos, en base64 igual que los manda el navegador
+  const enTexto = Buffer.from([0xFF, 0x00, 0xA5, 0x3C]).toString('base64');
+  assert.deepEqual([...puntosDelLogo(enTexto)], [0xFF, 0x00, 0xA5, 0x3C]);
+});
+
+test('el logo NO sale en blanco: los puntos negros llegan a la impresora', () => {
+  // Una franja negra de 8 puntos de ancho por 2 de alto
+  const bytes = Buffer.from([0xFF, 0xFF]).toString('base64');
+  const salida = rasterABytes({ bytes, anchoEnBytes: 1, alto: 2 });
+
+  // GS v 0 m xL xH yL yH, y luego los puntos
+  assert.deepEqual([...salida.slice(0, 8)], [0x1D, 0x76, 0x30, 0x00, 1, 0, 2, 0]);
+  assert.deepEqual([...salida.slice(8, 10)], [0xFF, 0xFF]);
+
+  // Lo que fallaba: que los puntos salieran todos en cero
+  assert.ok(salida.slice(8, 10).some((b) => b !== 0), 'el logo salió en blanco');
+});
+
+test('un logo con menos puntos de los que dice se rechaza al guardarlo', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir: carpetaTemporal } = await import('node:os');
+  const { join: unir } = await import('node:path');
+
+  const carpeta = mkdtempSync(unir(carpetaTemporal(), 'resta-logo-'));
+  process.env.RESTA_DATOS = carpeta;
+
+  const { abrirBase, cerrarBase } = await import('../datos/conexion.js');
+  const { guardarLogo } = await import('../impresion/index.js');
+  abrirBase({ silencioso: true });
+
+  try {
+    // Dice 72×161 pero sólo trae 4 puntos: antes se guardaba tan campante
+    const bytes = Buffer.from([1, 2, 3, 4]).toString('base64');
+    assert.throws(
+      () => guardarLogo({ bytes, anchoEnBytes: 72, alto: 161 }),
+      /incompleto/,
+    );
+
+    // Y uno bien formado sí pasa
+    const buenos = Buffer.alloc(72 * 161, 0x0F).toString('base64');
+    const r = guardarLogo({ bytes: buenos, anchoEnBytes: 72, alto: 161 });
+    assert.equal(r.guardado, true);
+    assert.equal(r.puntos, 72 * 161);
+  } finally {
+    cerrarBase();
+    rmSync(carpeta, { recursive: true, force: true });
+  }
 });

@@ -55,6 +55,7 @@ function ir(vista) {
   // La barra lateral no se enseña en la pantalla del PIN: quien no ha
   // entrado no tiene por qué ver el nombre de nadie.
   $('lateral').hidden = vista === 'pin';
+  aplicarBarra();
 
   // Se marca en ámbar dónde estás. Sin esto, con la barra a un lado uno se
   // pierde: todas las pantallas se parecen desde lejos.
@@ -306,6 +307,37 @@ $('boton-ir-cobrar').addEventListener('click', () => {
 // espacio y por la que un dedo distraído se sale de RESTA a media venta.
 // Instalada desde «Agregar a pantalla principal» ya abre así sola; estos
 // botones son para cuando se usa el navegador normal.
+/* ── La barra lateral se puede guardar ─────────────────────────────────── */
+/* Anotando en la carta, el menú de la izquierda estorba toda la noche y se
+   usa una vez cada media hora. Cada tablet recuerda cómo la dejó su dueño:
+   la de la barra la quiere guardada, la de la caja la quiere a la vista. */
+
+const LLAVE_BARRA = 'resta_barra_guardada';
+
+function barraGuardada() {
+  try { return localStorage.getItem(LLAVE_BARRA) === '1'; } catch { return false; }
+}
+
+function aplicarBarra() {
+  const guardada = barraGuardada();
+  $('app').classList.toggle('barra-guardada', guardada);
+
+  // El botón redondo sólo aparece si de verdad hace falta: con la barra a la
+  // vista sobra, y en la pantalla del PIN no hay adónde navegar todavía.
+  $('boton-mostrar-barra').hidden = !guardada || estado.vista === 'pin';
+}
+
+function alternarBarra() {
+  try {
+    if (barraGuardada()) localStorage.removeItem(LLAVE_BARRA);
+    else localStorage.setItem(LLAVE_BARRA, '1');
+  } catch { /* si el navegador no deja guardar, al menos cambia ahora */ }
+  aplicarBarra();
+}
+
+$('boton-ocultar-barra').addEventListener('click', alternarBarra);
+$('boton-mostrar-barra').addEventListener('click', alternarBarra);
+
 const LLAVE_PANTALLA = 'resta_pantalla_completa';
 
 function alternarPantallaCompleta() {

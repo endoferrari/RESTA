@@ -180,18 +180,32 @@ export function aBytes(documento, { anchoMm = 80, abrirCajon = false } = {}) {
 }
 
 /**
+ * Los puntos del logo, que el navegador manda como texto en base64.
+ *
+ * Esto tiene que estar aquí y no darse por hecho: el logo viaja por la red y
+ * se guarda en la base como TEXTO. Si se recorriera ese texto letra por letra
+ * creyendo que son números, cada punto saldría en cero y la impresora
+ * imprimiría un rectángulo en blanco —papel gastado y ni una queja del
+ * sistema—. Fue exactamente lo que pasó hasta la v2.0.5.
+ */
+export function puntosDelLogo(bytes) {
+  if (typeof bytes === 'string') return Buffer.from(bytes, 'base64');
+  return Uint8Array.from(bytes);
+}
+
+/**
  * Los bytes de una imagen en blanco y negro (GS v 0).
- * Todavía no se usa: está escrito para que el día que se pueda convertir el
- * logo a puntos, sólo haya que llamarlo desde aquí.
+ * Recibe los puntos como los manda la pantalla (texto base64) o ya sueltos.
  */
 export function rasterABytes({ bytes, anchoEnBytes, alto }) {
+  const puntos = puntosDelLogo(bytes);
   const cinta = new Cinta();
   cinta.meter(
     GS, 0x76, 0x30, 0x00,
     anchoEnBytes & 0xFF, (anchoEnBytes >> 8) & 0xFF,
     alto & 0xFF, (alto >> 8) & 0xFF,
   );
-  for (const b of bytes) cinta.meter(b);
+  for (const b of puntos) cinta.meter(b);
   cinta.meter(0x0A);
   return cinta.terminar();
 }

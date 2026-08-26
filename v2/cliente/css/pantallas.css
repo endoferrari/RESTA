@@ -91,6 +91,31 @@
 .lateral-pie .quien .rol { display: inline-block; margin-top: 3px; margin-left: 0; }
 .nav-salir { color: #9fb5a8; }
 
+/* ── La barra guardada ─────────────────────────────────────────────────
+   Anotando en la carta, esos 232 px de menú se usan una vez cada media
+   hora pero estorban toda la noche: son casi dos productos menos por
+   renglón en la tablet. Guardándola, la carta ocupa la pantalla entera.
+
+   La barra se ESCONDE, no se destruye: sus botones siguen existiendo y
+   el resto del programa los sigue encontrando igual. */
+#app.barra-guardada #lateral { display: none; }
+
+#boton-mostrar-barra {
+  position: fixed; left: 12px; top: 12px; z-index: 880;
+  width: 52px; height: 52px;          /* la medida de un dedo, sin puntería */
+  border: 0; border-radius: 50%;
+  background: var(--verde-oscuro); color: #fff;
+  font-size: 1.5rem; line-height: 1;
+  box-shadow: var(--sombra-alta);
+}
+#boton-mostrar-barra[hidden] { display: none; }
+#boton-mostrar-barra:active { background: var(--verde-medio); }
+
+/* El botón redondo va encima de la esquina, justo donde vive el «← Mesas».
+   Se corre SÓLO esa fila —no la pantalla entera— para no regalar el ancho
+   que se acaba de ganar: la rejilla de productos sigue de lado a lado. */
+#app.barra-guardada .cabecera { padding-left: 64px; }
+
 /* En una tablet angosta la barra se acuesta arriba, como en la v1 */
 @media (max-width: 820px) {
   #app { flex-direction: column; }
