@@ -11,7 +11,11 @@
  */
 
 import { exigir } from '../auth.js';
-import { buscarActualizacion } from '../actualizaciones.js';
+import {
+  buscarActualizacion, descargarActualizacion, estadoDeLaDescarga,
+  instalarActualizacion,
+} from '../actualizaciones.js';
+import { anotarEvento } from '../../datos/repos/eventos.js';
 import { VERSION } from '../config.js';
 import { resumenRed } from '../red.js';
 import { base } from '../../datos/conexion.js';
@@ -35,7 +39,56 @@ export function registrarRutasSalud(app) {
    */
   app.get('/api/actualizacion', async (peticion) => {
     exigir(peticion, 'ajustes.cambiar');
-    return { ok: true, ...await buscarActualizacion({ forzar: peticion.query.forzar === '1' }) };
+    return {
+      ok: true,
+      // Ojo con los nombres: `descarga` es LA DIRECCIÓN de donde se baja, y
+      // viene de buscarActualizacion(). Cómo va la bajada es `avance`. Si los
+      // dos se llamaran igual, uno pisaría al otro y la pantalla acabaría
+      // enseñando «[object Object]» donde debería ir la dirección.
+      ...await buscarActualizacion({ forzar: peticion.query.forzar === '1' }),
+      avance: estadoDeLaDescarga(),
+    };
+  });
+
+  /** Cómo va la descarga. La pantalla también la sigue por la línea abierta. */
+  app.get('/api/actualizacion/descarga', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+    return { ok: true, avance: estadoDeLaDescarga() };
+  });
+
+  /**
+   * BAJAR EL INSTALADOR, sin navegador de por medio.
+   *
+   * Contesta EN CUANTO EMPIEZA, no cuando termina: son más de 100 MB y el
+   * WiFi del bar no es rápido. La pantalla se entera de cómo va por la línea
+   * abierta, igual que el foquito de la impresora.
+   */
+  app.post('/api/actualizacion/descargar', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+
+    const yaVa = estadoDeLaDescarga();
+    if (yaVa.estado === 'bajando') return { ok: true, avance: yaVa };
+
+    // A propósito sin await: si se esperara, la tablet cortaría la llamada a
+    // los 8 segundos y parecería que falló mientras por dentro va bajando.
+    descargarActualizacion().catch(() => { /* el estado ya guarda el error */ });
+
+    return { ok: true, avance: estadoDeLaDescarga() };
+  });
+
+  /**
+   * CERRAR RESTA E INSTALAR.
+   *
+   * Deja el punto de venta fuera de servicio unos minutos, así que sólo el
+   * administrador, y la pantalla avisa antes de qué se va a caer.
+   */
+  app.post('/api/actualizacion/instalar', async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+
+    const r = instalarActualizacion();
+    anotarEvento({ tipo: 'sistema.actualizar', usuario, detalle: r });
+
+    return { ok: true, ...r };
   });
 
   /** El informe completo, para cuando algo falla. */

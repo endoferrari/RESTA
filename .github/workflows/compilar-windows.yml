@@ -94,7 +94,13 @@ jobs:
             v2/instalacion/*.bat
           generate_release_notes: true
           body: |
-            ## Instalación en la laptop del bar
+            ## Si ya tienes RESTA instalado
+
+            No hace falta bajar nada de aquí: **Configuración → El sistema →
+            Buscar actualización**. RESTA se baja el instalador solo, comprueba
+            que llegó entero, y con un botón se cierra y se actualiza.
+
+            ## Si es la primera instalación
 
             1. Descarga `RESTA-Setup-*.exe` de aquí abajo.
             2. Doble clic. **Windows va a mostrar una advertencia azul**

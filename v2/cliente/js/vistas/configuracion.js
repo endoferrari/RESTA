@@ -22,6 +22,7 @@ import { parseOpciones } from '/nucleo/opciones.js';
 
 let alVolver = null;
 let alAlmacen = null;               // para mandar al arqueo recién encendido
+let revision = null;                // lo último que contestó GitHub
 let seccion = 'productos';          // 'productos' · 'familias' · 'personas'
 let datos = { familias: [], productos: [], usuarios: [] };
 let editando = null;                 // id del producto que se está cambiando
@@ -39,6 +40,7 @@ export function iniciarConfiguracion(cuandoVuelva, cuandoVayaAlAlmacen = null) {
 
   $('volver-de-config').addEventListener('click', () => alVolver?.());
   $('sistema-almacen').addEventListener('click', alTocarAlmacen);
+  $('sistema-actualizacion').addEventListener('click', alTocarActualizacion);
   $('config-secciones').addEventListener('click', alTocarSeccion);
   $('form-producto').addEventListener('submit', guardarProducto);
   $('boton-cancelar-producto').addEventListener('click', limpiarFormulario);
@@ -273,23 +275,155 @@ async function buscarActualizacion(forzar) {
     return;
   }
 
-  const megas = r.tamano ? ` · ${(r.tamano / 1048576).toFixed(1)} MB` : '';
+  revision = r;
+  pintarActualizacion();
+}
 
-  caja.innerHTML = `
-    <div class="caja-aviso">
-      <b>Hay una versión nueva: la ${esc(r.ultima)}</b>${megas}
-      ${r.notas ? `<p class="sutil" style="white-space:pre-line;margin-top:8px">${esc(r.notas.slice(0, 400))}</p>` : ''}
-      <p class="sutil" style="margin-top:10px">
-        Se descarga el instalador y se corre <b>con RESTA cerrado</b>.
-        Tus ventas, tu carta y tus respaldos <b>no se tocan</b>: viven aparte
-        de la carpeta del programa.
+/**
+ * Las notas de la versión vienen escritas en el formato de GitHub, con
+ * almohadillas y asteriscos. Ahí se ven bien; en esta pantalla salían tal
+ * cual —«## Instalación», «**Más información**»— y se leían como si algo se
+ * hubiera roto. Se les quitan las marcas y se queda el texto.
+ */
+function sinMarcas(texto) {
+  return String(texto)
+    .replace(/^#{1,6}\s*/gm, '')          // ## Título
+    .replace(/\*\*(.+?)\*\*/g, '$1')      // **negritas**
+    .replace(/`([^`]+)`/g, '$1')          // `código`
+    .replace(/^\s*[-*]\s+/gm, '· ')       // - viñetas
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+const enMegas = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+/**
+ * El bloque de «hay una versión nueva».
+ *
+ * Antes esto era un enlace que le pedía al navegador que bajara el archivo.
+ * El 25-ago-2026 eso dejó de funcionar en la laptop del bar —desapareció
+ * Chrome y Windows se quedó sin saber con qué abrir un enlace—, y el botón
+ * simplemente no hacía nada: sin aviso, sin error, sin nada que mirar.
+ *
+ * Ahora lo baja RESTA. Y por si algún día también eso falla, la dirección
+ * queda escrita a la vista para poder copiarla a mano.
+ */
+function pintarActualizacion() {
+  const r = revision;
+  if (!r?.hayNueva) return;
+
+  // `r.descarga` es la DIRECCIÓN de donde se baja; `r.avance` es cómo va la
+  // bajada. Son dos cosas distintas y se parecen demasiado de nombre.
+  const d = r.avance ?? { estado: 'quieta' };
+  const caja = $('sistema-actualizacion');
+
+  const cuerpo = {
+    quieta: () => `
+      <div class="botones-form">
+        <button class="btn btn-ambar" data-act="bajar">
+          ⬇️ Bajar la ${esc(r.ultima)}${r.tamano ? ` · ${enMegas(r.tamano)}` : ''}
+        </button>
+      </div>
+      <p class="sutil">La baja RESTA solo. No hace falta abrir el navegador.</p>`,
+
+    bajando: () => `
+      <div class="barra-progreso"><span style="width:${d.porcentaje}%"></span></div>
+      <p class="sutil">
+        Bajando… <b>${d.porcentaje}%</b>
+        ${d.total ? ` · ${enMegas(d.bajado)} de ${enMegas(d.total)}` : ''}<br>
+        Puedes seguir cobrando mientras tanto; se baja por detrás.
+      </p>`,
+
+    lista: () => `
+      <div class="caja-exito" style="margin:8px 0">
+        ✔ <b>La ${esc(d.version ?? r.ultima)} ya está bajada</b> y comprobada.
+      </div>
+      <p class="sutil">
+        Al instalar, RESTA se cierra y se abre el instalador. <b>Las tablets se
+        quedan sin servicio unos minutos.</b> Tus ventas, tu carta y tus
+        respaldos no se tocan: viven aparte de la carpeta del programa.
       </p>
       <div class="botones-form">
-        <a class="btn btn-ambar" href="${esc(r.descarga)}" target="_blank" rel="noopener">
-          ⬇️ Descargar la ${esc(r.ultima)}
-        </a>
+        ${d.sePuedeInstalarSolo
+          ? '<button class="btn btn-rojo" data-act="instalar">🔄 Cerrar RESTA e instalar</button>'
+          : ''}
       </div>
+      <p class="sutil">El archivo quedó en <code>${esc(d.ruta ?? '')}</code></p>`,
+
+    error: () => `
+      <div class="caja-error" style="margin:8px 0">
+        No se pudo bajar: ${esc(d.error ?? '')}
+      </div>
+      <div class="botones-form">
+        <button class="btn btn-ambar" data-act="bajar">Volver a intentar</button>
+      </div>`,
+  }[d.estado] ?? (() => '');
+
+  // El botón va ARRIBA de las notas. Con las notas primero, la única cosa
+  // que hay que tocar quedaba empujada media pantalla hacia abajo por un
+  // texto que se lee una vez.
+  caja.innerHTML = `
+    <div class="caja-aviso">
+      <b>Hay una versión nueva: la ${esc(r.ultima)}</b>
+      ${cuerpo()}
+      ${r.notas ? `
+        <details style="margin-top:12px">
+          <summary class="sutil">Qué trae esta versión</summary>
+          <p class="sutil" style="white-space:pre-line">${esc(sinMarcas(r.notas).slice(0, 600))}</p>
+        </details>` : ''}
+      <p class="sutil" style="margin-top:10px">
+        Si algo falla, también se puede bajar a mano desde:<br>
+        <code>${esc(r.descarga ?? '')}</code>
+      </p>
     </div>`;
+}
+
+/** Lo llama la app cuando el servidor avisa cómo va la descarga. */
+export function ponerAvanceDeActualizacion(avance) {
+  if (!revision || !avance) return;
+  revision.avance = avance;
+  if (estado.vista === 'config') pintarActualizacion();
+}
+
+async function alTocarActualizacion(e) {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+
+  if (b.dataset.act === 'bajar') {
+    b.disabled = true;
+    try {
+      const r = await api.descargarActualizacion();
+      ponerAvanceDeActualizacion(r.avance);
+    } catch (err) {
+      avisar(err.message, true);
+      b.disabled = false;
+    }
+    return;
+  }
+
+  if (b.dataset.act === 'instalar') {
+    const seguro = await confirmar(
+      'Cerrar RESTA e instalar',
+      'RESTA se va a cerrar y se va a abrir el instalador.<br><br>' +
+      '<b>Las tablets se quedan sin servicio</b> hasta que termine y RESTA ' +
+      'vuelva a abrir — unos minutos. Si hay mesas cobrando, espérate.<br><br>' +
+      'Tus ventas, tu carta y tus respaldos no se tocan.',
+      'Sí, instalar ahora',
+    );
+    if (!seguro) return;
+
+    try {
+      await api.instalarActualizacion();
+      $('sistema-actualizacion').innerHTML = `
+        <div class="caja-aviso">
+          <b>Cerrando RESTA…</b><br>
+          En un momento se abre el instalador. Dale <b>siguiente, siguiente,
+          instalar</b> y al terminar RESTA se abre solo.
+        </div>`;
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  }
 }
 
 /* ── Productos ─────────────────────────────────────────────────────────── */

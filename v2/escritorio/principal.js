@@ -12,11 +12,13 @@
  */
 
 import { app, BrowserWindow, Tray, Menu, dialog, shell, powerSaveBlocker } from 'electron';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { arrancar, detener } from '../servidor/index.js';
 import { PUERTO } from '../servidor/config.js';
 import { resumenRed } from '../servidor/red.js';
+import { alPedirInstalar } from '../servidor/actualizaciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 
@@ -29,7 +31,9 @@ let cerrandoDeVerdad = false;
 /* ── Una sola instancia ──────────────────────────────────────────────────
    Si alguien hace doble clic al icono con RESTA ya abierto, en vez de
    levantar un segundo servidor, traemos al frente el que ya está. */
-if (!app.requestSingleInstanceLock()) {
+const soyLaPrimera = app.requestSingleInstanceLock();
+
+if (!soyLaPrimera) {
   app.quit();
 } else {
   app.on('second-instance', () => {
@@ -127,6 +131,18 @@ function crearBandeja() {
 }
 
 app.whenReady().then(async () => {
+  // Si RESTA ya estaba abierto, esta segunda copia NO levanta nada: la de
+  // arriba ya recibió el aviso y se puso al frente.
+  //
+  // Sin esta línea, la segunda copia seguía adelante e intentaba levantar el
+  // servidor en un puerto que ya estaba ocupado. El resultado era la ventana
+  // roja de «RESTA no pudo arrancar · address already in use», que aparecía
+  // cada vez que alguien le daba al acceso directo creyendo que RESTA estaba
+  // cerrado — porque la ✕ no lo cierra, lo esconde junto al reloj. El
+  // candado de una sola instancia estaba puesto desde el principio, pero
+  // esta parte del arranque se le escapaba.
+  if (!soyLaPrimera) return;
+
   try {
     servidor = await arrancar();
   } catch (e) {
@@ -145,7 +161,41 @@ app.whenReady().then(async () => {
 
   crearVentana();
   crearBandeja();
+  prepararLaActualizacion();
 });
+
+/**
+ * CERRAR RESTA E INSTALAR LA VERSIÓN NUEVA.
+ *
+ * El servidor baja el instalador y lo verifica; lo único que hace falta de
+ * este lado es abrirlo y apartarse, porque el instalador no puede reemplazar
+ * archivos que RESTA tenga en uso.
+ *
+ * Se lanza por su RUTA y no como un enlace, y ahí está toda la gracia: en la
+ * laptop del bar, Windows se quedó sin saber con qué abrir una página web
+ * —desapareció Chrome— y eso dejó muerto al botón viejo, que le pedía al
+ * navegador que bajara el archivo. Abrir un programa por su ruta no depende
+ * de nada de eso.
+ */
+function prepararLaActualizacion() {
+  alPedirInstalar((ruta) => {
+    try {
+      const instalador = spawn(ruta, [], { detached: true, stdio: 'ignore' });
+      // Se suelta para que siga vivo cuando RESTA ya no esté: si quedara
+      // colgando de este proceso, moriría con él y no instalaría nada.
+      instalador.unref();
+    } catch (e) {
+      dialog.showErrorBox(
+        'No se pudo abrir el instalador',
+        `${e.message}\n\nCierra RESTA y ábrelo a mano:\n${ruta}`
+      );
+      return;
+    }
+
+    cerrandoDeVerdad = true;
+    app.quit();
+  });
+}
 
 app.on('window-all-closed', () => { /* la bandeja mantiene la app viva */ });
 

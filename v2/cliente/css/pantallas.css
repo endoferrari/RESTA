@@ -507,6 +507,20 @@
 .cambio-nota { font-size: .85rem; color: var(--tinta-suave); }
 .cambio-falta { font-weight: 800; color: var(--peligro); font-size: 1.1rem; }
 
+/* ── La barra de la actualización ──────────────────────────────────────
+   Bajar más de 100 MB por el WiFi del bar tarda. Sin algo que se mueva,
+   cualquiera supone que se atoró y le da otra vez al botón. */
+.barra-progreso {
+  height: 14px; border-radius: 99px; overflow: hidden;
+  background: rgba(0, 0, 0, .12);
+  margin: 10px 0 6px;
+}
+.barra-progreso span {
+  display: block; height: 100%;
+  background: var(--ambar);
+  transition: width .3s ease;
+}
+
 /* ── Impresora ─────────────────────────────────────────────────────────── */
 
 /* El foquito de la barra: se ve en todas las pantallas, todo el tiempo.

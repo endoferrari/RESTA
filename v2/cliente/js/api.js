@@ -248,6 +248,11 @@ export const api = {
   /* ── El sistema ── */
   actualizacion:      (forzar = false) =>
     pedir('GET', `/api/actualizacion${forzar ? '?forzar=1' : ''}`),
+
+  /** RESTA se baja su propio instalador: no depende del navegador. */
+  descargarActualizacion: () => pedir('POST', '/api/actualizacion/descargar'),
+  avanceDeLaDescarga:     () => pedir('GET', '/api/actualizacion/descarga'),
+  instalarActualizacion:  () => conFolio('POST', '/api/actualizacion/instalar'),
   configAlmacen:      () => pedir('GET', '/api/almacen/configuracion'),
   guardarConfigAlmacen: (id, cambios) => pedir('PUT', `/api/almacen/configuracion/${id}`, cambios),
 

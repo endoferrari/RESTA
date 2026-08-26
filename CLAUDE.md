@@ -42,7 +42,13 @@ El plan completo está en `PROPUESTA-RESTA-v2.md`.
 
 ⚠️ **Pendientes que faltan para dar la v2 por terminada:**
 
-1. **El actualizador desde GitHub** que tenía la v1.3.0 (botón 🔄).
+1. ~~El actualizador desde GitHub~~ ✅ **hecho, y mejor que el de la v1**:
+   RESTA se baja su propio instalador (`servidor/actualizaciones.js`), le
+   comprueba el tamaño y la huella sha256 que publica GitHub, y con un botón
+   se cierra y lo abre. **No usa el navegador**: el 25-ago-2026 desapareció
+   Chrome de la laptop del bar, Windows se quedó sin saber con qué abrir un
+   enlace, y el botón viejo —que era un `<a target="_blank">`— dejó de hacer
+   absolutamente nada, sin error ni aviso.
 2. **La lista de «lo vendido hoy» con cantidades**, que Rosendo pidió.
    El servidor ya la calcula —`vendidoHoy()` en `datos/repos/almacen.js`,
    ruta `GET /api/almacen/vendido`, y `api.vendidoHoy()` en el cliente—
@@ -112,7 +118,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 396/396)
+npm test             # las pruebas (deben pasar 411/411)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -187,6 +193,7 @@ v2/
 | Inventario | **Se puede apagar** (`almacen.activo`, de fábrica en `0`). Apagado no se enseña por ningún lado, pero por dentro se sigue anotando lo que sale de lo ya controlado. Se enciende en Configuración → El sistema, y se arranca con un **arqueo** (`almacen.arqueo_inicial`). |
 | Arqueo | Anotar una cantidad **da de alta** ese producto en el almacén. Sin eso habría que marcar 40 casillas antes de poder contar la primera botella, y nadie llega al final. |
 | Comanda sin papel | `impresora.comanda` apaga SÓLO la comanda de barra/cocina. El ticket del cobro, la cuenta del cliente y el corte siguen saliendo. «Mandar a barra» sigue marcando qué salió. |
+| Actualizarse | RESTA **se baja su propio instalador** y lo abre. Nunca por el navegador: en la laptop del bar Windows perdió con qué abrir un enlace y el botón viejo murió en silencio. Antes de ejecutarlo comprueba que venga de las publicaciones de RESTA, que pese lo que GitHub dijo y que la huella sha256 coincida. |
 | Plantilla de la carta | Se baja **llena** (`GET /api/carta/plantilla`), se corrige en Excel y se sube. La columna **Clave** ata cada renglón a su producto: permite renombrar sin duplicar, y es lo que distingue «mi carta completa» de «la lista del proveedor». Sólo con ella se ofrece dar de baja lo que falte — y **dar de baja, nunca borrar**, con la lista enfrente y la casilla apagada. |
 
 ---

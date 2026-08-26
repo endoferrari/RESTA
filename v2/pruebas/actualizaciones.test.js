@@ -64,3 +64,85 @@ test('una etiqueta que no se entiende no ofrece nada', () => {
   assert.equal(esMasNueva('ultima', '2.0.0'), false);
   assert.equal(esMasNueva('', '2.0.0'), false);
 });
+
+/* ── Antes de EJECUTAR el instalador ───────────────────────────────────── */
+
+/**
+ * RESTA se baja su propio instalador y después lo ABRE. Eso es lo más
+ * delicado que hace el programa, así que antes de tocarlo comprueba tres
+ * cosas. Si cualquiera falla, el archivo se borra y no se ejecuta nada.
+ */
+import { revisarInstalador } from '../servidor/actualizaciones.js';
+
+const BUENO = 'https://github.com/endoferrari/RESTA/releases/download/v2.0.9/RESTA-Setup-2.0.9.exe';
+const HUELLA = 'a11d1c192b10930afdb460fc5f0dd9e7a74a26a14576014ac51a2db9371c9d84';
+
+test('un instalador que cuadra en todo se acepta', () => {
+  const r = revisarInstalador({
+    url: BUENO,
+    tamanoEsperado: 108022143, tamanoReal: 108022143,
+    firmaEsperada: `sha256:${HUELLA}`, firmaReal: HUELLA,
+  });
+  assert.equal(r.bien, true);
+});
+
+test('un archivo que no viene de las publicaciones de RESTA se rechaza', () => {
+  // Aunque pese lo correcto y traiga la huella correcta: si no viene de
+  // donde tiene que venir, no se abre. Es un programa que se va a ejecutar
+  // con permisos de administrador en la caja del bar.
+  for (const url of [
+    'https://otro-sitio.com/RESTA-Setup-2.0.9.exe',
+    'https://github.com/otro/RESTA/releases/download/v9/RESTA-Setup.exe',
+    'http://github.com/endoferrari/RESTA/releases/download/v9/x.exe',
+    '',
+    null,
+  ]) {
+    const r = revisarInstalador({
+      url, tamanoEsperado: 10, tamanoReal: 10,
+      firmaEsperada: `sha256:${HUELLA}`, firmaReal: HUELLA,
+    });
+    assert.equal(r.bien, false, `no debería aceptarse: ${url}`);
+    assert.match(r.motivo, /publicaciones de RESTA/);
+  }
+});
+
+test('un archivo que llegó a medias se rechaza', () => {
+  const r = revisarInstalador({
+    url: BUENO,
+    tamanoEsperado: 108022143, tamanoReal: 40000000,
+    firmaEsperada: null, firmaReal: null,
+  });
+  assert.equal(r.bien, false);
+  assert.match(r.motivo, /incompleto/);
+});
+
+test('si la huella no coincide, no se ejecuta', () => {
+  const r = revisarInstalador({
+    url: BUENO,
+    tamanoEsperado: 100, tamanoReal: 100,
+    firmaEsperada: `sha256:${HUELLA}`,
+    firmaReal: '0000000000000000000000000000000000000000000000000000000000000000',
+  });
+  assert.equal(r.bien, false);
+  assert.match(r.motivo, /huella/);
+});
+
+test('la huella se compara sin importar mayúsculas ni el prefijo', () => {
+  const r = revisarInstalador({
+    url: BUENO,
+    tamanoEsperado: 100, tamanoReal: 100,
+    firmaEsperada: `SHA256:${HUELLA.toUpperCase()}`, firmaReal: HUELLA,
+  });
+  assert.equal(r.bien, true);
+});
+
+test('sin huella publicada se sigue adelante con el tamaño', () => {
+  // GitHub la manda hoy; si algún día dejara de mandarla, el botón no puede
+  // quedarse muerto. Es menos comprobación, pero es la que hay.
+  const r = revisarInstalador({
+    url: BUENO,
+    tamanoEsperado: 108022143, tamanoReal: 108022143,
+    firmaEsperada: null, firmaReal: null,
+  });
+  assert.equal(r.bien, true);
+});

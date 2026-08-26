@@ -32,6 +32,7 @@ import {
 } from './vistas/corte.js';
 import {
   iniciarConfiguracion, cargarConfiguracion, pintarConfiguracion,
+  ponerAvanceDeActualizacion,
 } from './vistas/configuracion.js';
 import { iniciarAlmacen, cargarAlmacen, pintarAlmacen } from './vistas/almacen.js';
 
@@ -188,6 +189,11 @@ conectar({
 
     // La impresora cambió de estado: se apagó, se quedó sin papel, o ya salió.
     if (mensaje.tipo === 'impresion.estado') ponerEstadoImpresion(mensaje.estado);
+
+    // Va bajando la versión nueva. La barra se mueve sola: bajar 100 MB por
+    // el WiFi del bar tarda, y sin verla moverse cualquiera supone que se
+    // atoró y le da otra vez al botón.
+    if (mensaje.tipo === 'actualizacion.avance') ponerAvanceDeActualizacion(mensaje.avance);
 
     // Se abrió o se cerró la caja desde otra pantalla.
     if (mensaje.tipo === 'turno.cambio') cargarCorte();

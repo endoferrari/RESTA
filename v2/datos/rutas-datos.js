@@ -40,12 +40,22 @@ export const DIR_BITACORA = join(RAIZ, 'bitacora');
  */
 export const DIR_TICKETS = join(RAIZ, 'tickets');
 
+/**
+ * Donde RESTA guarda el instalador que se baja solo.
+ *
+ * Va en la carpeta de datos y NO en Descargas a propósito: aquí manda el
+ * programa, no la persona. Descargas es de quien usa la laptop —se limpia,
+ * se llena, cambia de sitio— y el instalador tiene que estar donde RESTA lo
+ * pueda encontrar sin preguntarle a nadie.
+ */
+export const DIR_ACTUALIZACIONES = join(RAIZ, 'actualizaciones');
+
 /** Crea las carpetas si no existen. Se llama una vez al arrancar. */
 export function prepararCarpetas() {
-  for (const dir of [RAIZ, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS]) {
+  for (const dir of [RAIZ, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS, DIR_ACTUALIZACIONES]) {
     mkdirSync(dir, { recursive: true });
   }
-  return { RAIZ, RUTA_BASE, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS };
+  return { RAIZ, RUTA_BASE, DIR_RESPALDOS, DIR_BITACORA, DIR_TICKETS, DIR_ACTUALIZACIONES };
 }
 
 /**

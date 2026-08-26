@@ -31,6 +31,7 @@ import {
   arrancarRespaldoAutomatico, detenerRespaldoAutomatico, respaldarAhora,
 } from '../datos/respaldo.js';
 import { alCambiarEstado } from '../impresion/index.js';
+import { alAvanzarLaDescarga } from './actualizaciones.js';
 import { registrarTiempoReal, avisarATodos } from './tiempo-real.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -118,6 +119,11 @@ export async function crearServidor() {
   // pantallas: quien esté en la caja se entera de que falta papel sin tener
   // que ir a ver la impresora.
   alCambiarEstado((estado) => avisarATodos('impresion.estado', { estado }));
+
+  // La barra de la actualización avanza sola en todas las pantallas. Bajar
+  // 100 MB por el WiFi del bar tarda; sin ver una barra moverse, cualquiera
+  // supone que se atoró y le da otra vez al botón.
+  alAvanzarLaDescarga((avance) => avisarATodos('actualizacion.avance', { avance }));
 
   return app;
 }
