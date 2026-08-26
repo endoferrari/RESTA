@@ -2,8 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>RESTA — Punto de venta</title>
+
+  <!-- Aplicación instalable: con «Agregar a pantalla principal» la tablet
+       abre RESTA a pantalla completa, sin barra del navegador. El color del
+       marco es el verde de la marca (--verde-oscuro); va escrito porque los
+       manifiestos y estas etiquetas no saben leer variables de CSS. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#16302b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍽️</text></svg>">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/base.css">
@@ -43,6 +53,7 @@
     <div class="lateral-pie">
       <button class="foquito" id="foquito" title="Impresora" hidden></button>
       <div class="quien" id="quien-soy"></div>
+      <button class="nav-btn" id="boton-pantalla-completa"><span>⛶</span> Pantalla completa</button>
       <button class="nav-btn nav-salir" id="boton-salir"><span>🚪</span> Salir</button>
     </div>
   </aside>
@@ -124,6 +135,8 @@
       <div class="titulo-bloque">Para conectar las tablets</div>
       <div id="red"></div>
     </details>
+
+    <button class="btn btn-chico" id="boton-pantalla-completa-pin">⛶ Pantalla completa</button>
   </section>
 
 
@@ -276,6 +289,14 @@
         </div>
       </div>
     </div>
+
+    <!-- En pantalla angosta (tablet parada o teléfono) el ticket queda abajo
+         de todos los productos y el mesero anota sin ver cuánto lleva la
+         mesa. Esta pastilla enseña el total en todo momento; al tocarla,
+         baja directo a la cuenta completa. En pantalla ancha no existe. -->
+    <button class="total-flotante" id="total-flotante">
+      Total <span class="dinero" id="total-flotante-monto">—</span>
+    </button>
   </section>
 
 
@@ -646,6 +667,36 @@
 
   </main>
   </div>
+
+  <!-- VIGILANTE DE ARRANQUE ──────────────────────────────────────────────
+       A propósito NO es un módulo: tiene que funcionar justo cuando los
+       módulos son los que no llegaron (WiFi malo, servidor apagado, archivo
+       atorado). Si en 10 segundos la aplicación no da señales de vida, se
+       enseña un aviso con botón de reintentar, en vez de dejar a la persona
+       mirando una pantalla vacía sin saber si esperar o llamar a alguien. -->
+  <script>
+    setTimeout(function () {
+      if (globalThis.__restaArranco) return;
+      var aviso = document.createElement('div');
+      // Los colores llevan aquí un valor de respaldo escrito —excepción a la
+      // regla de tokens.css— porque este aviso aparece precisamente cuando
+      // tokens.css puede no haber llegado. Si llegó, mandan las variables.
+      aviso.style.cssText =
+        'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;' +
+        'align-items:center;justify-content:center;gap:16px;text-align:center;' +
+        'padding:30px;background:var(--fondo,#f3f2ed);color:var(--tinta,#20302a);' +
+        'font-family:var(--letra,sans-serif);font-size:1.1rem;';
+      aviso.innerHTML =
+        '<div style="font-size:2.6rem">📶</div>' +
+        '<div style="font-weight:800;font-size:1.3rem">No pude cargar RESTA</div>' +
+        '<div>Revisa que esta pantalla esté en el WiFi del local<br>' +
+        'y que la computadora de la caja esté prendida.</div>' +
+        '<button style="padding:14px 28px;font-size:1.1rem;font-weight:700;border:0;' +
+        'border-radius:12px;cursor:pointer;background:var(--ambar,#d97706);color:#fff"' +
+        ' onclick="location.reload()">↻ Reintentar</button>';
+      document.body.appendChild(aviso);
+    }, 10000);
+  </script>
 
   <script type="module" src="/js/app.js"></script>
 </body>

@@ -1,0 +1,15 @@
+<!-- CLIENTE · ICONO DE LA APLICACIÓN ─────────────────────────────────────
+     El icono que queda en la pantalla de la tablet cuando se hace
+     «Agregar a pantalla principal». Es el círculo con el 11 del logo de
+     ONCE (cliente/js/logo-once.js), recortado a cuadrado: el logo completo
+     es alargado y en un icono chico no se leería nada.
+     Colores de la MARCA (no de la interfaz), copiados de logo-once.js. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#FFFFFF"/>
+  <circle cx="256" cy="250" r="155" stroke="#3079DF" stroke-width="65" fill="none"/>
+  <rect x="197" y="17" width="118" height="177" fill="#FFFFFF"/>
+  <text x="256" y="182" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif" font-weight="900"
+        font-size="167" fill="#C6D530">11</text>
+  <rect x="106" y="428" width="300" height="26" rx="8" fill="#3D4653"/>
+</svg>

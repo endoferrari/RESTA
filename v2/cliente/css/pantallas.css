@@ -111,6 +111,18 @@
   }
 }
 
+/* En un teléfono, la misma barra ocupaba media pantalla antes de empezar a
+   trabajar. Se compacta: botones más apretados (nunca menos de 44 px de
+   alto, que es lo que mide un dedo) y sin el nombre de quien entró, que en
+   un teléfono es de la misma persona que lo trae en la mano. */
+@media (max-width: 520px) {
+  #lateral { padding: 8px; gap: 6px; }
+  #menu-lateral { gap: 4px; }
+  .nav-btn { padding: 10px 11px; font-size: .84rem; min-height: 44px; gap: 7px; }
+  .marca-logo { width: 64px; }
+  .lateral-pie .quien { display: none; }
+}
+
 /* ── Avisos ────────────────────────────────────────────────────────────── */
 .aviso {
   position: fixed; left: 50%; transform: translateX(-50%);
@@ -233,11 +245,28 @@
 /* ── Cuenta: dos columnas ──────────────────────────────────────────────── */
 .dos-columnas { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start; }
 
+.columna-ticket { position: sticky; top: 70px; }
+
+/* La pastilla del total: sólo existe en pantalla angosta (ver la regla de
+   abajo). Flota abajo a la derecha, encima de todo menos de los avisos. */
+.total-flotante {
+  display: none;
+  position: fixed; right: 14px; bottom: 14px; z-index: 850;
+  align-items: center; gap: 10px;
+  padding: 13px 22px;
+  border: 0; border-radius: 99px;
+  background: var(--verde-oscuro); color: #fff;
+  font-size: 1.05rem; font-weight: 800;
+  box-shadow: var(--sombra-alta);
+}
+.total-flotante .dinero { color: var(--ambar); }
+
 @media (max-width: 900px) {
   .dos-columnas { grid-template-columns: 1fr; }
+  /* Pegado, el ticket se encimaba sobre los productos al bajar. */
+  .columna-ticket { position: static; }
+  .total-flotante { display: flex; }
 }
-
-.columna-ticket { position: sticky; top: 70px; }
 
 .ticket {
   background: var(--tarjeta);

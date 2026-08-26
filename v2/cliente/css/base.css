@@ -23,6 +23,12 @@ body {
 button { font-family: inherit; cursor: pointer; }
 input, select { font-family: inherit; font-size: 1rem; }
 
+/* En pantalla táctil el navegador espera ~300 ms tras cada toque por si
+   viene un doble toque para hacer zoom. En un punto de venta esa espera se
+   siente como lentitud y el zoom accidental es un estorbo: aquí se apaga
+   sobre los controles y cada botón responde al instante. */
+button, input, select, a, summary, .prod-tile, .mesa { touch-action: manipulation; }
+
 /* Que se vea claramente dónde está el foco: importante con teclado en la caja */
 :focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
 

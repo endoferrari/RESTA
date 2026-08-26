@@ -35,6 +35,11 @@ export function iniciarCuenta(cuandoVuelva) {
   $('productos-cuenta').addEventListener('click', alTocarProducto);
   $('ticket-lineas').addEventListener('click', alTocarLinea);
 
+  // La pastilla del total (pantallas angostas) baja hasta la cuenta completa.
+  $('total-flotante').addEventListener('click', () =>
+    document.querySelector('.columna-ticket')
+      .scrollIntoView({ behavior: 'smooth', block: 'start' }));
+
   $('volver-mesas').addEventListener('click', () => alVolver?.());
   $('boton-comandar').addEventListener('click', mandarComanda);
   $('boton-pedir-cuenta').addEventListener('click', pedirLaCuenta);
@@ -125,6 +130,9 @@ function pintarTicket() {
     `<div class="fila-total fila-gran">
        <span>Total</span><span class="dinero">${formatear(t.total)}</span>
      </div>`;
+
+  // El mismo total, en la pastilla flotante de las pantallas angostas.
+  $('total-flotante-monto').textContent = formatear(t.total);
 }
 
 function pintarBotones() {
