@@ -353,15 +353,67 @@ export function agregarOpcion({ productoId, grupo, opcion }) {
 }
 
 /**
- * Un producto NUNCA se borra: se apaga.
+ * Un producto que ya se usó NUNCA se borra: se apaga.
  * Si se borrara, los tickets de hace meses apuntarían a la nada y el corte
- * de ese día dejaría de cuadrar.
+ * de ese día dejaría de cuadrar. (La única excepción vive abajo, en
+ * eliminarProducto: el producto que jamás se usó.)
  */
 export function apagarProducto(id) {
   base().prepare(`
     UPDATE productos SET activo = 0, actualizado = datetime('now','localtime')
     WHERE id = ?
   `).run(id);
+}
+
+/**
+ * Eliminar POR COMPLETO un producto — la excepción a «nunca se borra».
+ *
+ * Sólo se permite cuando el producto no dejó huella: ni una venta anotada,
+ * ni un movimiento de almacén, ni otro producto que gaste de él. En ese caso
+ * borrarlo no rompe nada, porque nada lo recuerda: es para el producto que
+ * se capturó mal o de prueba y nunca llegó a usarse.
+ *
+ * Si ya tiene historia, se truena con el motivo: esos tickets y esos cortes
+ * lo necesitan para siempre, y para eso está la baja.
+ *
+ * Devuelve el producto tal como era, para que quien lo llame lo deje
+ * anotado en la tabla de eventos antes de perderlo de vista.
+ */
+export function eliminarProducto(id) {
+  const p = buscarProducto(id);
+  if (!p) throw new Error('Ese producto ya no existe.');
+
+  const ventas = base()
+    .prepare('SELECT count(*) AS n FROM lineas WHERE producto_id = ?')
+    .get(id).n;
+  if (ventas > 0) {
+    throw new Error(
+      `«${p.nombre}» aparece en ${ventas === 1 ? 'una venta anotada' : `${ventas} ventas anotadas`}. ` +
+      'No se puede borrar del todo porque esos tickets y sus cortes lo necesitan. ' +
+      'Déjalo dado de baja: no vuelve a aparecer en la pantalla de venta.');
+  }
+
+  const almacen = base()
+    .prepare('SELECT count(*) AS n FROM movimientos_stock WHERE producto_id = ?')
+    .get(id).n;
+  if (almacen > 0) {
+    throw new Error(
+      `«${p.nombre}» tiene movimientos en el almacén. No se puede borrar del ` +
+      'todo porque la historia del inventario lo necesita. Déjalo dado de baja.');
+  }
+
+  const gastan = base()
+    .prepare('SELECT nombre FROM productos WHERE gasta_producto_id = ?')
+    .all(id);
+  if (gastan.length > 0) {
+    throw new Error(
+      `No se puede borrar «${p.nombre}»: ` +
+      `${gastan.map((g) => `«${g.nombre}»`).join(', ')} descuenta(n) su almacén de él. ` +
+      'Cambia eso primero en el almacén.');
+  }
+
+  base().prepare('DELETE FROM productos WHERE id = ?').run(id);
+  return p;
 }
 
 /* ── El menú completo, como lo pide la pantalla de venta ────────────────── */

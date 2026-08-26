@@ -567,7 +567,8 @@ function pintarProductos() {
               <button class="btn btn-chico" data-editar="${p.id}" title="Cambiar">✏️</button>
               ${p.activo
                 ? `<button class="btn btn-chico" data-baja="${p.id}" title="Quitar de la carta">🗑️</button>`
-                : `<button class="btn btn-chico" data-alta="${p.id}" title="Volver a ponerlo">↩️</button>`}
+                : `<button class="btn btn-chico" data-alta="${p.id}" title="Volver a ponerlo">↩️</button>
+                   <button class="btn btn-chico" data-eliminar="${p.id}" title="Eliminar por completo">❌</button>`}
             </span>
           </div>`).join('')}
       </div>`;
@@ -689,6 +690,29 @@ async function alTocarProducto(e) {
       await api.activarProducto(Number(alta.dataset.alta));
       await cargarConfiguracion();
       avisar('Producto de vuelta en la carta');
+    } catch (err) { avisar(err.message, true); }
+    return;
+  }
+
+  // Eliminar POR COMPLETO: sólo aparece en los dados de baja, y el servidor
+  // sólo lo acepta si el producto nunca se usó. Si tiene ventas o almacén,
+  // contesta el porqué y el producto se queda dado de baja, que no rompe nada.
+  const eliminar = e.target.closest('[data-eliminar]');
+  if (eliminar) {
+    const p = datos.productos.find((x) => x.id === Number(eliminar.dataset.eliminar));
+    const seguro = await confirmar(
+      'Eliminar por completo',
+      `«${esc(p.icono)} ${esc(p.nombre)}» se va a borrar del todo, como si nunca ` +
+      'se hubiera capturado. <br><br><b>Esto no se puede deshacer.</b> ' +
+      'Sólo se permite con productos que nunca se vendieron.',
+      'Eliminar',
+    );
+    if (!seguro) return;
+
+    try {
+      await api.eliminarProducto(p.id);
+      await cargarConfiguracion();
+      avisar('Producto eliminado por completo');
     } catch (err) { avisar(err.message, true); }
   }
 }

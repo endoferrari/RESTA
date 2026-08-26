@@ -21,7 +21,7 @@ process.env.RESTA_DATOS = CARPETA;
 
 let abrirBase, cerrarBase;
 let familiasConCuenta, crearFamilia, editarFamilia, moverFamilia, listarFamilias;
-let crearProducto, editarProducto, apagarProducto, encenderProducto;
+let crearProducto, editarProducto, apagarProducto, encenderProducto, eliminarProducto;
 let listarProductos, buscarProducto, agregarOpcion, menuCompleto;
 let abrirCuenta, anotarLinea, buscarCuenta;
 let parseOpciones;
@@ -31,7 +31,7 @@ before(async () => {
   ({ abrirBase, cerrarBase } = await import('../datos/conexion.js'));
   ({
     familiasConCuenta, crearFamilia, editarFamilia, moverFamilia, listarFamilias,
-    crearProducto, editarProducto, apagarProducto, encenderProducto,
+    crearProducto, editarProducto, apagarProducto, encenderProducto, eliminarProducto,
     listarProductos, buscarProducto, agregarOpcion, menuCompleto,
   } = await import('../datos/repos/productos.js'));
   ({ abrirCuenta, anotarLinea, buscarCuenta } = await import('../datos/repos/cuentas.js'));
@@ -250,6 +250,43 @@ test('un producto dado de baja desaparece de la pantalla de venta', () => {
 
   encenderProducto(galletas.id);
   assert.ok(menuCompleto().productos.some((p) => p.id === galletas.id));
+});
+
+/* ── Eliminar por completo: sólo el que nunca se usó ───────────────────── */
+
+test('un producto que nunca se vendió SÍ se puede eliminar por completo', () => {
+  const p = crearProducto({ nombre: 'Capturado por error', precio: 1000, familia: 'Comida' });
+
+  const eliminado = eliminarProducto(p.id);
+  assert.equal(eliminado.nombre, 'Capturado por error');
+
+  // Ya no existe ni entre los dados de baja: como si nunca se hubiera capturado.
+  assert.equal(buscarProducto(p.id), null);
+  assert.ok(!listarProductos({ soloActivos: false }).some((x) => x.id === p.id));
+
+  // Y su nombre queda libre para capturarlo de nuevo sin pleito.
+  const otraVez = crearProducto({ nombre: 'Capturado por error', precio: 1000, familia: 'Comida' });
+  eliminarProducto(otraVez.id);
+});
+
+test('un producto con ventas anotadas NO se puede eliminar por completo', () => {
+  const p = crearProducto({ nombre: 'Ya vendido una vez', precio: 2000, familia: 'Comida' });
+
+  const { cuenta } = abrirCuenta({ nombre: 'Mesa prueba eliminar', usuario: ANA });
+  anotarLinea({ cuentaId: cuenta.id, productoId: p.id, usuario: ANA });
+
+  // Se niega con el motivo, y el producto sigue entero.
+  assert.throws(() => eliminarProducto(p.id), /una venta anotada/);
+  assert.ok(buscarProducto(p.id));
+
+  // La cuenta donde se vendió tampoco se inmuta.
+  assert.equal(buscarCuenta(cuenta.id).items[0].nombre, 'Ya vendido una vez');
+
+  apagarProducto(p.id);   // el camino que sí tiene: la baja
+});
+
+test('eliminar un producto que no existe truena con un mensaje claro', () => {
+  assert.throws(() => eliminarProducto(999999), /ya no existe/);
 });
 
 test('un producto se puede mover de familia', () => {

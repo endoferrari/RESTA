@@ -45,6 +45,11 @@ export async function crearServidor() {
       : { level: 'error' },
     // Si una tablet manda algo enorme, lo cortamos. Un pedido no pesa 1 MB.
     bodyLimit: 1_048_576,
+    // Al apagar, las conexiones que sigan abiertas se cortan en vez de
+    // esperarlas: si una tablet se quedó a media petición, RESTA no se puede
+    // quedar eternamente «cerrándose» — sobre todo cuando el instalador de
+    // la actualización está esperando afuera a que suelte los archivos.
+    forceCloseConnections: true,
   });
 
   // ── Errores: nunca dejamos que un error tumbe el servidor ──────────────

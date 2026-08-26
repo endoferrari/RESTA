@@ -11,8 +11,7 @@
  *  · Cerrar la base de datos correctamente al apagar
  */
 
-import { app, BrowserWindow, Tray, Menu, dialog, shell, powerSaveBlocker } from 'electron';
-import { spawn } from 'node:child_process';
+import { app, BrowserWindow, Tray, Menu, dialog, shell, clipboard, powerSaveBlocker } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { arrancar, detener } from '../servidor/index.js';
@@ -21,6 +20,12 @@ import { resumenRed } from '../servidor/red.js';
 import { alPedirInstalar } from '../servidor/actualizaciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
+
+// El mismo nombre interno que el instalador le pone a los accesos directos.
+// Sin esto, Windows no sabe que la ventana abierta y el icono del menú
+// Inicio son el mismo programa: al anclarlo salen dos iconos, y los avisos
+// del sistema no encuentran a quién pertenecen.
+app.setAppUserModelId('mx.oncesociallounge.resta');
 
 let ventana = null;
 let bandeja = null;
@@ -51,6 +56,10 @@ function crearVentana() {
     minWidth: 1024,
     minHeight: 700,
     title: 'RESTA — Punto de venta',
+    // El .exe empaquetado ya trae el icono adentro, pero la ventana lo lleva
+    // también por su cuenta: así sale bien aunque RESTA arranque solo al
+    // prender la laptop (sin pasar por ningún acceso directo) o en desarrollo.
+    icon: join(AQUI, process.platform === 'win32' ? 'icono.ico' : 'icono-256.png'),
     backgroundColor: '#f3f2ed',
     autoHideMenuBar: true,
     show: false,
@@ -101,10 +110,7 @@ function crearBandeja() {
     {
       label: 'Copiar dirección para tablets',
       enabled: red.hayRed,
-      click: () => {
-        const { clipboard } = require('electron');
-        clipboard.writeText(direccion);
-      },
+      click: () => clipboard.writeText(direccion),
     },
     { type: 'separator' },
     {
@@ -178,16 +184,23 @@ app.whenReady().then(async () => {
  * de nada de eso.
  */
 function prepararLaActualizacion() {
-  alPedirInstalar((ruta) => {
-    try {
-      const instalador = spawn(ruta, [], { detached: true, stdio: 'ignore' });
-      // Se suelta para que siga vivo cuando RESTA ya no esté: si quedara
-      // colgando de este proceso, moriría con él y no instalaría nada.
-      instalador.unref();
-    } catch (e) {
+  alPedirInstalar(async (ruta) => {
+    // Se abre como si la persona le hiciera doble clic en el Explorador
+    // (shell.openPath), NO con spawn(). La diferencia importa: el instalador
+    // necesita permiso de administrador, y spawn() no sabe pedirlo — Windows
+    // lo rechazaba por dentro, la pregunta de administrador nunca aparecía,
+    // y RESTA se quedaba congelado a medio cerrar con el instalador sin
+    // abrir. Por este camino Windows enseña su pregunta de siempre
+    // («¿Quieres permitir que esta aplicación haga cambios?») y de ahí
+    // sigue la instalación normal.
+    const problema = await shell.openPath(ruta);
+
+    if (problema) {
+      // También llega aquí si la persona contesta «No» a la pregunta de
+      // administrador: entonces RESTA se queda abierto y no pasa nada.
       dialog.showErrorBox(
         'No se pudo abrir el instalador',
-        `${e.message}\n\nCierra RESTA y ábrelo a mano:\n${ruta}`
+        `${problema}\n\nCierra RESTA y ábrelo a mano:\n${ruta}`
       );
       return;
     }
@@ -199,13 +212,35 @@ function prepararLaActualizacion() {
 
 app.on('window-all-closed', () => { /* la bandeja mantiene la app viva */ });
 
-app.on('before-quit', async (evento) => {
+let apagandose = false;
+
+app.on('before-quit', (evento) => {
   if (cerrandoDeVerdad === 'listo') return;
   evento.preventDefault();
-  if (bloqueoSuspension !== null && powerSaveBlocker.isStarted(bloqueoSuspension)) {
-    powerSaveBlocker.stop(bloqueoSuspension);
-  }
-  await detener(servidor);
-  cerrandoDeVerdad = 'listo';
-  app.quit();
+
+  // Si el apagado ya empezó, no se arranca dos veces: cerrar la base de
+  // datos dos veces a la vez sí puede hacer daño.
+  if (apagandose) return;
+  apagandose = true;
+
+  (async () => {
+    if (bloqueoSuspension !== null && powerSaveBlocker.isStarted(bloqueoSuspension)) {
+      powerSaveBlocker.stop(bloqueoSuspension);
+    }
+
+    // Con un límite de tiempo: si una tablet no suelta su conexión, RESTA
+    // se cierra igual a los 8 segundos. Sin este límite se quedaba abierto
+    // esperando para siempre — y con el instalador de la actualización
+    // parado afuera, sin poder reemplazar los archivos de un programa que
+    // sigue corriendo.
+    try {
+      await Promise.race([
+        detener(servidor),
+        new Promise((sigue) => setTimeout(sigue, 8000)),
+      ]);
+    } catch { /* apagándose, ya no hay a quién avisarle */ }
+
+    cerrandoDeVerdad = 'listo';
+    app.quit();
+  })();
 });

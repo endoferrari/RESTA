@@ -8,12 +8,16 @@
  * apuntando a la nada y el corte de ese día dejaría de cuadrar. Al darlo de
  * baja desaparece de la pantalla de venta y ya no se puede anotar, pero
  * sigue existiendo para la historia.
+ *
+ * La única excepción: el producto que NUNCA se usó (ni una venta, ni un
+ * movimiento de almacén) sí se puede eliminar por completo, porque nada lo
+ * recuerda. Es para limpiar capturas equivocadas o de prueba.
  */
 
 import {
   familiasConCuenta, crearFamilia, editarFamilia, moverFamilia,
   listarProductos, buscarProducto, crearProducto, editarProducto,
-  apagarProducto, encenderProducto, menuCompleto,
+  apagarProducto, encenderProducto, eliminarProducto, menuCompleto,
 } from '../../datos/repos/productos.js';
 import {
   COLUMNAS, ayudaDeLaPlantilla, filasDeLaPlantilla, aplicarPlantilla, losQueFaltan,
@@ -173,6 +177,34 @@ export function registrarRutasConfiguracion(app) {
     avisarCarta();
 
     return { ok: true, producto: conTextoDeOpciones(buscarProducto(id)) };
+  });
+
+  /**
+   * Eliminar POR COMPLETO — sólo el producto que nunca se usó.
+   *
+   * Si tiene aunque sea una venta o un movimiento de almacén, el repo se
+   * niega con el motivo y el producto se queda dado de baja: los tickets
+   * viejos lo necesitan. Lo que era el producto queda anotado en la tabla
+   * de eventos, así hasta esta excepción deja rastro.
+   */
+  app.delete('/api/productos/:id/definitivo', async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const id = Number(peticion.params.id);
+
+    let p;
+    try {
+      p = eliminarProducto(id);
+    } catch (e) {
+      // Con su código de «petición mala»: sin él, el motivo se taparía con
+      // el «Algo falló en el servidor» genérico y nadie sabría por qué no.
+      throw alto(e.message, 400);
+    }
+
+    anotarEvento({ tipo: 'producto.eliminar', referencia: `producto:${id}`, usuario,
+      detalle: { nombre: p.nombre, familia: p.familia, precio: p.precio, opciones: p.opciones } });
+    avisarCarta();
+
+    return { ok: true };
   });
 
   /** Volver a ponerlo en la carta. */

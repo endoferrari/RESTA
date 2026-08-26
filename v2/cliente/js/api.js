@@ -216,6 +216,9 @@ export const api = {
   editarProducto: (id, p) => pedir('PUT', `/api/productos/${id}`, p),
   darDeBajaProducto: (id) => pedir('DELETE', `/api/productos/${id}`),
   activarProducto:   (id) => conFolio('POST', `/api/productos/${id}/activar`),
+  // Sólo funciona con productos que nunca se usaron; si no, el servidor
+  // contesta el porqué y el producto se queda dado de baja.
+  eliminarProducto:  (id) => pedir('DELETE', `/api/productos/${id}/definitivo`),
   importarProductos: (renglones) => conFolio('POST', '/api/productos/importar', { renglones }),
 
   /* ── Almacén ── */
