@@ -526,6 +526,7 @@ function pintarPersonas() {
         <span class="fila-nota">${NOMBRE_ROL[u.rol] ?? u.rol}</span>
       </span>
       <span class="fila-acciones">
+        <button class="btn btn-chico" data-editar-persona="${u.id}" title="Cambiar nombre o puesto">✏️</button>
         <button class="btn btn-chico" data-pin="${u.id}" title="Cambiarle el PIN">🔢 PIN</button>
         <button class="btn btn-chico" data-baja-persona="${u.id}" title="Dar de baja">🚫</button>
       </span>
@@ -604,7 +605,68 @@ async function nuevaPersona() {
   } catch (e) { avisar(e.message, true); }
 }
 
+/** La misma ventana del alta, pero para corregir nombre o puesto. Sin PIN. */
+function preguntarEdicionPersona(u) {
+  return ventana({
+    titulo: `Cambiar a ${esc(u.nombre)}`,
+    cuerpo: `
+      <label class="etiqueta-campo" for="ep-nombre">Nombre</label>
+      <input class="campo" id="ep-nombre" type="text" maxlength="40" autocomplete="off"
+             value="${esc(u.nombre)}">
+
+      <label class="etiqueta-campo">Qué puede hacer</label>
+      <div class="grupo-botones" id="ep-rol">
+        <button type="button" class="op ${u.rol === 'mesero' ? 'activo' : ''}" data-rol="mesero">Mesero</button>
+        <button type="button" class="op ${u.rol === 'caja' ? 'activo' : ''}" data-rol="caja">Caja</button>
+        <button type="button" class="op ${u.rol === 'admin' ? 'activo' : ''}" data-rol="admin">Administrador</button>
+      </div>
+      <div class="error-campo" id="ep-error" hidden></div>`,
+    botones: [
+      { texto: 'Cancelar', valor: null },
+      {
+        texto: 'Guardar', clase: 'btn-ambar',
+        valor: (fondo) => {
+          const nombre = fondo.querySelector('#ep-nombre').value.trim();
+          const rol = fondo.querySelector('#ep-rol .activo')?.dataset.rol;
+          const error = fondo.querySelector('#ep-error');
+
+          if (!nombre) {
+            error.textContent = 'Escribe el nombre.';
+            error.hidden = false;
+            return undefined;
+          }
+          return { nombre, rol };
+        },
+      },
+    ],
+    alAbrir(fondo) {
+      fondo.querySelector('#ep-rol').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-rol]');
+        if (!b) return;
+        for (const otro of fondo.querySelectorAll('#ep-rol .op')) {
+          otro.classList.toggle('activo', otro === b);
+        }
+      });
+      fondo.querySelector('#ep-nombre').focus();
+    },
+  });
+}
+
 async function alTocarPersona(e) {
+  const editarP = e.target.closest('[data-editar-persona]');
+  if (editarP) {
+    const u = datos.usuarios.find((x) => x.id === Number(editarP.dataset.editarPersona));
+    const cambio = await preguntarEdicionPersona(u);
+    if (!cambio) return;
+
+    try {
+      await api.editarUsuario(u.id, cambio.nombre, cambio.rol);
+      await cargarConfiguracion();
+      avisar(`${cambio.nombre} quedó actualizado`);
+    } catch (err) { avisar(err.message, true); }
+    return;
+  }
+
   const pin = e.target.closest('[data-pin]');
   if (pin) {
     const u = datos.usuarios.find((x) => x.id === Number(pin.dataset.pin));

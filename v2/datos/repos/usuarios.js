@@ -72,6 +72,17 @@ export function crearUsuario({ nombre, pin, rol }) {
   return buscarUsuario(Number(r.lastInsertRowid));
 }
 
+/**
+ * Cambiarle el nombre o el rol a alguien SIN darlo de baja.
+ * Antes la única vuelta era baja + alta de nuevo, y eso le quitaba el
+ * historial a la persona (quedaba como un usuario distinto).
+ */
+export function editarUsuario(usuarioId, { nombre, rol }) {
+  base().prepare('UPDATE usuarios SET nombre = ?, rol = ? WHERE id = ?')
+    .run(nombre.trim(), rol, usuarioId);
+  return buscarUsuario(usuarioId);
+}
+
 export function cambiarPin(usuarioId, pin) {
   const sal = nuevaSal();
   base().prepare('UPDATE usuarios SET pin_hash = ?, pin_salt = ? WHERE id = ?')

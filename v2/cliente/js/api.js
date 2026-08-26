@@ -131,6 +131,7 @@ export const api = {
   /* ── Usuarios ── */
   usuarios:     () => pedir('GET', '/api/usuarios'),
   crearUsuario: (nombre, pin, rol) => conFolio('POST', '/api/usuarios', { nombre, pin, rol }),
+  editarUsuario: (id, nombre, rol) => conFolio('PUT', `/api/usuarios/${id}`, { nombre, rol }),
   cambiarPin:   (id, pin) => conFolio('POST', `/api/usuarios/${id}/pin`, { pin }),
   darDeBaja:    (id) => pedir('DELETE', `/api/usuarios/${id}`),
 

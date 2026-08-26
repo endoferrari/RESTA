@@ -9,7 +9,8 @@
 
 import {
   contarUsuarios, listarUsuarios, crearUsuario, apagarUsuario, cambiarPin,
-  usuarioConPin, pinYaUsado, abrirSesion, cerrarSesion, buscarUsuario,
+  editarUsuario, usuarioConPin, pinYaUsado, abrirSesion, cerrarSesion,
+  buscarUsuario,
 } from '../../datos/repos/usuarios.js';
 import { anotarEvento, refUsuario } from '../../datos/repos/eventos.js';
 import { permisosDe, pinValido } from '../../nucleo/permisos.js';
@@ -125,6 +126,37 @@ export function registrarRutasSesion(app) {
       detalle: { nombre: usuario.nombre, rol } });
 
     return { ok: true, usuario };
+  });
+
+  /** Cambiarle el nombre o el rol a alguien, sin baja y sin perder historial. */
+  app.put('/api/usuarios/:id', async (peticion) => {
+    const quien = exigir(peticion, 'usuarios.administrar');
+    const id = Number(peticion.params.id);
+    const { nombre, rol } = peticion.body ?? {};
+
+    const usuario = buscarUsuario(id);
+    if (!usuario || !usuario.activo) throw alto('Esa persona no existe.', 404);
+    if (!nombre?.trim()) throw alto('Escribe el nombre de la persona.');
+    if (!['admin', 'caja', 'mesero'].includes(rol)) throw alto('Elige si es mesero, caja o administrador.');
+
+    const repetido = listarUsuarios()
+      .some((u) => u.id !== id && u.nombre.toLowerCase() === nombre.trim().toLowerCase());
+    if (repetido) throw alto('Ya hay alguien con ese nombre.');
+
+    // El mismo candado que en la baja: sin administrador, nadie puede
+    // volver a configurar nada ni dar de alta a otro. Ese callejón no
+    // tiene salida desde la pantalla.
+    const admins = listarUsuarios().filter((u) => u.rol === 'admin');
+    if (usuario.rol === 'admin' && rol !== 'admin' && admins.length <= 1) {
+      throw alto('Es el único administrador. Da de alta a otro antes de cambiarle el puesto.');
+    }
+
+    const editado = editarUsuario(id, { nombre, rol });
+    anotarEvento({ tipo: 'usuario.editar', referencia: refUsuario(id), usuario: quien,
+      detalle: { antes: { nombre: usuario.nombre, rol: usuario.rol },
+                 ahora: { nombre: editado.nombre, rol: editado.rol } } });
+
+    return { ok: true, usuario: editado };
   });
 
   /** Cambiarle el PIN a alguien (por ejemplo, cuando se le olvidó). */

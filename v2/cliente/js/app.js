@@ -306,12 +306,31 @@ $('boton-ir-cobrar').addEventListener('click', () => {
 // espacio y por la que un dedo distraído se sale de RESTA a media venta.
 // Instalada desde «Agregar a pantalla principal» ya abre así sola; estos
 // botones son para cuando se usa el navegador normal.
+const LLAVE_PANTALLA = 'resta_pantalla_completa';
+
 function alternarPantallaCompleta() {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen().catch(() => {});
+  if (document.fullscreenElement) {
+    try { localStorage.removeItem(LLAVE_PANTALLA); } catch { /* da igual */ }
+    document.exitFullscreen();
+  } else {
+    try { localStorage.setItem(LLAVE_PANTALLA, '1'); } catch { /* da igual */ }
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
 }
 $('boton-pantalla-completa').addEventListener('click', alternarPantallaCompleta);
 $('boton-pantalla-completa-pin').addEventListener('click', alternarPantallaCompleta);
+
+// La pantalla completa se pierde al recargar o al apagarse la tablet, y el
+// navegador sólo deja volver a entrar en respuesta a un toque. Así que si
+// esta tablet la tenía puesta, el PRIMER toque donde sea la recupera: el
+// mesero toca su primera tecla del PIN y la pantalla ya está completa.
+document.addEventListener('pointerdown', () => {
+  try {
+    if (localStorage.getItem(LLAVE_PANTALLA) && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  } catch { /* navegador sin permiso: se queda como está */ }
+});
 
 $('boton-salir').addEventListener('click', salir);
 $('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta'); });

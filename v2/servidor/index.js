@@ -84,7 +84,13 @@ export async function crearServidor() {
   });
 
   await app.register(websocket);
-  await app.register(estaticos, { root: DIR_CLIENTE, prefix: '/' });
+
+  // maxAge 0: cada pantalla pregunta «¿cambió este archivo?» antes de usar
+  // su copia. Sin esto, tras actualizar RESTA las tablets se quedaban DÍAS
+  // enseñando la versión vieja que tenían guardada, sin los botones nuevos.
+  // En la red del local esa pregunta cuesta milisegundos y casi siempre se
+  // contesta «usa la que tienes» sin volver a mandar nada.
+  await app.register(estaticos, { root: DIR_CLIENTE, prefix: '/', maxAge: 0 });
 
   // El núcleo también se sirve al navegador. NO es para que el cliente calcule
   // cobros —eso lo decide siempre el servidor—, sino para que el formato del
@@ -93,6 +99,7 @@ export async function crearServidor() {
   await app.register(estaticos, {
     root: DIR_NUCLEO,
     prefix: '/nucleo/',
+    maxAge: 0,                   // mismo motivo que arriba
     decorateReply: false,        // ya lo decoró el registro de arriba
   });
 
