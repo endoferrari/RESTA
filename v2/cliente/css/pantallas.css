@@ -889,3 +889,219 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
   width: 260px; max-width: 100%; margin-bottom: 12px;
 }
 .logo-vista svg { width: 100%; height: auto; display: block; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL ARMADOR DE SUBMENÚS
+   ───────────────────────────────────────────────────────────────────────────
+   La ventana donde se arma qué se le pregunta al mesero cuando toca un
+   producto. Es la pantalla más ancha de todas las ventanitas porque hay que
+   ver la captura y la vista previa al mismo tiempo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ventana-ancha { max-width: 760px; }
+
+/* ── El resumen que se ve en el formulario del producto ────────────────── */
+.sm-resumen {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 6px 0 12px;
+  min-height: 34px; align-items: center;
+}
+.sm-resumen-vacio { color: var(--tinta-suave); font-size: .9rem; }
+
+.sm-resumen-chip {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  background: var(--verde-claro);
+  border: 1px solid var(--linea);
+  border-radius: 99px;
+  padding: 7px 14px;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.sm-resumen-chip:hover { border-color: var(--verde-medio); }
+.sm-resumen-chip small { color: var(--tinta-suave); font-size: .78rem; }
+.sm-resumen-marca {
+  background: var(--aviso-fondo); color: var(--aviso);
+  border-radius: 99px; padding: 1px 8px; font-weight: 700;
+}
+
+.sm-abrir { align-self: flex-start; }
+
+/* ── Arranque: plantillas y copiar de otro producto ────────────────────── */
+.sm-arranque {
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.sm-arranque-et {
+  font-size: .74rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--tinta-suave);
+  margin-bottom: 10px;
+}
+.sm-arranque-ops { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.op-plantilla {
+  flex-direction: column; align-items: flex-start; gap: 2px;
+  border-radius: var(--radio-chico);
+  padding: 10px 15px; text-align: left;
+  min-height: 0;
+}
+.op-plantilla b { font-size: .92rem; }
+.op-plantilla small { color: var(--tinta-suave); font-weight: 600; font-size: .78rem; }
+.op-plantilla:hover small { color: var(--tinta); }
+
+.sm-copiar-lista {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 260px; overflow-y: auto;
+  margin-bottom: 10px;
+}
+.sm-copiar-fila {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%; text-align: left;
+  background: var(--tarjeta);
+  border: 1.5px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 10px 13px;
+}
+.sm-copiar-fila:hover { border-color: var(--ambar); }
+.sm-copiar-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sm-copiar-texto b { font-size: .93rem; }
+.sm-copiar-texto small {
+  color: var(--tinta-suave); font-size: .78rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Una pregunta ──────────────────────────────────────────────────────── */
+.sm-tarjeta {
+  border: 1.5px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 13px;
+  margin-bottom: 11px;
+  background: var(--tarjeta);
+}
+
+.sm-cabeza { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+.sm-num {
+  flex: none;
+  width: 26px; height: 26px; border-radius: 99px;
+  background: var(--verde-oscuro); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 800;
+}
+.sm-nombre { flex: 1; min-width: 0; font-weight: 700; }
+.sm-mover { display: flex; gap: 4px; flex: none; }
+.sm-mover .btn[disabled] { opacity: .3; }
+
+/* Las respuestas, como etiquetas que se quitan con la ✕ */
+.sm-respuestas {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px;
+  background: var(--fondo);
+  border-radius: var(--radio-chico);
+}
+.sm-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-radius: 99px;
+  padding: 6px 6px 6px 13px;
+  font-size: .88rem; font-weight: 600;
+}
+.sm-chip button {
+  border: 0; background: none; cursor: pointer;
+  color: var(--tinta-suave);
+  width: 20px; height: 20px; border-radius: 99px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .72rem;
+}
+.sm-chip button:hover { background: var(--peligro-fondo); color: var(--peligro); }
+
+.sm-nueva-op {
+  flex: 1; min-width: 150px;
+  border: 0; background: none;
+  padding: 7px 6px;
+  font-size: .88rem; font-family: var(--letra);
+  color: var(--tinta);
+}
+.sm-nueva-op:focus { outline: none; }
+.sm-nueva-op::placeholder { color: var(--tinta-suave); }
+
+.sm-casilla {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px;
+  font-size: .88rem; color: var(--tinta-suave);
+  cursor: pointer;
+}
+.sm-casilla input { width: 17px; height: 17px; accent-color: var(--verde-oscuro); }
+
+/* La condición «sólo si antes eligió…» */
+.sm-condicion { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--linea); }
+.sm-condicion-et {
+  font-size: .74rem; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--tinta-suave);
+  margin-bottom: 8px;
+}
+.sm-condicion-nota {
+  text-transform: none; letter-spacing: 0; font-weight: 600;
+  opacity: .8; margin-left: 6px;
+}
+.sm-condicion-ops { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.op-chico { padding: 7px 13px; min-height: 0; font-size: .82rem; font-weight: 600; }
+
+.sm-agregar {
+  width: 100%;
+  border-style: dashed;
+  color: var(--tinta-suave); font-weight: 700;
+  margin-bottom: 16px;
+}
+.sm-agregar:hover { border-style: solid; color: var(--tinta); }
+
+/* ── La vista previa ───────────────────────────────────────────────────── */
+.sm-previa-caja {
+  background: var(--verde-claro);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 15px;
+  margin-bottom: 14px;
+}
+.sm-previa-et {
+  font-size: .74rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--verde-medio);
+  margin-bottom: 13px;
+}
+.sm-escondidas {
+  margin-top: 13px; padding-top: 11px;
+  border-top: 1px dashed var(--linea);
+  font-size: .84rem; color: var(--tinta-suave); line-height: 1.5;
+}
+.sm-previa-pie {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 13px; padding-top: 11px;
+  border-top: 1px dashed var(--linea);
+  font-size: .88rem;
+}
+.sm-previa-pie span { flex: 1; min-width: 0; }
+
+/* ── El modo texto, para quien lo prefiera a mano ──────────────────────── */
+.sm-detalle {
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-chico);
+  padding: 11px 14px;
+}
+.sm-detalle summary {
+  cursor: pointer; font-size: .86rem; font-weight: 700;
+  color: var(--tinta-suave);
+}
+.sm-detalle summary:hover { color: var(--tinta); }
+.sm-detalle[open] summary { margin-bottom: 11px; }
+.sm-textarea { font-family: var(--letra-ticket); font-size: .85rem; line-height: 1.6; }
+.sm-texto-botones { display: flex; gap: 8px; margin-top: 8px; }
+
+/* En tablet chica, la ventana se queda sin espacio para las dos columnas */
+@media (max-width: 620px) {
+  .sm-cabeza { flex-wrap: wrap; }
+  .sm-nombre { order: 3; flex-basis: 100%; }
+  .op-plantilla { flex: 1 1 100%; }
+}

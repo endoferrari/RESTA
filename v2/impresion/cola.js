@@ -10,7 +10,7 @@
  * queda en la cola, la caja sigue funcionando, y en cuanto la impresora
  * vuelve, sale solo.
  *
- * Reintentos: cada 5, 15 y 30 segundos, y de ahí cada minuto. No se rinde
+ * Reintentos: rapidísimos al principio y cada vez más espaciados. No se rinde
  * nunca por sí sola; el trabajo se queda ahí hasta que salga o hasta que
  * alguien lo cancele desde la pantalla.
  *
@@ -22,8 +22,33 @@ import { enviar } from './salidas.js';
 import { aBytes } from './escpos.js';
 import { aTexto } from './documento.js';
 
-const ESPERAS_MS = [5_000, 15_000, 30_000];
+/**
+ * Cuánto se espera entre intento e intento.
+ *
+ * Antes eran 5, 15 y 30 segundos. Con una impresora BLUETOOTH eso salía
+ * carísimo: la radio de la impresora se duerme sola, el primer intento la
+ * despierta pero no alcanza a contestar, y el ticket no salía hasta el cuarto
+ * intento — casi un minuto de reloj con el cliente parado en la caja.
+ *
+ * Ahora el primer reintento entra a los ocho décimos de segundo. Despertar la
+ * impresora cuesta lo mismo, pero el papel sale en tres o cuatro segundos en
+ * vez de en cincuenta. Los intentos largos siguen ahí abajo para el caso de
+ * verdad —la impresora apagada o sin papel—, donde insistir cada segundo no
+ * arregla nada y sólo calienta la laptop.
+ */
+const ESPERAS_MS = [800, 1_500, 3_000, 6_000, 12_000, 30_000];
 const ESPERA_LARGA_MS = 60_000;
+
+/**
+ * Cuántos tropiezos se aguantan antes de prender el foco rojo.
+ *
+ * Que una impresora Bluetooth falle el primer intento NO es una avería: es
+ * que estaba dormida. Pintar la pantalla de rojo por eso enseña a la caja a
+ * ignorar el foquito, y el día que la impresora se quede sin papel de verdad
+ * nadie le va a hacer caso. Los primeros segundos se ven en ámbar
+ * —«despertando»— y sólo si sigue fallando se prende la alarma.
+ */
+const INTENTOS_ANTES_DE_ALARMAR = 3;
 
 let siguienteId = 1;
 const cola = [];
@@ -179,15 +204,24 @@ async function procesar() {
 
       const espera = ESPERAS_MS[trabajo.intentos - 1] ?? ESPERA_LARGA_MS;
 
-      marcar('rojo', e.message, {
-        imprimiendo: null,
-        ultimoError: {
-          mensaje: e.message,
-          descripcion: trabajo.descripcion,
-          intentos: trabajo.intentos,
-          siguienteIntentoEn: Math.round(espera / 1000),
+      // Los primeros tropiezos se enseñan como «despertando», no como avería.
+      // El error de verdad igual queda guardado en `ultimoError`, que es lo
+      // que se lee en la pantalla de la impresora cuando algo se atora.
+      const despertando = trabajo.intentos < INTENTOS_ANTES_DE_ALARMAR;
+
+      marcar(
+        despertando ? 'ambar' : 'rojo',
+        despertando ? `Despertando la impresora… (${trabajo.descripcion})` : e.message,
+        {
+          imprimiendo: null,
+          ultimoError: {
+            mensaje: e.message,
+            descripcion: trabajo.descripcion,
+            intentos: trabajo.intentos,
+            siguienteIntentoEn: Math.max(1, Math.round(espera / 1000)),
+          },
         },
-      });
+      );
 
       // Se espera y se vuelve a intentar con el MISMO trabajo, sin pasar al
       // siguiente: si la impresora está caída, los de atrás tampoco van a

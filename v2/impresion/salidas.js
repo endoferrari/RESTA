@@ -182,10 +182,20 @@ Write-Output "OK"
   await writeFile(guionArchivo, guion, 'utf8');
 
   try {
+    // 45 segundos, no 20.
+    //
+    // Con la impresora por Bluetooth, entregarle los bytes al spooler puede
+    // tardar: si la radio estaba dormida, Windows primero tiene que levantar
+    // el enlace. Cortar a los 20 segundos era lo peor de los dos mundos —
+    // RESTA daba el trabajo por fallido y lo volvía a mandar, pero el spooler
+    // ya se había quedado con los bytes del primero: dos tickets iguales.
+    //
+    // Esperar no cuesta nada: la caja no se detiene por el papel, el cobro ya
+    // quedó registrado y esto pasa en la cola, no delante del cliente.
     await ejecutar('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-File', guionArchivo,
-    ], { timeout: 20_000 });
+    ], { timeout: 45_000 });
     return { destino: impresora };
   } catch (e) {
     const detalle = String(e.stderr || e.message).split('\n')[0].trim();

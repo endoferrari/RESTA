@@ -653,15 +653,19 @@
           </div>
         </div>
 
-        <label class="etiqueta-campo" for="prod-opciones">
-          Submenú (opcional) — una pregunta por renglón: <i>Pregunta: opción, opción</i>
-        </label>
-        <textarea class="campo" id="prod-opciones" rows="3"
-          placeholder="Mezcla: Puesto, Campechano, Derecho&#10;Refresco [si: Puesto]: Coca, Coca Light&#10;Hielo: Con hielo, Sin hielo"></textarea>
-        <p class="sutil">
-          Trucos: <b>[varias]</b> deja marcar más de una · <b>[si: Valor, Valor]</b> hace que
-          la pregunta sólo aparezca si antes se eligió alguno de esos valores.
-        </p>
+        <label class="etiqueta-campo">Submenú (opcional) — lo que se le pregunta al pedirlo</label>
+
+        <!-- El texto del submenú ya NO se teclea aquí: lo arma la ventana de
+             «Armar submenú», que enseña las respuestas como etiquetas y deja
+             marcar las condiciones de una lista. Este campo escondido sigue
+             siendo el que se guarda, así que el formato no cambió. -->
+        <input type="hidden" id="prod-opciones">
+
+        <div class="sm-resumen" id="prod-opciones-resumen"></div>
+
+        <button class="btn sm-abrir" type="button" id="boton-submenu">
+          ⚙️ Armar submenú
+        </button>
 
         <div class="botones-form">
           <button class="btn btn-ambar" type="submit" id="boton-guardar-producto">Agregar</button>

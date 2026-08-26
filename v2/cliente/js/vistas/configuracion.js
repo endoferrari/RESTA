@@ -19,6 +19,7 @@ import { estado } from '../estado.js';
 import { $, esc, avisar, confirmar, ventana, pedirTexto } from '../ui.js';
 import { formatear, aCentavos } from '/nucleo/dinero.js';
 import { parseOpciones } from '/nucleo/opciones.js';
+import { abrirEditorSubmenu } from './submenu-editor.js';
 
 let alVolver = null;
 let alAlmacen = null;               // para mandar al arqueo recién encendido
@@ -45,6 +46,8 @@ export function iniciarConfiguracion(cuandoVuelva, cuandoVayaAlAlmacen = null) {
   $('form-producto').addEventListener('submit', guardarProducto);
   $('boton-cancelar-producto').addEventListener('click', limpiarFormulario);
   $('prod-icono').addEventListener('click', elegirEmoji);
+  $('boton-submenu').addEventListener('click', armarSubmenu);
+  $('prod-opciones-resumen').addEventListener('click', alTocarResumen);
   $('lista-productos').addEventListener('click', alTocarProducto);
   $('lista-familias').addEventListener('click', alTocarFamilia);
   $('boton-nueva-familia').addEventListener('click', nuevaFamilia);
@@ -438,6 +441,61 @@ function pintarFormulario() {
   $('titulo-formulario').textContent = editando ? 'Cambiar producto' : 'Producto nuevo';
   $('boton-guardar-producto').textContent = editando ? 'Guardar cambios' : 'Agregar';
   $('boton-cancelar-producto').hidden = !editando;
+
+  // También aquí, y no sólo al limpiar el formulario: si no, la primera vez
+  // que se abre la pantalla el renglón del submenú se queda en blanco y no
+  // se entiende si el producto lleva submenú o si algo se rompió.
+  pintarResumenSubmenu();
+}
+
+/* ── El submenú del producto ───────────────────────────────────────────────
+   El texto del submenú vive en un campo escondido; lo que se ve en el
+   formulario es este resumen. Sirve para dos cosas: se entiende de un
+   vistazo qué se le va a preguntar al mesero, y quita de en medio la
+   sintaxis de corchetes, que era lo que hacía lento capturar un producto. */
+
+function pintarResumenSubmenu() {
+  const caja = $('prod-opciones-resumen');
+  const preguntas = parseOpciones($('prod-opciones').value) ?? [];
+
+  $('boton-submenu').textContent = preguntas.length ? '⚙️ Cambiar el submenú' : '⚙️ Armar submenú';
+
+  if (!preguntas.length) {
+    caja.innerHTML = `
+      <span class="sm-resumen-vacio">
+        Sin submenú. Este producto se anota de un toque, sin preguntar nada.
+      </span>`;
+    return;
+  }
+
+  caja.innerHTML = preguntas.map((p) => `
+    <span class="sm-resumen-chip" data-abrir>
+      <b>${esc(p.g)}</b>
+      <small>${p.ops.length} ${p.ops.length === 1 ? 'respuesta' : 'respuestas'}</small>
+      ${p.multi ? '<small class="sm-resumen-marca">varias</small>' : ''}
+      ${p.si ? `<small class="sm-resumen-marca">si ${esc(p.si.join(' / '))}</small>` : ''}
+    </span>`).join('');
+}
+
+/** Tocar el resumen abre el armador, igual que el botón. */
+function alTocarResumen(e) {
+  if (e.target.closest('[data-abrir]')) armarSubmenu();
+}
+
+async function armarSubmenu() {
+  const nuevo = await abrirEditorSubmenu({
+    texto: $('prod-opciones').value,
+    producto: $('prod-nombre').value.trim(),
+    // La carta entera va como referencia: así se puede copiar el submenú de
+    // un producto que ya esté bien capturado en vez de rehacerlo.
+    productos: datos.productos,
+  });
+
+  if (nuevo === null) return;                 // se arrepintió, no se toca nada
+
+  $('prod-opciones').value = nuevo;
+  pintarResumenSubmenu();
+  avisar(nuevo ? 'Submenú listo — dale «guardar» para que quede' : 'Submenú quitado');
 }
 
 function pintarFiltro() {
@@ -505,23 +563,14 @@ async function guardarProducto(e) {
 
   if (!nombre) { avisar('Escribe el nombre del producto.', true); $('prod-nombre').focus(); return; }
 
-  // El submenú se revisa AQUÍ y no al guardar.
-  //
-  // Antes, un renglón que no se entendía tiraba el submenú entero y el
-  // producto se guardaba sin él, sin decir nada. Se escribía «Pala 1»,
-  // se guardaba, y no pasaba nada: ni submenú ni explicación.
+  // Red de seguridad. El armador ya no deja construir un submenú que no se
+  // entienda, pero un producto capturado en la v1 —o traído del respaldo—
+  // puede traer un renglón torcido. Antes eso se guardaba en silencio: el
+  // submenú desaparecía y nadie se enteraba hasta que el mesero lo pedía.
   if (opcionesTexto.trim() && parseOpciones(opcionesTexto) === null) {
-    const mala = opcionesTexto.split('\n').map((l) => l.trim()).filter(Boolean)
-      .find((l) => !l.replace(/\[[^\]]*\]/g, '').includes(':'));
-
-    avisar(
-      mala
-        ? `«${mala}» no se entiende: falta el «:». Se escribe ` +
-          'PREGUNTA: opción, opción — por ejemplo «Pala: Pala 1, Pala 2».'
-        : 'Cada renglón del submenú va como PREGUNTA: opción, opción',
-      true,
-    );
-    $('prod-opciones').focus();
+    avisar('El submenú de este producto tiene un renglón que no se entiende. ' +
+           'Ábrelo en «Armar submenú» y vuélvelo a dejar bien.', true);
+    $('boton-submenu').focus();
     return;
   }
 
@@ -559,6 +608,7 @@ function limpiarFormulario() {
   $('prod-opciones').value = '';
   $('prod-icono').textContent = '🍽️';
   pintarFormulario();
+  pintarResumenSubmenu();
 }
 
 function cargarEnFormulario(p) {
@@ -576,6 +626,7 @@ function cargarEnFormulario(p) {
   $('prod-familia').value = p.familia;
   $('prod-icono').textContent = p.icono || '🍽️';
   $('prod-opciones').value = p.opcionesTexto ?? '';
+  pintarResumenSubmenu();
 
   $('prod-nombre').focus();
   $('prod-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });

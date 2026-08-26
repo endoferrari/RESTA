@@ -194,6 +194,8 @@ v2/
 | Arqueo | Anotar una cantidad **da de alta** ese producto en el almacén. Sin eso habría que marcar 40 casillas antes de poder contar la primera botella, y nadie llega al final. |
 | Comanda sin papel | `impresora.comanda` apaga SÓLO la comanda de barra/cocina. El ticket del cobro, la cuenta del cliente y el corte siguen saliendo. «Mandar a barra» sigue marcando qué salió. |
 | Actualizarse | RESTA **se baja su propio instalador** y lo abre. Nunca por el navegador: en la laptop del bar Windows perdió con qué abrir un enlace y el botón viejo murió en silencio. Antes de ejecutarlo comprueba que venga de las publicaciones de RESTA, que pese lo que GitHub dijo y que la huella sha256 coincida. |
+| Submenús | Se arman **tocando**, en `cliente/js/vistas/submenu-editor.js`: las respuestas son etiquetas y la condición «sólo si antes eligió…» se marca de una lista con las respuestas que ya existen, así no se puede escribir mal. Trae plantillas (copa, cerveza, digestivo) y **copiar el submenú de otro producto**. El formato guardado NO cambió: sigue siendo el texto de siempre, y el modo texto sigue ahí para quien lo prefiera. |
+| Impresora dormida | Que el primer intento falle **no es una avería**: es la antena Bluetooth despertando. La cola reintenta a los 0,8 s (antes 5 s) y el foquito se queda **ámbar** los primeros 3 intentos. Pintar de rojo lo normal enseña a la caja a ignorar el foquito, y el día que de verdad falte papel nadie le hace caso. |
 | Plantilla de la carta | Se baja **llena** (`GET /api/carta/plantilla`), se corrige en Excel y se sube. La columna **Clave** ata cada renglón a su producto: permite renombrar sin duplicar, y es lo que distingue «mi carta completa» de «la lista del proveedor». Sólo con ella se ofrece dar de baja lo que falte — y **dar de baja, nunca borrar**, con la lista enfrente y la casilla apagada. |
 
 ---
@@ -201,11 +203,20 @@ v2/
 ## Contexto de la instalación real
 
 - Negocio: **ONCE Social Lounge**
-- Impresora en producción: **XPRINTER XP-Q200II**, térmica 80 mm, **USB**,
-  llamada `POSPrinter POS80` en Windows.
-- Rosendo tiene además una miniprinter **Bluetooth** que aún no ha probado.
-  ⚠️ Si resulta ser **BLE**, Windows no puede imprimir en ella y no hay
-  arreglo por código. Debe ser Bluetooth clásico / SPP.
+- Impresora en producción (comprobado el 25-ago-2026 en la laptop del bar):
+  se llama **`POS-80`** en Windows —no `POSPrinter POS80`, que era el nombre
+  viejo y sigue puesto de fábrica en `impresion/index.js`— y está en el
+  puerto **`COM3`**.
+- ✅ **La impresora es Bluetooth CLÁSICO (SPP), no BLE.** Ya no es una duda:
+  `COM3` es `Serie estándar sobre el vínculo Bluetooth`, atado al aparato
+  `BTHENUM\DEV_6632419C81FD` («Bluetooth Printer»). Windows sí puede
+  imprimir en ella. (`COM4` es el puerto Bluetooth *entrante*, sin aparato
+  —dirección `000000000000`—: no lleva a ninguna parte.)
+- ⚠️ **La antena Bluetooth es USB y Windows tiene permiso para dormirla.**
+  Es la causa de que el primer ticket después de un rato tranquilo marque
+  error y salga al minuto. Se arregla corriendo, una vez y como
+  administrador, `v2/instalacion/3-BLUETOOTH-SIEMPRE-DESPIERTO.ps1`
+  (se deshace con `-Deshacer`). No toca la impresora ni el emparejamiento.
 - La v1.3.0 guarda todo en `localStorage` de Chrome + `C:\RESTA\Respaldos`.
   Esa fragilidad es el motivo principal de la v2.
 
