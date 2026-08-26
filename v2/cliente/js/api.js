@@ -53,6 +53,11 @@ async function pedir(metodo, ruta, cuerpo, { folio } = {}) {
   const opciones = {
     method: metodo,
     headers: { 'Accept': 'application/json' },
+    // Límite de 8 segundos por llamada. Sin esto, una petición que se atora
+    // en un WiFi malo se queda esperando para siempre y la pantalla se
+    // congela sin decir nada. Con el límite falla, sale el aviso de
+    // «sin conexión» y la persona sabe que debe reintentar.
+    signal: AbortSignal.timeout(8000),
   };
 
   if (cuerpo !== undefined) {

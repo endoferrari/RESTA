@@ -302,6 +302,17 @@ $('boton-ir-cobrar').addEventListener('click', () => {
   ir('cobro');
 });
 
+// Pantalla completa: en la tablet quita la barra del navegador, que roba
+// espacio y por la que un dedo distraído se sale de RESTA a media venta.
+// Instalada desde «Agregar a pantalla principal» ya abre así sola; estos
+// botones son para cuando se usa el navegador normal.
+function alternarPantallaCompleta() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+$('boton-pantalla-completa').addEventListener('click', alternarPantallaCompleta);
+$('boton-pantalla-completa-pin').addEventListener('click', alternarPantallaCompleta);
+
 $('boton-salir').addEventListener('click', salir);
 $('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta'); });
 $('boton-ir-mesas').addEventListener('click', volverAMesas);
@@ -310,6 +321,15 @@ async function arrancar() {
   // El logo de ONCE, dibujado. No es un archivo: no hay nada que se pueda
   // perder ni que se vea borroso en una pantalla grande.
   $('logo-lateral').innerHTML = LOGO_COLOR;
+
+  // La pantalla del PIN se enseña ANTES de preguntarle nada al servidor.
+  // Si la red anda mal, lo peor que se ve es el teclado unos segundos antes
+  // de que entre la sesión guardada; lo que nunca se vuelve a ver es una
+  // pantalla vacía y muda mientras una llamada se atora.
+  ir('pin');
+
+  // Señal para el vigilante de index.html: la aplicación sí llegó a arrancar.
+  globalThis.__restaArranco = true;
 
   revisar();
 
@@ -335,7 +355,9 @@ async function arrancar() {
   } catch { /* sin conexión: la barra roja ya lo está avisando */ }
 
   guardarPase(null);
-  ir('pin');
+  // Si resultó ser una instalación nueva, la misma pantalla del PIN cambia
+  // sola al formulario de crear al administrador.
+  if (estado.vista === 'pin') pintarPin();
 }
 
 arrancar();
