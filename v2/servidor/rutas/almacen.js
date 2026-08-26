@@ -14,6 +14,7 @@
 import {
   existencias, queComprar, registrarCompra, registrarMerma, registrarConteo,
   movimientosDe, vendidoHoy, configurarProducto, configuracionDeAlmacen,
+  estadoDelAlmacen, cambiarAlmacenActivo, arqueoInicial, paraElArqueo,
   MOTIVOS_MERMA,
 } from '../../datos/repos/almacen.js';
 import { escribirAjuste, leerAjuste } from '../../datos/repos/ajustes.js';
@@ -29,6 +30,33 @@ function alto(mensaje, codigo = 400) {
 
 export function registrarRutasAlmacen(app) {
 
+  /**
+   * ¿Este bar lleva inventario, y ya contó alguna vez?
+   *
+   * Es lo primero que pregunta cada pantalla al entrar: con el almacén
+   * apagado no se enseña ni el botón de la barra lateral. Va aparte y es
+   * ligero porque lo llama TODA tablet al iniciar sesión.
+   */
+  app.get('/api/almacen/estado', async (peticion) => {
+    exigir(peticion, 'cuenta.ver');
+    return { ok: true, ...estadoDelAlmacen() };
+  });
+
+  /** Encender o apagar el inventario. Sólo el administrador. */
+  app.put('/api/almacen/activo', async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const { activo } = peticion.body ?? {};
+
+    if (typeof activo !== 'boolean') {
+      throw alto('Dime si el inventario queda encendido o apagado.');
+    }
+
+    const estado = cambiarAlmacenActivo({ activo, usuario });
+    avisarATodos('almacen.cambio', { activo: estado.activo });
+
+    return { ok: true, ...estado };
+  });
+
   /** La foto del almacén: qué hay y para cuántos días alcanza. */
   app.get('/api/almacen', async (peticion) => {
     exigir(peticion, 'corte.ver');
@@ -36,10 +64,39 @@ export function registrarRutasAlmacen(app) {
 
     return {
       ok: true,
+      ...estadoDelAlmacen(),
       diasACubrir: dias ?? Number(leerAjuste('almacen.dias_a_cubrir', '7')),
       existencias: existencias({ diasACubrir: dias }),
       motivosDeMerma: MOTIVOS_MERMA,
     };
+  });
+
+  /* ── El arqueo inicial ───────────────────────────────────────────────── */
+
+  /** Toda la carta con lo que el sistema cree que hay, para ir contando. */
+  app.get('/api/almacen/arqueo', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+    return { ok: true, productos: paraElArqueo(), ...estadoDelAlmacen() };
+  });
+
+  /**
+   * Guarda el arqueo. Anotar una cantidad da de alta ese producto en el
+   * almacén: es la forma de empezar a llevar inventario sin tener que
+   * marcar cuarenta productos antes de poder contar el primero.
+   */
+  app.post('/api/almacen/arqueo', async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const { conteos } = peticion.body ?? {};
+
+    if (!Array.isArray(conteos) || conteos.length === 0) {
+      throw alto('No anotaste ninguna cantidad.');
+    }
+
+    const resultado = conFolio(peticion, '/api/almacen/arqueo', () =>
+      arqueoInicial({ conteos, usuario }));
+
+    avisarATodos('almacen.cambio', {});
+    return { ok: true, resultado, existencias: existencias(), ...estadoDelAlmacen() };
   });
 
   /** Qué comprar y cuánto, para llegar cubierto. */

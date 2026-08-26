@@ -16,22 +16,48 @@ import { estado, puede } from '../estado.js';
 import { $, esc, avisar, confirmar, ventana } from '../ui.js';
 
 let alVolver = null;
-let seccion = 'existencias';   // 'existencias' · 'pedido' · 'conteo' · 'comprar' · 'ajustes'
+// 'existencias' · 'pedido' · 'conteo' · 'comprar' · 'ajustes' · 'arqueo'
+let seccion = 'existencias';
 
 let datos = {
   existencias: [], diasACubrir: 7, motivos: [],
   compras: { lista: [], diasACubrir: 7 },
   configuracion: [],
+  arqueo: [],
 };
 
 // Lo que se va tecleando antes de guardar, por producto
 let capturado = {};
+let contadoEnArqueo = {};
 
 export function iniciarAlmacen(cuandoVuelva) {
   alVolver = cuandoVuelva;
 
   $('volver-de-almacen').addEventListener('click', () => alVolver?.());
   $('almacen-secciones').addEventListener('click', alTocarSeccion);
+
+  // ── El arqueo ──
+  $('almacen-arqueo-lista').addEventListener('input', alTeclearArqueo);
+  $('boton-guardar-arqueo').addEventListener('click', guardarArqueo);
+  $('boton-limpiar-arqueo').addEventListener('click', () => {
+    contadoEnArqueo = {};
+    pintarArqueo();
+  });
+  $('buscar-arqueo').addEventListener('input', (e) => {
+    buscadoEnArqueo = e.target.value;
+    pintarArqueo();
+  });
+  $('arqueo-familias').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fam-arqueo]');
+    if (!b) return;
+    familiaArqueo = b.dataset.famArqueo;
+    pintarArqueo();
+  });
+  $('almacen-sin-arqueo').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-ir-arqueo]')) return;
+    seccion = 'arqueo';
+    cargarAlmacen();
+  });
   $('almacen-existencias').addEventListener('click', alTocarExistencia);
   $('almacen-captura').addEventListener('input', alTeclearCantidad);
   $('boton-guardar-captura').addEventListener('click', guardarCaptura);
@@ -63,9 +89,24 @@ export async function cargarAlmacen() {
     datos.diasACubrir = r.diasACubrir;
     datos.motivos = r.motivosDeMerma;
 
+    estado.almacen = {
+      activo: r.activo, arqueoHecho: r.arqueoHecho,
+      arqueoFecha: r.arqueoFecha, controlados: r.controlados,
+    };
+
+    // Recién encendido el inventario, lo primero es contar. Se entra directo
+    // a esa pantalla en vez de a una lista de ceros que no dice nada.
+    if (!r.arqueoHecho && puede('ajustes.cambiar')
+        && ['existencias', 'comprar'].includes(seccion)) {
+      seccion = 'arqueo';
+    }
+
     if (seccion === 'comprar') datos.compras = await api.queComprar(datos.diasACubrir);
     if (seccion === 'ajustes' && puede('ajustes.cambiar')) {
       datos.configuracion = (await api.configAlmacen()).productos;
+    }
+    if (seccion === 'arqueo' && puede('ajustes.cambiar')) {
+      datos.arqueo = (await api.paraElArqueo()).productos;
     }
 
     pintarAlmacen();
@@ -82,12 +123,28 @@ export function pintarAlmacen() {
     ['comprar', '🧾 Qué comprar'],
   ];
   if (puede('ajustes.cambiar')) {
-    secciones.push(['pedido', '🚚 Llegó el pedido'], ['conteo', '🔢 Conteo'], ['ajustes', '⚙️ Qué se controla']);
+    secciones.push(
+      ['pedido', '🚚 Llegó el pedido'], ['conteo', '🔢 Conteo'],
+      ['arqueo', '🧮 Arqueo'], ['ajustes', '⚙️ Qué se controla'],
+    );
   }
 
   $('almacen-secciones').innerHTML = secciones.map(([clave, texto]) =>
     `<button class="op ${seccion === clave ? 'activo' : ''}" data-seccion="${clave}">${texto}</button>`
   ).join('');
+
+  // Mientras nadie haya contado, los números de arriba no significan nada:
+  // no hubo un día en que alguien dijera «de aquí para adelante». Decirlo es
+  // más honesto que enseñar una pantalla de ceros como si fuera la verdad.
+  const faltaArqueo = !estado.almacen.arqueoHecho;
+  $('almacen-sin-arqueo').hidden = !faltaArqueo || seccion === 'arqueo';
+  $('almacen-sin-arqueo').innerHTML = faltaArqueo
+    ? `🧮 <b>Todavía no se ha hecho el arqueo.</b> Hasta que alguien cuente lo
+       que hay de verdad, estos números no valen.
+       ${puede('ajustes.cambiar')
+         ? '<button class="btn btn-chico btn-ambar" data-ir-arqueo="1">Contar ahora</button>'
+         : 'Pídeselo al administrador.'}`
+    : '';
 
   // «Llegó el pedido» y «Conteo» son la MISMA lista con distinto sentido:
   // en una se anota lo que entró, en la otra lo que hay. Comparten panel.
@@ -95,11 +152,154 @@ export function pintarAlmacen() {
   $('almacen-pedido').hidden  = seccion !== 'pedido' && seccion !== 'conteo';
   $('almacen-comprar').hidden = seccion !== 'comprar';
   $('almacen-ajustes').hidden = seccion !== 'ajustes';
+  $('almacen-arqueo').hidden  = seccion !== 'arqueo';
 
   if (seccion === 'existencias') pintarExistencias();
   if (seccion === 'pedido' || seccion === 'conteo') pintarCaptura();
   if (seccion === 'comprar') pintarComprar();
   if (seccion === 'ajustes') pintarConfiguracion();
+  if (seccion === 'arqueo') pintarArqueo();
+}
+
+/* ── El arqueo: contar todo por primera vez ────────────────────────────── */
+
+let buscadoEnArqueo = '';
+let familiaArqueo = '*';
+
+/**
+ * Aquí va TODA la carta, no sólo lo que ya se controla.
+ *
+ * El arqueo es el momento en que se decide qué se lleva y qué no, caminando
+ * por la bodega con la tablet en la mano. Si la lista sólo trajera lo ya
+ * marcado, habría que adivinar antes de contar — y anotar una cantidad es
+ * justamente lo que da de alta el producto.
+ */
+function pintarArqueo() {
+  const todos = datos.arqueo;
+  const familias = [...new Set(todos.map((p) => p.familia))];
+
+  const visibles = todos.filter((p) => {
+    if (familiaArqueo !== '*' && p.familia !== familiaArqueo) return false;
+    if (buscadoEnArqueo && !sinAcentos(p.nombre).includes(sinAcentos(buscadoEnArqueo))) return false;
+    return true;
+  });
+
+  $('arqueo-familias').innerHTML = [
+    ['*', `Todas (${todos.length})`],
+    ...familias.map((f) => [f, f]),
+  ].map(([clave, texto]) =>
+    `<button class="op ${familiaArqueo === clave ? 'activo' : ''}" data-fam-arqueo="${esc(clave)}">${esc(texto)}</button>`
+  ).join('');
+
+  $('almacen-arqueo-lista').innerHTML = visibles.length === 0
+    ? `<div class="vacio"><div class="vacio-icono">🔍</div>
+         <div class="vacio-titulo">Nada con ese nombre</div></div>`
+    : visibles.map((p) => {
+      // Una michelada no se guarda en el refrigerador: la cerveza sí. No
+      // tiene existencia propia, así que no se cuenta.
+      if (p.gastaNombre) {
+        return `
+          <div class="fila-almacen apagado">
+            <span class="fila-icono">${esc(p.icono || '📦')}</span>
+            <span class="alm-texto">
+              <span class="alm-nombre">${esc(p.nombre)}</span>
+              <span class="alm-cuanto">🔗 sale de <b>${esc(p.gastaNombre)}</b>: no se cuenta aparte</span>
+            </span>
+          </div>`;
+      }
+
+      const valor = contadoEnArqueo[p.id] ?? '';
+
+      return `
+        <div class="fila-almacen ${p.controla ? '' : 'apagado'}">
+          <span class="fila-icono">${esc(p.icono || '📦')}</span>
+          <span class="alm-texto">
+            <span class="alm-nombre">${esc(p.nombre)}</span>
+            <span class="alm-cuanto">
+              ${p.controla
+                ? `el sistema dice ${p.existencia} ${esc(p.unidad)}(s)`
+                : 'todavía no lo llevas · anota una cantidad para empezar'}
+            </span>
+          </span>
+          <span class="alm-captura">
+            <input class="campo campo-cantidad" type="text" inputmode="numeric"
+                   data-arqueo="${p.id}" value="${esc(valor)}" placeholder="—"
+                   autocomplete="off">
+            <span class="alm-unidad">${esc(p.unidad || 'pieza')}(s)</span>
+          </span>
+        </div>`;
+    }).join('');
+
+  resumirArqueo();
+}
+
+function alTeclearArqueo(e) {
+  const campo = e.target.closest('[data-arqueo]');
+  if (!campo) return;
+
+  const limpio = campo.value.replace(/[^\d]/g, '');
+  if (campo.value !== limpio) campo.value = limpio;
+
+  // El 0 SÍ cuenta: «de esto no queda nada» es una respuesta, y es distinta
+  // de no haber contado ese producto.
+  if (limpio === '') delete contadoEnArqueo[campo.dataset.arqueo];
+  else contadoEnArqueo[campo.dataset.arqueo] = Number(limpio);
+
+  resumirArqueo();
+}
+
+function resumirArqueo() {
+  const cuantos = Object.keys(contadoEnArqueo).length;
+  $('boton-guardar-arqueo').disabled = cuantos === 0;
+  $('resumen-arqueo').textContent = cuantos
+    ? `${cuantos} producto(s) contado(s)`
+    : 'Todavía no cuentas nada';
+}
+
+async function guardarArqueo() {
+  const conteos = Object.entries(contadoEnArqueo)
+    .map(([id, contado]) => ({ productoId: Number(id), contado: Number(contado) }));
+
+  if (conteos.length === 0) return;
+
+  try {
+    const r = await api.guardarArqueo(conteos);
+    datos.existencias = r.existencias;
+    estado.almacen = {
+      activo: r.activo, arqueoHecho: r.arqueoHecho,
+      arqueoFecha: r.arqueoFecha, controlados: r.controlados,
+    };
+    contadoEnArqueo = {};
+    datos.arqueo = (await api.paraElArqueo()).productos;
+
+    const dadosDeAlta = r.resultado.filter((x) => x.eraNuevo).length;
+    const omitidos = r.resultado.filter((x) => x.omitido);
+
+    await ventana({
+      titulo: 'Arqueo guardado',
+      cuerpo: `
+        <p class="texto-ventana">
+          Contaste <b>${r.resultado.length - omitidos.length} producto(s)</b>.
+          ${dadosDeAlta ? `<b>${dadosDeAlta}</b> empiezan a llevarse desde hoy.` : ''}
+        </p>
+        ${omitidos.length ? `
+          <p class="sutil">
+            ${omitidos.length} no se contaron porque salen de otro producto:
+            ${omitidos.map((o) => esc(o.producto)).join(', ')}.
+          </p>` : ''}
+        <p class="sutil" style="margin-top:12px">
+          De aquí en adelante cada venta descuenta sola. Anota la merma cuando
+          se caiga una botella y vuelve a contar cada tanto: eso es lo que
+          mantiene vivo un inventario.
+        </p>`,
+      botones: [{ texto: 'Listo', valor: true, clase: 'btn-ambar' }],
+    });
+
+    seccion = 'existencias';
+    await cargarAlmacen();
+  } catch (e) {
+    avisar(e.message, true);
+  }
 }
 
 /* ── Qué hay ───────────────────────────────────────────────────────────── */

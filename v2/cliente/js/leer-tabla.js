@@ -141,9 +141,17 @@ async function leerExcel(archivo) {
 export function leerCSV(texto) {
   const limpio = texto.replace(/^﻿/, '');    // la marca que mete Excel
 
-  const primeraLinea = limpio.split(/\r?\n/)[0] ?? '';
-  const separador = (primeraLinea.match(/;/g)?.length ?? 0) >
-                    (primeraLinea.match(/,/g)?.length ?? 0) ? ';' : ',';
+  // El separador se busca en las PRIMERAS VEINTE LÍNEAS, no en la primera.
+  //
+  // Antes se miraba sólo la primera y eso rompía la plantilla de RESTA: su
+  // primer renglón es una línea de ayuda de una sola celda, sin un solo
+  // separador, así que se elegía la coma y el archivo entero se leía como una
+  // columna. Con el archivo enfrente parecía que la plantilla estaba rota.
+  const lineas = limpio.split(/\r?\n/).slice(0, 20);
+  const cuantos = (signo) =>
+    lineas.reduce((n, l) => n + (l.split(signo).length - 1), 0);
+
+  const separador = cuantos(';') > cuantos(',') ? ';' : ',';
 
   const filas = [];
   let fila = [];
@@ -194,6 +202,15 @@ export async function leerTabla(archivo) {
 const sinAcentos = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
+/**
+ * Un título de columna, dejado en su forma más simple.
+ * Sirve para que «¿Inventario?», «Inventario:» e «inventario» sean lo mismo:
+ * la gente le pone signos a los encabezados y no tiene por qué saber que eso
+ * importa.
+ */
+const tituloLlano = (s) =>
+  sinAcentos(s).replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+
 /** Las formas en que la gente titula cada columna. */
 const TITULOS = {
   nombre:  ['nombre', 'producto', 'descripcion', 'articulo', 'concepto', 'platillo'],
@@ -201,6 +218,17 @@ const TITULOS = {
   familia: ['familia', 'categoria', 'grupo', 'tipo', 'seccion', 'linea'],
   icono:   ['icono', 'emoji', 'dibujo', 'imagen'],
   submenu: ['submenu', 'opciones', 'preguntas', 'variantes'],
+
+  // ── Las que estrena la plantilla de RESTA ──
+  // La clave es la que permite renombrar un producto sin que RESTA crea que
+  // es otro distinto, y la que distingue «esta es mi carta completa» de «esta
+  // es la lista de precios que me pasó el proveedor».
+  clave:      ['clave', 'id', 'codigo', 'clave resta'],
+  inventario: ['inventario', 'almacen', 'controla', 'se controla', 'lleva inventario'],
+  existencia: ['existencia', 'cuantos hay', 'hay', 'stock', 'existencias'],
+  unidad:     ['unidad', 'lo que vendes', 'se vende en'],
+  envase:     ['envase', 'lo que compras', 'se compra en'],
+  porciones:  ['porciones', 'porciones por envase', 'cuantas trae', 'trae'],
 };
 
 /**
@@ -208,8 +236,11 @@ const TITULOS = {
  * Devuelve null si el archivo no trae títulos reconocibles.
  */
 export function entenderColumnas(filas) {
-  for (let i = 0; i < Math.min(filas.length, 15); i++) {
-    const fila = (filas[i] ?? []).map(sinAcentos);
+  // Se buscan los títulos entre los primeros veinticinco renglones: la
+  // plantilla de RESTA lleva sus instrucciones ARRIBA de la tabla, y quien la
+  // llene puede agregar dos notas más sin que deje de reconocerse.
+  for (let i = 0; i < Math.min(filas.length, 25); i++) {
+    const fila = (filas[i] ?? []).map(tituloLlano);
     const columnas = {};
 
     for (const [campo, nombres] of Object.entries(TITULOS)) {
@@ -309,10 +340,21 @@ export function interpretar(filas) {
         familia: dame('familia'),
         icono: dame('icono'),
         submenu: dame('submenu'),
+        // Las de la plantilla de RESTA. En un archivo ajeno vienen vacías y
+        // no estorban: el importador de siempre las ignora.
+        clave: dame('clave'),
+        inventario: dame('inventario'),
+        existencia: dame('existencia'),
+        unidad: dame('unidad'),
+        envase: dame('envase'),
+        porciones: dame('porciones'),
       });
     }
 
-    return { productos, modo: 'tabla' };
+    // Que el archivo traiga columna de clave es lo que dice si salió de aquí.
+    // Sólo entonces se puede saber qué productos FALTAN, y por tanto sólo
+    // entonces se ofrece dar de baja nada.
+    return { productos, modo: 'tabla', esPlantilla: columnas.clave !== undefined };
   }
 
   // ── Cartel ──
@@ -334,5 +376,5 @@ export function interpretar(filas) {
     }
   }
 
-  return { productos, modo: 'cartel' };
+  return { productos, modo: 'cartel', esPlantilla: false };
 }

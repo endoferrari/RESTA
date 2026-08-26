@@ -108,3 +108,45 @@ test('un producto sin precio no se inventa uno', () => {
   assert.equal(esPrecio('45'), true);
   assert.equal(esPrecio('$1,250.00'), true);
 });
+
+/* ── La plantilla de RESTA ─────────────────────────────────────────────── */
+
+/**
+ * La plantilla lleva sus instrucciones ARRIBA de la tabla, en renglones de
+ * una sola celda. Eso rompía la detección del separador —que sólo miraba la
+ * primera línea, donde no hay ninguno— y el archivo entero se leía como una
+ * sola columna: con la hoja enfrente parecía que la plantilla estaba rota.
+ */
+const PLANTILLA_CSV =
+  'RESTA · La carta de tu negocio\r\n' +
+  'NO cambies la columna Clave: es como RESTA reconoce cada producto.\r\n' +
+  '\r\n' +
+  'Clave;Dibujo;Producto;Precio;Familia;Submenú;Inventario;Existencia;Unidad;Envase;Porciones\r\n' +
+  '35;🍺;Cerveza;40.00;Bebidas;"Marca: Sol, Indio";Sí;84;cerveza;caja;24\r\n' +
+  '41;🥃;Whisky Chivas;150.00;Bebidas;;Sí;30;copa;botella;15\r\n';
+
+test('la plantilla se reconoce aunque lleve la ayuda arriba de los títulos', () => {
+  const { productos, esPlantilla, modo } = interpretar(leerCSV(PLANTILLA_CSV));
+
+  assert.equal(modo, 'tabla');
+  assert.equal(esPlantilla, true, 'trae columna Clave: salió de aquí');
+  assert.equal(productos.length, 2);
+});
+
+test('de la plantilla se leen también las columnas de almacén', () => {
+  const cerveza = interpretar(leerCSV(PLANTILLA_CSV)).productos[0];
+
+  assert.equal(cerveza.clave, '35');
+  assert.equal(cerveza.nombre, 'Cerveza');
+  assert.equal(cerveza.precioTexto, '40.00');
+  assert.equal(cerveza.existencia, '84');
+  assert.equal(cerveza.porciones, '24');
+  assert.equal(cerveza.submenu, 'Marca: Sol, Indio');
+});
+
+test('un archivo ajeno NO se confunde con la plantilla', () => {
+  // La lista del proveedor no trae clave, así que nunca se le puede ofrecer
+  // dar de baja lo que no aparezca: no hay forma de saber si viene completa.
+  const { esPlantilla } = interpretar(leerCSV('producto,precio\nCorona,45\nSol,40\n'));
+  assert.equal(esPlantilla, false);
+});

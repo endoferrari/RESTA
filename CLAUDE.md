@@ -112,7 +112,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 274/274)
+npm test             # las pruebas (deben pasar 396/396)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -184,6 +184,10 @@ v2/
 | Firma de código | **No se paga.** Windows mostrará SmartScreen; está documentado en `v2/LEEME.md`. |
 | Compilar el `.exe` | **Siempre en GitHub Actions**, nunca en Linux. Ver `.github/workflows/`. |
 | Módulos nuevos | **Almacén SÍ** (Rosendo lo pidió el 29-jul-2026). Sin reservaciones, CFDI ni nube. |
+| Inventario | **Se puede apagar** (`almacen.activo`, de fábrica en `0`). Apagado no se enseña por ningún lado, pero por dentro se sigue anotando lo que sale de lo ya controlado. Se enciende en Configuración → El sistema, y se arranca con un **arqueo** (`almacen.arqueo_inicial`). |
+| Arqueo | Anotar una cantidad **da de alta** ese producto en el almacén. Sin eso habría que marcar 40 casillas antes de poder contar la primera botella, y nadie llega al final. |
+| Comanda sin papel | `impresora.comanda` apaga SÓLO la comanda de barra/cocina. El ticket del cobro, la cuenta del cliente y el corte siguen saliendo. «Mandar a barra» sigue marcando qué salió. |
+| Plantilla de la carta | Se baja **llena** (`GET /api/carta/plantilla`), se corrige en Excel y se sube. La columna **Clave** ata cada renglón a su producto: permite renombrar sin duplicar, y es lo que distingue «mi carta completa» de «la lista del proveedor». Sólo con ella se ofrece dar de baja lo que falte — y **dar de baja, nunca borrar**, con la lista enfrente y la casilla apagada. |
 
 ---
 

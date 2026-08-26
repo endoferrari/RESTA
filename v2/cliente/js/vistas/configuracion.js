@@ -21,6 +21,7 @@ import { formatear, aCentavos } from '/nucleo/dinero.js';
 import { parseOpciones } from '/nucleo/opciones.js';
 
 let alVolver = null;
+let alAlmacen = null;               // para mandar al arqueo recién encendido
 let seccion = 'productos';          // 'productos' · 'familias' · 'personas'
 let datos = { familias: [], productos: [], usuarios: [] };
 let editando = null;                 // id del producto que se está cambiando
@@ -32,10 +33,12 @@ const EMOJIS = [
   '🥒','🫒','🥗','🍤','🎱','🎯','🎮','🎤','🎁','👕','🧢','🚬','🔥','⭐',
 ];
 
-export function iniciarConfiguracion(cuandoVuelva) {
+export function iniciarConfiguracion(cuandoVuelva, cuandoVayaAlAlmacen = null) {
   alVolver = cuandoVuelva;
+  alAlmacen = cuandoVayaAlAlmacen;
 
   $('volver-de-config').addEventListener('click', () => alVolver?.());
+  $('sistema-almacen').addEventListener('click', alTocarAlmacen);
   $('config-secciones').addEventListener('click', alTocarSeccion);
   $('form-producto').addEventListener('submit', guardarProducto);
   $('boton-cancelar-producto').addEventListener('click', limpiarFormulario);
@@ -119,7 +122,115 @@ async function pintarSistema() {
     $('sistema-datos').innerHTML = `<div class="caja-error">${esc(e.message)}</div>`;
   }
 
+  pintarInterruptorDeAlmacen();
   buscarActualizacion(false);
+}
+
+/* ── Llevar inventario, o no ───────────────────────────────────────────── */
+
+/**
+ * El interruptor general del almacén.
+ *
+ * Llevar inventario no es marcar una casilla: es un hábito. Hay que anotar la
+ * merma, recibir los pedidos y contar cada tanto. Encenderlo el primer día,
+ * cuando todavía se está aprendiendo a cobrar, es la forma más rápida de
+ * terminar con un inventario que miente — y un inventario que miente es peor
+ * que no tener ninguno, porque se toman decisiones de compra con él.
+ */
+function pintarInterruptorDeAlmacen() {
+  const a = estado.almacen;
+
+  $('sistema-almacen').innerHTML = `
+    <div class="fila-total">
+      <span>Ahora mismo</span>
+      <span><b>${a.activo ? '📦 Sí se lleva inventario' : 'No se lleva inventario'}</b></span>
+    </div>
+
+    ${a.activo ? `
+      <div class="fila-total sutil">
+        <span>Productos que se controlan</span>
+        <span>${a.controlados}</span>
+      </div>
+      <div class="fila-total sutil">
+        <span>Último arqueo</span>
+        <span>${a.arqueoHecho ? esc(a.arqueoFecha) : 'todavía no se ha hecho'}</span>
+      </div>` : ''}
+
+    <p class="sutil" style="margin-top:10px">
+      ${a.activo
+        ? `Con el inventario encendido aparece el botón <b>📦 Almacén</b> en la
+           barra de la izquierda, para ti y para la caja. Ahí se ve qué hay,
+           para cuántos días alcanza y qué hay que comprar.`
+        : `Enciéndelo cuando el bar ya esté cómodo cobrando. RESTA te va a
+           pedir un <b>arqueo</b>: caminar la bodega y anotar cuántos hay de
+           cada cosa. A partir de ese día lleva la cuenta sola con cada venta.`}
+    </p>
+
+    <div class="botones-form">
+      <button class="btn ${a.activo ? '' : 'btn-ambar'}" data-almacen="${a.activo ? 'apagar' : 'encender'}">
+        ${a.activo ? 'Dejar de llevar inventario' : '📦 Empezar a llevar inventario'}
+      </button>
+      ${a.activo && !a.arqueoHecho
+        ? '<button class="btn btn-ambar" data-almacen="arqueo">🔢 Hacer el arqueo</button>'
+        : ''}
+    </div>`;
+}
+
+async function alTocarAlmacen(e) {
+  const b = e.target.closest('[data-almacen]');
+  if (!b) return;
+
+  if (b.dataset.almacen === 'arqueo') return alAlmacen?.();
+
+  const encender = b.dataset.almacen === 'encender';
+
+  if (!encender) {
+    const seguro = await confirmar(
+      'Dejar de llevar inventario',
+      'El almacén va a desaparecer de la barra de la izquierda, para ti y ' +
+      'para la caja.<br><br>' +
+      '<b>No se borra nada.</b> Lo que ya contaste, las mermas y las entradas ' +
+      'siguen guardadas, y RESTA sigue anotando por dentro lo que se vende. ' +
+      'El día que lo vuelvas a encender, todo sigue ahí.',
+      'Sí, apagarlo',
+    );
+    if (!seguro) return;
+  }
+
+  try {
+    const r = await api.encenderAlmacen(encender);
+    estado.almacen = {
+      activo: r.activo, arqueoHecho: r.arqueoHecho,
+      arqueoFecha: r.arqueoFecha, controlados: r.controlados,
+    };
+    pintarInterruptorDeAlmacen();
+
+    // La barra lateral tiene que enterarse ya, sin esperar a que rebote el
+    // aviso del servidor: si el WiFi anda lento, el botón del almacén
+    // aparecería medio minuto después de encenderlo y parecería que no sirvió.
+    globalThis.dispatchEvent(new CustomEvent('resta:almacen-cambio'));
+
+    if (!encender) { avisar('El inventario quedó apagado'); return; }
+
+    // Recién encendido y sin haber contado nunca, los números no valen nada.
+    // En vez de dejarlo en una pantalla de ceros, se ofrece ir a contar ya.
+    if (!r.arqueoHecho) {
+      const ir = await confirmar(
+        'Inventario encendido',
+        'Falta lo importante: <b>el arqueo</b>. Camina la bodega y anota ' +
+        'cuántos hay de cada cosa. Lo que anotes queda dado de alta solo, ' +
+        'sin tener que marcar nada antes.<br><br>' +
+        'Puedes hacerlo ahora o cuando tengas un rato tranquilo.',
+        'Vamos a contar',
+      );
+      if (ir) alAlmacen?.();
+      return;
+    }
+
+    avisar('El inventario quedó encendido');
+  } catch (err) {
+    avisar(err.message, true);
+  }
 }
 
 /**

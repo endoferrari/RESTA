@@ -19,9 +19,55 @@ import {
   diasDeCobertura, semaforo, listaDeCompra, revisarConteo, enEnvases, textoEnvases,
 } from '../../nucleo/almacen.js';
 import { anotarEvento } from './eventos.js';
-import { leerAjuste } from './ajustes.js';
+import { leerAjuste, escribirAjuste } from './ajustes.js';
 
 const hoy = () => new Date().toLocaleDateString('sv-SE');
+
+/* ── ¿Este bar lleva inventario? ───────────────────────────────────────── */
+
+/**
+ * El interruptor general.
+ *
+ * Apagado, el almacén NO se enseña por ningún lado: ni el botón de la barra
+ * lateral, ni las existencias, ni la lista de compras. Un bar que apenas está
+ * aprendiendo a cobrar no tiene por qué cargar con un inventario que todavía
+ * no puede mantener.
+ *
+ * Lo que NO se apaga es el registro: lo que ya está marcado para controlar
+ * sigue anotando sus salidas por dentro. Eso no le cuesta nada a nadie y hace
+ * que, el día que se encienda, la lista de «qué comprar» ya sepa cuánto se
+ * vende un sábado en vez de tener que aprenderlo durante dos semanas.
+ */
+export function almacenActivo() {
+  return leerAjuste('almacen.activo', '0') === '1';
+}
+
+/** La foto de cómo está el módulo, para que la pantalla sepa qué enseñar. */
+export function estadoDelAlmacen() {
+  const arqueo = leerAjuste('almacen.arqueo_inicial', '');
+  return {
+    activo: almacenActivo(),
+    // Sin arqueo, los números del almacén no valen: no hubo un día en que
+    // alguien contara de verdad y dijera «de aquí para adelante».
+    arqueoHecho: !!arqueo,
+    arqueoFecha: arqueo || null,
+    controlados: base()
+      .prepare('SELECT count(*) AS n FROM productos WHERE controla_stock = 1 AND activo = 1')
+      .get().n,
+  };
+}
+
+/** Enciende o apaga el módulo. Queda registrado quién y cuándo. */
+export function cambiarAlmacenActivo({ activo, usuario }) {
+  escribirAjuste('almacen.activo', activo ? '1' : '0');
+
+  anotarEvento({
+    tipo: activo ? 'almacen.encender' : 'almacen.apagar', usuario,
+    detalle: estadoDelAlmacen(),
+  });
+
+  return estadoDelAlmacen();
+}
 
 export const MOTIVOS_MERMA = [
   'Se cayó / se rompió',
@@ -301,6 +347,99 @@ export function registrarConteo({ conteos, usuario }) {
 }
 
 /**
+ * Deja la existencia EXACTAMENTE en lo que se contó, anotando la diferencia.
+ *
+ * Es la pieza que comparten el arqueo y la plantilla de Excel: los dos dicen
+ * «hay 84», y los dos tienen que dejar registrado de dónde salió ese 84 para
+ * que después se pueda contestar «¿y por qué hay 84?».
+ */
+export function fijarExistencia({ productoId, contado, motivo, usuario = null }) {
+  const antes = existenciaDe(productoId);
+  const diferencia = Math.trunc(contado) - antes;
+
+  if (diferencia !== 0) {
+    anotarMovimiento({ productoId, tipo: 'conteo', cantidad: diferencia, motivo, usuario });
+  }
+
+  return { antes, diferencia, cambio: diferencia !== 0 };
+}
+
+/**
+ * EL ARQUEO INICIAL: la primera vez que se cuenta todo.
+ *
+ * Es distinto del conteo de cada semana en una cosa que importa mucho: aquí
+ * **anotar una cantidad da de alta el producto en el almacén**. Si hubiera
+ * que ir primero a «Qué se controla», marcar 40 productos uno por uno y
+ * después volver a contarlos, nadie llegaría al final. Se cuenta lo que hay
+ * en la bodega, renglón por renglón, y lo que se contó queda controlado.
+ *
+ * Lo que se deja en blanco NO se toca: ni se controla ni se descontrola. Para
+ * decir «de esto no queda nada» se escribe 0, que es distinto de no contarlo.
+ *
+ * @param conteos [{ productoId, contado }]  contado en la unidad que se vende
+ */
+export function arqueoInicial({ conteos, usuario }) {
+  return enTransaccion(() => {
+    const resultado = [];
+
+    for (const { productoId, contado } of conteos) {
+      if (contado === null || contado === undefined || contado === '') continue;
+
+      const cuantos = Math.trunc(Number(contado));
+      if (!Number.isInteger(cuantos) || cuantos < 0) {
+        throw new Error('Las cantidades del arqueo tienen que ser números de 0 en adelante.');
+      }
+
+      const p = base().prepare('SELECT * FROM productos WHERE id = ? AND activo = 1').get(productoId);
+      if (!p) continue;
+
+      // Una michelada no se guarda en el refrigerador: la cerveza sí. Contar
+      // «micheladas» dejaría una existencia que nadie puede reponer.
+      if (p.gasta_producto_id) {
+        resultado.push({
+          producto: p.nombre, omitido: true,
+          motivo: 'sale de otro producto, no tiene existencia propia',
+        });
+        continue;
+      }
+
+      const eraNuevo = p.controla_stock !== 1;
+      if (eraNuevo) {
+        base().prepare(`
+          UPDATE productos SET controla_stock = 1, actualizado = datetime('now','localtime')
+           WHERE id = ?
+        `).run(productoId);
+      }
+
+      // La diferencia contra lo que creía el sistema queda anotada, igual que
+      // en un conteo normal. Con el almacén recién encendido eso es todo lo
+      // que había: la existencia queda exactamente en lo que se contó.
+      const { antes, diferencia } = fijarExistencia({
+        productoId, contado: cuantos, motivo: 'Arqueo inicial', usuario,
+      });
+
+      resultado.push({ producto: p.nombre, contado: cuantos, antes, diferencia, eraNuevo });
+    }
+
+    if (resultado.length === 0) throw new Error('No anotaste ninguna cantidad.');
+
+    // A partir de este día los números del almacén significan algo: hubo
+    // alguien que contó de verdad y dijo «de aquí para adelante».
+    escribirAjuste('almacen.arqueo_inicial', hoy());
+
+    anotarEvento({
+      tipo: 'almacen.arqueo', usuario,
+      detalle: {
+        contados: resultado.filter((r) => !r.omitido).length,
+        dadosDeAlta: resultado.filter((r) => r.eraNuevo).length,
+      },
+    });
+
+    return resultado;
+  });
+}
+
+/**
  * LA VENTA DESCUENTA SOLA.
  * Se llama al cerrar el ticket. Nadie captura nada: la salida de mercancía
  * ya quedó registrada al cobrar.
@@ -466,5 +605,20 @@ export function configuracionDeAlmacen() {
     unidad: p.unidad,
     gastaDe: p.gasta_producto_id,
     gastaNombre: p.gasta_nombre,
+  }));
+}
+
+/**
+ * La lista para el arqueo: TODA la carta, con lo que el sistema cree que hay.
+ *
+ * Van todos los productos y no sólo los controlados a propósito. El arqueo es
+ * el momento en que se decide qué se lleva y qué no, caminando por la bodega
+ * con la tablet en la mano; si la lista sólo trajera lo ya marcado, habría que
+ * adivinar antes de contar.
+ */
+export function paraElArqueo() {
+  return configuracionDeAlmacen().map((p) => ({
+    ...p,
+    existencia: p.controla ? existenciaDe(p.id) : 0,
   }));
 }

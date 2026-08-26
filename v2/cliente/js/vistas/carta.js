@@ -13,6 +13,7 @@ import { api } from '../api.js';
 import { estado, ponerMenu, puede } from '../estado.js';
 import { $, esc, avisar, ventana, confirmar } from '../ui.js';
 import { leerTabla, interpretar } from '../leer-tabla.js';
+import { hojaExcel, hojaCSV, bajarArchivo } from '../escribir-tabla.js';
 import { formatear } from '/nucleo/dinero.js';
 
 let alVolver = null;
@@ -32,6 +33,8 @@ export function iniciarCarta(cuandoVuelva) {
   $('boton-importar').addEventListener('click', () => $('archivo-respaldo').click());
   $('archivo-respaldo').addEventListener('change', importarRespaldo);
   $('boton-recargar-carta').addEventListener('click', cargarCarta);
+  $('boton-bajar-plantilla').addEventListener('click', () => bajarLaCarta('excel'));
+  $('boton-bajar-csv').addEventListener('click', () => bajarLaCarta('csv'));
 }
 
 export async function cargarCarta() {
@@ -49,7 +52,10 @@ export function pintarCarta() {
 
   // Importar un respaldo reescribe TODOS los precios. Un mesero puede mirar
   // la carta —le sirve para consultar precios— pero no tocarla.
-  $('boton-importar').hidden = !puede('ajustes.cambiar');
+  const administra = puede('ajustes.cambiar');
+  $('boton-importar').hidden = !administra;
+  $('boton-bajar-plantilla').hidden = !administra;
+  $('boton-bajar-csv').hidden = !administra;
 
   $('familias-carta').innerHTML = m.familias.map((f) => `
     <button data-familia="${esc(f.clave)}" class="${f.clave === estado.familiaActiva ? 'activo' : ''}">
@@ -99,12 +105,74 @@ function mostrar(texto) {
     `<div class="caja-exito" style="white-space:pre-line">${esc(texto)}</div>`;
 }
 
+/* ── Bajar la carta a una hoja de cálculo ──────────────────────────────── */
+
+/**
+ * La plantilla se baja LLENA, con la carta tal como está hoy.
+ *
+ * Capturar 137 productos en una hoja en blanco no lo hace nadie. Corregir
+ * tres precios encima de lo que ya está y agregar dos renglones, sí. Esa es
+ * toda la diferencia entre una plantilla que se usa y una que no.
+ */
+async function bajarLaCarta(formato) {
+  $('resultado-carta').innerHTML = '<div class="caja-aviso">Armando el archivo…</div>';
+
+  try {
+    const r = await api.bajarPlantilla();
+
+    const filas = [
+      // La ayuda va ARRIBA de los títulos: el lector busca el renglón de
+      // títulos y se salta lo que haya antes, así que la hoja se explica
+      // sola justo cuando hace falta, abierta en Excel y sin nadie al lado.
+      ...r.ayuda,
+      r.columnas.map((c) => c.titulo),
+      ...r.filas.map((f) => r.columnas.map((c) => f[c.clave] ?? '')),
+    ];
+
+    const dia = new Date().toLocaleDateString('sv-SE');
+    const nombre = `carta-${r.negocio.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${dia}`;
+
+    if (formato === 'csv') {
+      bajarArchivo(hojaCSV(filas), `${nombre}.csv`);
+    } else {
+      bajarArchivo(
+        hojaExcel(filas, { anchos: [7, 7, 34, 9, 16, 30, 11, 11, 12, 12, 10] }),
+        `${nombre}.xlsx`,
+      );
+    }
+
+    $('resultado-carta').innerHTML = `
+      <div class="caja-exito">
+        <b>Listo: ${r.filas.length} producto(s) en el archivo.</b><br>
+        Búscalo en tus Descargas, ábrelo, corrige lo que quieras y vuelve con
+        <b>«📤 Subir la hoja llena»</b>.
+        ${r.conInventario
+          ? ''
+          : '<br><span class="sutil">El inventario está apagado, así que sus columnas van vacías.</span>'}
+      </div>`;
+  } catch (e) {
+    $('resultado-carta').innerHTML =
+      `<div class="caja-error">No se pudo armar el archivo: ${esc(e.message)}</div>`;
+  }
+}
+
 /* ── Importar productos de una lista ───────────────────────────────────── */
 
-/** Lee lo que teclea la gente como precio: «45», «45.50», «$1,250». */
+/** Lee lo que teclea la gente como precio: «45», «45.50», «$1,250», «45,50». */
 function precioDeTexto(valor) {
-  const limpio = String(valor ?? '').replace(/[^\d.,]/g, '').replace(/,/g, '');
+  let limpio = String(valor ?? '').replace(/[^\d.,]/g, '');
   if (!limpio) return null;
+
+  // La coma puede ser dos cosas distintas y confundirlas cuesta dinero:
+  // en «1,250» separa los miles, pero en «45,50» —como lo escribe media
+  // Europa y como lo guarda un Excel configurado así— es el decimal. Se
+  // distingue por lo que viene después: dos dígitos y ya, es decimal.
+  if (!limpio.includes('.') && /^\d+,\d{1,2}$/.test(limpio)) {
+    limpio = limpio.replace(',', '.');
+  } else {
+    limpio = limpio.replace(/,/g, '');
+  }
+
   const n = Number(limpio);
   if (!Number.isFinite(n) || n < 0) return null;
   // A centavos partiendo el texto, sin multiplicar por 100: multiplicar
@@ -133,7 +201,13 @@ async function importarRespaldo(e) {
     return;
   }
 
-  const { productos, modo } = interpretar(filas);
+  const { productos, modo, esPlantilla } = interpretar(filas);
+
+  // Que el archivo traiga columna «Clave» es lo que dice que salió de aquí.
+  // Sólo entonces se puede saber qué productos FALTAN —y por tanto sólo
+  // entonces se ofrece dar de baja alguno. La lista de precios que mandó un
+  // proveedor entra por el camino de siempre, que nunca da de baja nada.
+  if (esPlantilla) return subirPlantillaLlena(archivo, productos);
 
   // Se separa lo que sirve de lo que no. Un renglón malo no cancela todo:
   // se avisa por su nombre y los demás entran igual.
@@ -263,6 +337,175 @@ async function importarRespaldo(e) {
   } catch (err) {
     $('resultado-carta').innerHTML =
       `<div class="caja-error">No se pudo importar: ${esc(err.message)}</div>`;
+  }
+}
+
+/* ── Subir la plantilla llena ──────────────────────────────────────────── */
+
+/**
+ * El camino completo: precios, altas, bajas e inventario en un solo viaje.
+ *
+ * La regla de esta pantalla es una sola: **nada se aplica sin que alguien lo
+ * haya visto escrito**. Dar de baja media carta por subir un archivo
+ * incompleto es el peor accidente posible aquí, así que los productos que
+ * faltan se enseñan por nombre y la casilla llega apagada. Quien la marca,
+ * la marca a sabiendas.
+ */
+async function subirPlantillaLlena(archivo, productos) {
+  const renglones = [];
+  const malos = [];
+
+  for (const p of productos) {
+    const precio = precioDeTexto(p.precioTexto);
+    if (precio === null) {
+      malos.push({ nombre: p.nombre, motivo: `sin precio («${p.precioTexto}»)` });
+      continue;
+    }
+
+    renglones.push({
+      id: p.clave || null,
+      nombre: p.nombre,
+      precio,
+      familia: p.familia,
+      icono: p.icono,
+      submenu: p.submenu,
+      inventario: p.inventario,
+      existencia: p.existencia,
+      unidad: p.unidad,
+      envase: p.envase,
+      porciones: p.porciones,
+    });
+  }
+
+  if (renglones.length === 0) {
+    $('resultado-carta').innerHTML = `
+      <div class="caja-error">
+        Esa hoja no trae ningún producto con precio. Revisa que la columna
+        <b>Precio</b> tenga números y vuelve a intentar.
+      </div>`;
+    return;
+  }
+
+  let revision;
+  try {
+    revision = await api.revisarPlantilla(renglones);
+  } catch (e) {
+    $('resultado-carta').innerHTML =
+      `<div class="caja-error">No se pudo revisar el archivo: ${esc(e.message)}</div>`;
+    return;
+  }
+
+  const { faltan, almacen } = revision;
+  const yaHay = (n) => estado.menu.familias.some((x) => x.nombre.toLowerCase() === n.toLowerCase());
+  const familiasNuevas = [...new Set(
+    renglones.map((r) => r.familia).filter(Boolean).filter((f) => !yaHay(f))
+  )];
+  const conInventario = renglones.some((r) => r.inventario || r.existencia);
+
+  const respuesta = await ventana({
+    titulo: `Subir ${esc(archivo.name)}`,
+    cuerpo: `
+      <p class="texto-ventana">
+        La hoja trae <b>${renglones.length} producto(s)</b>. Los que ya existen
+        se actualizan con el precio del archivo; los que no, se dan de alta.
+      </p>
+
+      ${familiasNuevas.length ? `
+        <p class="texto-ventana">Se van a crear estas familias:
+          <b>${familiasNuevas.map(esc).join(' · ')}</b></p>` : ''}
+
+      ${conInventario && !almacen.activo ? `
+        <div class="caja-aviso" style="margin:10px 0">
+          La hoja trae columnas de inventario, pero el inventario está
+          <b>apagado</b>: esas columnas no se van a aplicar. Se enciende en
+          Configuración → El sistema.
+        </div>` : ''}
+
+      ${malos.length ? `
+        <div class="caja-error" style="margin:12px 0">
+          <b>${malos.length} renglón(es) NO van a entrar:</b>
+          <ul>${malos.slice(0, 6).map((m) => `<li>${esc(m.nombre)} — ${esc(m.motivo)}</li>`).join('')}</ul>
+          ${malos.length > 6 ? `<span class="sutil">…y ${malos.length - 6} más</span>` : ''}
+        </div>` : ''}
+
+      ${faltan.length ? `
+        <div class="titulo-bloque">Estos ${faltan.length} ya no vienen en la hoja</div>
+        <div class="lista-previa">
+          ${faltan.slice(0, 12).map((f) => `
+            <div class="mov">
+              <span class="mov-nota"><b>${esc(f.nombre)}</b>
+                <span class="sutil">· ${esc(f.familia)}</span></span>
+              <span class="mov-cant">${formatear(f.precio)}</span>
+            </div>`).join('')}
+        </div>
+        ${faltan.length > 12 ? `<p class="sutil">…y ${faltan.length - 12} más</p>` : ''}
+
+        <label class="casilla-linea" style="margin-top:10px">
+          <input type="checkbox" id="plantilla-dar-de-baja">
+          <span>
+            Darlos de baja
+            <span class="sutil">
+              Desaparecen de la pantalla de venta. <b>No se borran</b>: los
+              tickets viejos siguen enteros y se pueden volver a activar
+              cuando quieras. Si subiste sólo una parte de la carta, deja
+              esta casilla apagada.
+            </span>
+          </span>
+        </label>` : ''}`,
+    botones: [
+      { texto: 'Cancelar', valor: null },
+      {
+        texto: 'Aplicar los cambios',
+        clase: 'btn-ambar',
+        // La casilla se lee AL CONFIRMAR: si se leyera al dibujar la ventana
+        // se quedaría con el valor de entonces aunque después se cambie.
+        valor: (v) => ({ baja: !!v.querySelector('#plantilla-dar-de-baja')?.checked }),
+      },
+    ],
+  });
+
+  if (!respuesta) { $('resultado-carta').innerHTML = ''; return; }
+
+  $('resultado-carta').innerHTML = '<div class="caja-aviso">Aplicando…</div>';
+
+  try {
+    const r = await api.aplicarPlantilla(
+      renglones,
+      respuesta.baja ? faltan.map((f) => f.id) : [],
+    );
+
+    ponerMenu(r.menu);
+    pintarCarta();
+
+    const i = r.informe;
+    $('resultado-carta').innerHTML = `
+      <div class="caja-exito">
+        <b>Carta actualizada</b>
+        <ul>
+          ${i.nuevos ? `<li>${i.nuevos} producto(s) nuevo(s)</li>` : ''}
+          ${i.preciosCambiados.length ? `<li>${i.preciosCambiados.length} cambio(s) de precio: ${
+            i.preciosCambiados.slice(0, 6).map((p) =>
+              `${esc(p.nombre)} ${esc(p.antes)} → <b>${esc(p.ahora)}</b>`).join(' · ')
+          }${i.preciosCambiados.length > 6 ? ' …' : ''}</li>` : ''}
+          ${i.sinCambio ? `<li>${i.sinCambio} sin cambios</li>` : ''}
+          ${i.familiasCreadas.length ? `<li>Familias creadas: ${i.familiasCreadas.map(esc).join(', ')}</li>` : ''}
+          ${i.dadosDeBaja.length ? `<li>${i.dadosDeBaja.length} dado(s) de baja: ${
+            i.dadosDeBaja.slice(0, 8).map(esc).join(', ')}${i.dadosDeBaja.length > 8 ? ' …' : ''}</li>` : ''}
+          ${i.inventario.dadosDeAlta ? `<li>${i.inventario.dadosDeAlta} producto(s) empiezan a llevarse en almacén</li>` : ''}
+          ${i.inventario.ajustados ? `<li>${i.inventario.ajustados} existencia(s) ajustada(s)</li>` : ''}
+          ${i.omitidos.length ? `<li>${i.omitidos.length} NO entraron: ${
+            i.omitidos.slice(0, 5).map((o) => `${esc(o.nombre)} (${esc(o.motivo)})`).join(', ')
+          }</li>` : ''}
+        </ul>
+      </div>`;
+
+    avisar('Carta actualizada desde la hoja');
+  } catch (err) {
+    $('resultado-carta').innerHTML = `
+      <div class="caja-error">
+        No se aplicó nada: ${esc(err.message)}<br>
+        <span class="sutil">La carta quedó como estaba.</span>
+      </div>`;
   }
 }
 

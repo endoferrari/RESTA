@@ -21,6 +21,10 @@ export const estado = {
   vista: 'cargando',      // 'pin' · 'primera-vez' · 'mesas' · 'cuenta'
 
   negocio: 'RESTA',
+
+  // ¿Este bar lleva inventario? Apagado, el almacén no se enseña por ningún
+  // lado: ni el botón de la barra lateral. Se enciende en Configuración.
+  almacen: { activo: false, arqueoHecho: false, arqueoFecha: null, controlados: 0 },
 };
 
 /** ¿El que entró puede hacer esto? La pantalla lo usa para esconder botones. */

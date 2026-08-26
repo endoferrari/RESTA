@@ -463,6 +463,20 @@
         <span>Imprimir. Si lo apagas, RESTA sigue cobrando pero no sale papel.</span>
       </label>
 
+      <!-- El interruptor de SÓLO la comanda. Con la barra a dos metros de la
+           caja ese papel es basura, pero el ticket del cobro sí hace falta. -->
+      <label class="casilla-linea">
+        <input type="checkbox" id="impresora-comanda">
+        <span>
+          Imprimir la comanda de barra o cocina.
+          <span class="sutil">
+            Si lo apagas, «Mandar a barra» sigue funcionando y RESTA sigue
+            sabiendo qué se está preparando — sólo que no sale papel. El ticket
+            del cobro, la cuenta del cliente y el corte no se tocan.
+          </span>
+        </span>
+      </label>
+
       <div class="titulo-bloque">Logo del ticket</div>
       <div class="caja-logo">
         <div class="logo-vista" id="logo-vista"></div>
@@ -497,7 +511,34 @@
       </div>
     </div>
 
+    <!-- Mientras nadie haya contado de verdad, los números del almacén no
+         significan nada: no hubo un día en que alguien dijera «de aquí para
+         adelante». Este aviso lleva directo al arqueo. -->
+    <div id="almacen-sin-arqueo" class="caja-aviso" hidden></div>
+
     <div class="grupo-botones" id="almacen-secciones"></div>
+
+    <!-- ── El arqueo inicial ── -->
+    <div id="almacen-arqueo" hidden>
+      <div class="titulo-bloque">Contar todo por primera vez</div>
+      <p class="sutil">
+        Camina la bodega con la tablet y anota <b>cuántos hay</b> de cada cosa,
+        contados como los vendes (copas, cervezas). <b>Lo que anotes queda dado
+        de alta en el almacén</b>; lo que dejes vacío, RESTA ni lo mira. Para
+        decir «de esto no queda nada», escribe 0.
+      </p>
+
+      <input class="campo campo-buscar" id="buscar-arqueo" type="search"
+             placeholder="🔍 Buscar producto…" autocomplete="off">
+      <div class="grupo-botones" id="arqueo-familias"></div>
+      <div id="almacen-arqueo-lista"></div>
+
+      <div class="botones-form">
+        <button class="btn btn-ambar" id="boton-guardar-arqueo" disabled>Guardar el arqueo</button>
+        <button class="btn" id="boton-limpiar-arqueo">Limpiar</button>
+        <span class="sutil" id="resumen-arqueo" style="align-self:center"></span>
+      </div>
+    </div>
 
     <!-- ── Qué hay ── -->
     <div id="almacen-panel-existencias" hidden>
@@ -562,6 +603,15 @@
       <div class="tarjeta">
         <div class="titulo-bloque">Esta instalación</div>
         <div id="sistema-datos"></div>
+      </div>
+
+      <!-- El interruptor del inventario. Vive AQUÍ y no dentro del almacén a
+           propósito: apagado, el almacén no se enseña por ningún lado, así
+           que si el interruptor viviera allá adentro no habría por dónde
+           volver a encenderlo. -->
+      <div class="tarjeta" style="margin-top:14px">
+        <div class="titulo-bloque">Inventario</div>
+        <div id="sistema-almacen"></div>
       </div>
 
       <div class="tarjeta" style="margin-top:14px">
@@ -659,7 +709,13 @@
       </div>
       <div class="acciones">
         <button class="btn" id="boton-recargar-carta">↻ Recargar</button>
-        <button class="btn btn-ambar" id="boton-importar">📥 Importar de Excel o CSV</button>
+        <!-- La plantilla se baja LLENA con la carta de hoy. Capturar 137
+             productos en una hoja en blanco no lo hace nadie; corregir tres
+             precios encima de lo que ya está, sí. -->
+        <button class="btn" id="boton-bajar-plantilla">⬇️ Bajar la carta a Excel</button>
+        <button class="btn btn-chico" id="boton-bajar-csv"
+                title="Por si esta computadora no tiene Excel">CSV</button>
+        <button class="btn btn-ambar" id="boton-importar">📤 Subir la hoja llena</button>
         <input type="file" id="archivo-respaldo" accept=".xlsx,.csv,.txt,.json" hidden>
       </div>
     </div>

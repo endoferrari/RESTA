@@ -15,6 +15,11 @@ import {
   listarProductos, buscarProducto, crearProducto, editarProducto,
   apagarProducto, encenderProducto, menuCompleto,
 } from '../../datos/repos/productos.js';
+import {
+  COLUMNAS, ayudaDeLaPlantilla, filasDeLaPlantilla, aplicarPlantilla, losQueFaltan,
+} from '../../datos/plantilla-carta.js';
+import { almacenActivo, estadoDelAlmacen } from '../../datos/repos/almacen.js';
+import { leerAjuste } from '../../datos/repos/ajustes.js';
 import { parseOpciones, textoOpciones } from '../../nucleo/opciones.js';
 import { anotarEvento } from '../../datos/repos/eventos.js';
 import { exigir } from '../auth.js';
@@ -270,6 +275,66 @@ export function registrarRutasConfiguracion(app) {
       },
     });
     avisarCarta();
+
+    return { ok: true, informe, menu: menuCompleto() };
+  });
+
+  /* ── La plantilla de la carta ────────────────────────────────────────── */
+
+  /**
+   * BAJAR LA PLANTILLA: la carta de hoy, lista para abrirla en Excel.
+   *
+   * El archivo lo ARMA la pantalla, no el servidor. Es el mismo reparto que
+   * en el importador: el navegador ya sabe comprimir y escribir un .xlsx, y
+   * así el archivo se baja directo a la carpeta de Descargas de quien lo
+   * pidió, aunque esté en una tablet del otro lado del bar.
+   */
+  app.get('/api/carta/plantilla', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+
+    return {
+      ok: true,
+      columnas: COLUMNAS,
+      ayuda: ayudaDeLaPlantilla({ conInventario: almacenActivo() }),
+      filas: filasDeLaPlantilla(),
+      conInventario: almacenActivo(),
+      negocio: leerAjuste('negocio.nombre', 'RESTA'),
+    };
+  });
+
+  /**
+   * REVISAR ANTES DE APLICAR: qué productos activos no vienen en la hoja.
+   *
+   * Va en una llamada aparte, y a propósito: dar de baja media carta por
+   * subir un archivo incompleto es el peor accidente posible de esta
+   * pantalla. Primero se enseñan por nombre, alguien los ve, y sólo entonces
+   * la siguiente llamada ejecuta lo confirmado.
+   */
+  app.post('/api/carta/plantilla/revisar', async (peticion) => {
+    exigir(peticion, 'ajustes.cambiar');
+    const { renglones } = peticion.body ?? {};
+
+    if (!Array.isArray(renglones) || renglones.length === 0) {
+      throw alto('Esa hoja no trae ningún producto.');
+    }
+
+    return { ok: true, faltan: losQueFaltan(renglones), almacen: estadoDelAlmacen() };
+  });
+
+  /** APLICAR la plantilla. Todo o nada: si algo truena, la carta no se toca. */
+  app.post('/api/carta/plantilla', { bodyLimit: 4 * 1024 * 1024 }, async (peticion) => {
+    const usuario = exigir(peticion, 'ajustes.cambiar');
+    const { renglones, darDeBaja = [] } = peticion.body ?? {};
+
+    if (!Array.isArray(darDeBaja)) throw alto('La lista de bajas no llegó bien.');
+
+    const informe = conFolio(peticion, '/api/carta/plantilla', () =>
+      aplicarPlantilla({ renglones, darDeBaja, usuario }));
+
+    avisarCarta();
+    if (informe.inventario.ajustados || informe.inventario.dadosDeAlta) {
+      avisarATodos('almacen.cambio', {});
+    }
 
     return { ok: true, informe, menu: menuCompleto() };
   });

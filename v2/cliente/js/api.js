@@ -219,6 +219,20 @@ export const api = {
   importarProductos: (renglones) => conFolio('POST', '/api/productos/importar', { renglones }),
 
   /* ── Almacén ── */
+  /** ¿Este bar lleva inventario? Lo pregunta cada tablet al iniciar sesión. */
+  estadoAlmacen:   () => pedir('GET', '/api/almacen/estado'),
+  encenderAlmacen: (activo) => pedir('PUT', '/api/almacen/activo', { activo }),
+
+  /** El arqueo: toda la carta con lo que el sistema cree que hay. */
+  paraElArqueo:   () => pedir('GET', '/api/almacen/arqueo'),
+  guardarArqueo:  (conteos) => conFolio('POST', '/api/almacen/arqueo', { conteos }),
+
+  /* ── La plantilla de la carta ── */
+  bajarPlantilla:   () => pedir('GET', '/api/carta/plantilla'),
+  revisarPlantilla: (renglones) => pedir('POST', '/api/carta/plantilla/revisar', { renglones }),
+  aplicarPlantilla: (renglones, darDeBaja = []) =>
+    conFolio('POST', '/api/carta/plantilla', { renglones, darDeBaja }),
+
   almacen:      (dias = null) => pedir('GET', '/api/almacen' + (dias ? `?dias=${dias}` : '')),
   queComprar:   (dias = null) => pedir('GET', '/api/almacen/compras' + (dias ? `?dias=${dias}` : '')),
   diasACubrir:  (dias) => pedir('PUT', '/api/almacen/dias', { dias }),

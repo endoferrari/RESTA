@@ -16,6 +16,7 @@
 import { api } from '../api.js';
 import { estado, puede, producto } from '../estado.js';
 import { $, esc, avisar, ventana, confirmar, pedirTexto } from '../ui.js';
+import { laComandaImprime } from './impresora.js';
 import { formatear } from '/nucleo/dinero.js';
 import { preguntaAplica, resumirEleccion } from '/nucleo/opciones.js';
 
@@ -141,8 +142,13 @@ function pintarBotones() {
 
   const comandar = $('boton-comandar');
   comandar.disabled = pendientes === 0;
+
+  // Cuando la comanda está puesta en «sin papel», el botón lo dice. Si no, el
+  // mesero toca y se queda esperando junto a una impresora que no va a sonar,
+  // y a la tercera vez la toca dos veces «por si acaso».
+  const conPapel = laComandaImprime();
   comandar.textContent = pendientes > 0
-    ? `🔔 Mandar a barra (${pendientes})`
+    ? `🔔 Mandar a barra (${pendientes})${conPapel ? '' : ' · sin papel'}`
     : '🔔 Nada nuevo que mandar';
 
   // Los botones de dinero sólo se le enseñan a quien puede usarlos.
@@ -428,7 +434,9 @@ async function mandarComanda() {
     estado.cuenta = r.cuenta;
     pintarCuenta();
     const piezas = r.salieron.reduce((n, s) => n + s.cant, 0);
-    avisar(`${piezas} producto(s) mandados a barra/cocina`);
+    avisar(r.impresion?.impreso === false && !laComandaImprime()
+      ? `${piezas} producto(s) anotados para barra (sin papel)`
+      : `${piezas} producto(s) mandados a barra/cocina`);
   } catch (e) {
     avisar(e.message, true);
   }

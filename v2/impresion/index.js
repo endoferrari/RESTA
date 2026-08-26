@@ -36,6 +36,11 @@ export function configuracion() {
     // Si está apagada, RESTA no imprime nada. Sirve para trabajar sin papel
     // un rato sin que se llene la cola de tickets que nadie va a ver.
     activa:    leerAjuste('impresora.activa', '1') === '1',
+    // Y este es el interruptor de SÓLO la comanda de barra/cocina. Con la
+    // barra a dos metros de la caja, ese papel es basura: el mesero le canta
+    // el pedido al cantinero y ya. El ticket del cobro, la cuenta que pide
+    // el cliente y el corte siguen saliendo normales.
+    comanda:   leerAjuste('impresora.comanda', '1') === '1',
     // Los puntos del logo, dibujados una vez por el navegador y guardados.
     // Si no hay, el ticket sale sin logo y ya.
     logoRaster: leerLogo(),
@@ -115,6 +120,7 @@ export function guardarConfiguracion(nueva = {}) {
   if (nueva.velocidad !== undefined) escribirAjuste('impresora.velocidad', Number(nueva.velocidad) || 9600);
   if (nueva.pie !== undefined)       escribirAjuste('ticket.pie', String(nueva.pie));
   if (nueva.activa !== undefined)    escribirAjuste('impresora.activa', nueva.activa ? '1' : '0');
+  if (nueva.comanda !== undefined)   escribirAjuste('impresora.comanda', nueva.comanda ? '1' : '0');
 
   return configuracion();
 }
@@ -138,9 +144,21 @@ function mandar(documento, nombre, descripcion, { abrirCajon = false } = {}) {
 
 /* ── Lo que se imprime ─────────────────────────────────────────────────── */
 
-/** A barra o cocina: lo que se acaba de mandar a preparar. */
+/**
+ * A barra o cocina: lo que se acaba de mandar a preparar.
+ *
+ * Es lo único que se puede apagar por separado. El mesero sigue tocando
+ * «Mandar a barra» y el sistema sigue marcando qué salió —así la caja sabe
+ * qué ya se está preparando y qué no—; lo único que no pasa es que se gaste
+ * papel. El ticket del cobro y la cuenta del cliente NO se ven afectados.
+ */
 export function imprimirComanda({ cuenta, salieron, mesero }) {
   const config = configuracion();
+
+  if (!config.comanda) {
+    return { impreso: false, motivo: 'La comanda está puesta en «sin papel».' };
+  }
+
   return mandar(
     comanda({ negocio: config.negocio, cuenta, salieron, mesero }),
     'comanda',

@@ -110,14 +110,46 @@ function ponerUsuario(r) {
   $('boton-ir-corte').hidden = !estado.permisos.includes('corte.ver');
   // Configurar la carta y dar de alta gente es sólo del administrador.
   $('boton-ir-config').hidden = !estado.permisos.includes('ajustes.cambiar');
-  // El almacén lo ve caja también: es quien está de noche y necesita saber
-  // si aguanta hasta mañana.
-  $('boton-ir-almacen').hidden = !estado.permisos.includes('corte.ver');
+  aplicarBotonAlmacen();
+}
+
+/**
+ * El botón del almacén aparece si se cumplen DOS cosas: que este bar lleve
+ * inventario y que la persona sea de caja o administración (es quien está de
+ * noche y necesita saber si aguanta hasta mañana).
+ *
+ * Con el inventario apagado no se enseña a nadie: un bar que apenas está
+ * aprendiendo a cobrar no tiene por qué cargar con un módulo que todavía no
+ * puede mantener. Se enciende en Configuración → El sistema.
+ */
+function aplicarBotonAlmacen() {
+  $('boton-ir-almacen').hidden =
+    !estado.almacen.activo || !estado.permisos.includes('corte.ver');
+}
+
+/** Le pregunta al servidor si este bar lleva inventario. */
+export async function cargarEstadoAlmacen() {
+  try {
+    const r = await api.estadoAlmacen();
+    estado.almacen = {
+      activo: r.activo, arqueoHecho: r.arqueoHecho,
+      arqueoFecha: r.arqueoFecha, controlados: r.controlados,
+    };
+  } catch { /* si no se pudo preguntar, se queda como estaba */ }
+
+  aplicarBotonAlmacen();
+
+  // Si estaba mirando el almacén justo cuando lo apagaron desde otra tablet,
+  // no puede quedarse ahí: se va a Mesas, que siempre existe.
+  if (!estado.almacen.activo && estado.vista === 'almacen') volverAMesas();
 }
 
 async function entrar(r) {
   ponerUsuario(r);
-  await Promise.all([cargarCarta(), cargarMesas(), cargarImpresora(), cargarCorte()]);
+  await Promise.all([
+    cargarCarta(), cargarMesas(), cargarImpresora(), cargarCorte(),
+    cargarEstadoAlmacen(),
+  ]);
 
   // Si la caja no está abierta, no tiene sentido enseñar las mesas: lo
   // primero de la noche es abrir la caja. Se entra directo a esa pantalla,
@@ -161,7 +193,13 @@ conectar({
     if (mensaje.tipo === 'turno.cambio') cargarCorte();
 
     // Otra pantalla movió el almacén (llegó un pedido, se anotó una merma).
-    if (mensaje.tipo === 'almacen.cambio' && estado.vista === 'almacen') cargarAlmacen();
+    if (mensaje.tipo === 'almacen.cambio') {
+      // Si lo que cambió fue el interruptor —lo encendieron o lo apagaron—,
+      // la barra lateral de TODAS las tablets tiene que enterarse, estén
+      // donde estén.
+      if ('activo' in mensaje) cargarEstadoAlmacen();
+      else if (estado.vista === 'almacen') cargarAlmacen();
+    }
 
     // Se abrió o se cerró una mesa.
     if (mensaje.tipo === 'cuentas.cambio') cargarMesas();
@@ -280,8 +318,15 @@ iniciarImpresora(volverAMesas);
 iniciarAncho();
 alTocarFoquito(() => { cargarImpresora(); ir('impresora'); });
 iniciarCorte(volverAMesas, volverAMesas);
-iniciarConfiguracion(volverAMesas);
+iniciarConfiguracion(volverAMesas, async () => {
+  await cargarAlmacen();
+  ir('almacen');
+});
 iniciarAlmacen(volverAMesas);
+
+// Alguien encendió o apagó el inventario desde Configuración: la barra
+// lateral se rehace en el acto.
+globalThis.addEventListener('resta:almacen-cambio', () => { cargarEstadoAlmacen(); });
 
 $('boton-ir-almacen').addEventListener('click', async () => {
   await cargarAlmacen();

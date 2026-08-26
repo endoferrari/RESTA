@@ -58,8 +58,18 @@ function pintarFoquito() {
   foco.hidden = false;
   foco.className = `foquito foquito-${e.luz}`;
   foco.title = e.mensaje;
+
+  // Lleva la palabra «Impresora» escrita, no sólo el foquito de color. Antes
+  // era una pastilla con un punto adentro y nada más: en la barra lateral se
+  // veía como un botón vacío y nadie adivinaba que ahí se entra a configurar
+  // la impresora. El color sigue siendo lo que se ve de lejos; el renglón de
+  // abajo dice en qué está («Lista», «2 en cola», el error).
   foco.innerHTML =
     `<span class="foco"></span>` +
+    '<span class="foquito-texto">' +
+      '<span class="foquito-que">🖨️ Impresora</span>' +
+      `<span class="foquito-como">${esc(e.mensaje)}</span>` +
+    '</span>' +
     (e.pendientes ? `<span class="foco-cuantos">${e.pendientes}</span>` : '');
 }
 
@@ -121,6 +131,7 @@ export function pintarImpresora() {
   $('impresora-com').value = c.com ?? '';
   $('impresora-pie').value = c.pie ?? '';
   $('impresora-activa').checked = !!c.activa;
+  $('impresora-comanda').checked = !!c.comanda;
 
   for (const boton of $('impresora-ancho').querySelectorAll('[data-ancho]')) {
     boton.classList.toggle('activo', Number(boton.dataset.ancho) === c.anchoMm);
@@ -176,11 +187,14 @@ async function guardar(e) {
       com: $('impresora-com').value,
       pie: $('impresora-pie').value,
       activa: $('impresora-activa').checked,
+      comanda: $('impresora-comanda').checked,
     });
     datos.configuracion = r.configuracion;
     datos.estado = r.estado;
     pintarImpresora();
-    avisar('Impresora guardada');
+    avisar(r.configuracion.comanda
+      ? 'Impresora guardada'
+      : 'Guardado. La comanda de barra ya no sale en papel.');
   } catch (err) {
     avisar(err.message, true);
   }
@@ -264,4 +278,17 @@ export function iniciarAncho() {
 /** ¿Se le enseña el botón de la impresora a esta persona? */
 export function puedeVerImpresora() {
   return puede('impresora.operar') || puede('ajustes.cambiar');
+}
+
+/**
+ * ¿La comanda sale en papel?
+ *
+ * Lo pregunta la pantalla de la cuenta para escribirlo en el botón: si la
+ * comanda está en «sin papel», el mesero tiene que verlo ANTES de tocar,
+ * no quedarse esperando junto a una impresora que no va a sonar.
+ */
+export function laComandaImprime() {
+  // Si todavía no llegó la configuración se supone que sí: es lo normal, y
+  // equivocarse hacia «sí imprime» sólo hace que el botón diga de más.
+  return datos.configuracion?.comanda !== false;
 }
