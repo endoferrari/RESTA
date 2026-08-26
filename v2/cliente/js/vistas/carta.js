@@ -18,6 +18,26 @@ import { formatear } from '/nucleo/dinero.js';
 
 let alVolver = null;
 
+/**
+ * La ✕ que llevan los avisos que se quedan puestos.
+ *
+ * Estos mensajes NO se van solos a propósito: dicen qué pasó y qué hacer
+ * después —«búscalo en tus Descargas»—, y uno que desaparece a los tres
+ * segundos no sirve de nada. El problema era el otro extremo: tampoco se
+ * iban NUNCA. El «Listo: 74 productos» de bajar el Excel seguía ahí media
+ * hora después, aunque ya se hubiera cambiado de familia, y al rato nadie
+ * sabía si era de ahora o de la mañana.
+ */
+const CERRAR =
+  '<button type="button" class="cerrar-resultado" data-cerrar ' +
+  'aria-label="Quitar este aviso" title="Quitar este aviso">✕</button>';
+
+/** Deja el renglón de avisos en blanco. */
+export function limpiarResultadoCarta() {
+  const caja = $('resultado-carta');
+  if (caja) caja.innerHTML = '';
+}
+
 export function iniciarCarta(cuandoVuelva) {
   alVolver = cuandoVuelva;
 
@@ -25,7 +45,14 @@ export function iniciarCarta(cuandoVuelva) {
     const b = e.target.closest('[data-familia]');
     if (!b) return;
     estado.familiaActiva = b.dataset.familia;
+    // Cambiar de familia es empezar a mirar otra cosa: el aviso de lo
+    // anterior ya no viene a cuento.
+    limpiarResultadoCarta();
     pintarCarta();
+  });
+
+  $('resultado-carta').addEventListener('click', (e) => {
+    if (e.target.closest('[data-cerrar]')) limpiarResultadoCarta();
   });
 
   $('productos-carta').addEventListener('click', alTocarProducto);
@@ -43,7 +70,7 @@ export async function cargarCarta() {
     pintarCarta();
   } catch (e) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">No pude traer la carta: ${esc(e.message)}</div>`;
+      `<div class="caja-error">${CERRAR}No pude traer la carta: ${esc(e.message)}</div>`;
   }
 }
 
@@ -102,7 +129,7 @@ function alTocarProducto(e) {
 
 function mostrar(texto) {
   $('resultado-carta').innerHTML =
-    `<div class="caja-exito" style="white-space:pre-line">${esc(texto)}</div>`;
+    `<div class="caja-exito" style="white-space:pre-line">${CERRAR}${esc(texto)}</div>`;
 }
 
 /* ── Bajar la carta a una hoja de cálculo ──────────────────────────────── */
@@ -142,7 +169,7 @@ async function bajarLaCarta(formato) {
     }
 
     $('resultado-carta').innerHTML = `
-      <div class="caja-exito">
+      <div class="caja-exito">${CERRAR}
         <b>Listo: ${r.filas.length} producto(s) en el archivo.</b><br>
         Búscalo en tus Descargas, ábrelo, corrige lo que quieras y vuelve con
         <b>«📤 Subir la hoja llena»</b>.
@@ -152,7 +179,7 @@ async function bajarLaCarta(formato) {
       </div>`;
   } catch (e) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">No se pudo armar el archivo: ${esc(e.message)}</div>`;
+      `<div class="caja-error">${CERRAR}No se pudo armar el archivo: ${esc(e.message)}</div>`;
   }
 }
 
@@ -197,7 +224,7 @@ async function importarRespaldo(e) {
     filas = await leerTabla(archivo);
   } catch (err) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">${esc(err.message)}</div>`;
+      `<div class="caja-error">${CERRAR}${esc(err.message)}</div>`;
     return;
   }
 
@@ -225,7 +252,7 @@ async function importarRespaldo(e) {
 
   if (buenos.length === 0) {
     $('resultado-carta').innerHTML = `
-      <div class="caja-error">
+      <div class="caja-error">${CERRAR}
         No encontré productos en ese archivo.<br>
         Necesita, al menos, una columna con el nombre y otra al lado con el precio.
       </div>`;
@@ -322,7 +349,7 @@ async function importarRespaldo(e) {
 
     const i = r.informe;
     $('resultado-carta').innerHTML = `
-      <div class="caja-exito">
+      <div class="caja-exito">${CERRAR}
         <b>Listo</b>
         <ul>
           ${i.nuevos ? `<li>${i.nuevos} producto(s) nuevo(s)</li>` : ''}
@@ -336,7 +363,7 @@ async function importarRespaldo(e) {
     avisar(`${i.nuevos + i.actualizados} producto(s) importado(s)`);
   } catch (err) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">No se pudo importar: ${esc(err.message)}</div>`;
+      `<div class="caja-error">${CERRAR}No se pudo importar: ${esc(err.message)}</div>`;
   }
 }
 
@@ -379,7 +406,7 @@ async function subirPlantillaLlena(archivo, productos) {
 
   if (renglones.length === 0) {
     $('resultado-carta').innerHTML = `
-      <div class="caja-error">
+      <div class="caja-error">${CERRAR}
         Esa hoja no trae ningún producto con precio. Revisa que la columna
         <b>Precio</b> tenga números y vuelve a intentar.
       </div>`;
@@ -391,7 +418,7 @@ async function subirPlantillaLlena(archivo, productos) {
     revision = await api.revisarPlantilla(renglones);
   } catch (e) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">No se pudo revisar el archivo: ${esc(e.message)}</div>`;
+      `<div class="caja-error">${CERRAR}No se pudo revisar el archivo: ${esc(e.message)}</div>`;
     return;
   }
 
@@ -479,7 +506,7 @@ async function subirPlantillaLlena(archivo, productos) {
 
     const i = r.informe;
     $('resultado-carta').innerHTML = `
-      <div class="caja-exito">
+      <div class="caja-exito">${CERRAR}
         <b>Carta actualizada</b>
         <ul>
           ${i.nuevos ? `<li>${i.nuevos} producto(s) nuevo(s)</li>` : ''}
@@ -502,7 +529,7 @@ async function subirPlantillaLlena(archivo, productos) {
     avisar('Carta actualizada desde la hoja');
   } catch (err) {
     $('resultado-carta').innerHTML = `
-      <div class="caja-error">
+      <div class="caja-error">${CERRAR}
         No se aplicó nada: ${esc(err.message)}<br>
         <span class="sutil">La carta quedó como estaba.</span>
       </div>`;
@@ -518,7 +545,7 @@ async function importarRespaldoV1(archivo) {
     datos = JSON.parse(await archivo.text());
   } catch {
     $('resultado-carta').innerHTML =
-      '<div class="caja-error">Ese archivo no se puede leer: no es un respaldo de RESTA.</div>';
+      `<div class="caja-error">${CERRAR}Ese archivo no se puede leer: no es un respaldo de RESTA.</div>`;
     return;
   }
 
@@ -548,13 +575,13 @@ async function importarRespaldoV1(archivo) {
     ponerMenu(r.menu);
     pintarCarta();
     $('resultado-carta').innerHTML = `
-      <div class="caja-exito">
+      <div class="caja-exito">${CERRAR}
         <b>Respaldo importado</b>
         <ul>${r.resumen.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
       </div>`;
     avisar('Respaldo importado');
   } catch (err) {
     $('resultado-carta').innerHTML =
-      `<div class="caja-error">No se pudo importar: ${esc(err.message)}</div>`;
+      `<div class="caja-error">${CERRAR}No se pudo importar: ${esc(err.message)}</div>`;
   }
 }

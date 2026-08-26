@@ -21,7 +21,7 @@ import { LOGO_COLOR } from './logo-once.js';
 import { iniciarPin, pintarPin } from './vistas/pin.js';
 import { iniciarMesas, cargarMesas, pintarMesas } from './vistas/mesas.js';
 import { iniciarCuenta, pintarCuenta } from './vistas/cuenta.js';
-import { iniciarCarta, cargarCarta, pintarCarta } from './vistas/carta.js';
+import { iniciarCarta, cargarCarta, pintarCarta, limpiarResultadoCarta } from './vistas/carta.js';
 import { iniciarCobro, empezarCobro, pintarCobro } from './vistas/cobro.js';
 import {
   iniciarImpresora, iniciarAncho, cargarImpresora, pintarImpresora,
@@ -416,7 +416,12 @@ document.addEventListener('pointerdown', () => {
 });
 
 $('boton-salir').addEventListener('click', salir);
-$('boton-ir-carta').addEventListener('click', () => { cargarCarta(); ir('carta'); });
+$('boton-ir-carta').addEventListener('click', () => {
+  // Se entra limpio: el aviso de la vez pasada no tiene por qué seguir ahí.
+  limpiarResultadoCarta();
+  cargarCarta();
+  ir('carta');
+});
 $('boton-ir-mesas').addEventListener('click', volverAMesas);
 
 async function arrancar() {

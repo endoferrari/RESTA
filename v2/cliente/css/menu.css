@@ -137,3 +137,17 @@
   font-size: .92rem;
   font-weight: 600;
 }
+
+/* La ✕ de los avisos que se quedan puestos.
+   Va flotando a la derecha para no empujar el texto ni robarle un renglón. */
+.caja-exito, .caja-error { position: relative; padding-right: 44px; }
+
+.cerrar-resultado {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 99px;
+  background: none; color: inherit;
+  opacity: .55; font-size: .8rem; cursor: pointer;
+}
+.cerrar-resultado:hover { opacity: 1; background: rgba(255, 255, 255, .7); }

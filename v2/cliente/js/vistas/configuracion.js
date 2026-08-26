@@ -28,6 +28,7 @@ let seccion = 'productos';          // 'productos' · 'familias' · 'personas'
 let datos = { familias: [], productos: [], usuarios: [] };
 let editando = null;                 // id del producto que se está cambiando
 let familiaFiltro = null;
+let submenuSinGuardar = false;       // se tocó el submenú y todavía no se guarda
 
 const EMOJIS = [
   '🍽️','🍺','🍻','🥃','🍸','🍹','🍷','🍶','☕','🍵','🥤','🧃','💧','🫧','⚡',
@@ -460,11 +461,20 @@ function pintarResumenSubmenu() {
 
   $('boton-submenu').textContent = preguntas.length ? '⚙️ Cambiar el submenú' : '⚙️ Armar submenú';
 
+  // Cerrar la ventana del armador NO guarda el producto, y eso no se ve por
+  // ningún lado: la pantalla ya enseña el submenú nuevo, así que parece
+  // hecho. Este renglón se queda puesto hasta que se guarde de verdad.
+  const pendiente = submenuSinGuardar
+    ? `<span class="sm-resumen-pendiente">
+         ⚠️ Falta darle a «${esc($('boton-guardar-producto').textContent.trim())}»
+       </span>`
+    : '';
+
   if (!preguntas.length) {
     caja.innerHTML = `
       <span class="sm-resumen-vacio">
         Sin submenú. Este producto se anota de un toque, sin preguntar nada.
-      </span>`;
+      </span>${pendiente}`;
     return;
   }
 
@@ -474,7 +484,7 @@ function pintarResumenSubmenu() {
       <small>${p.ops.length} ${p.ops.length === 1 ? 'respuesta' : 'respuestas'}</small>
       ${p.multi ? '<small class="sm-resumen-marca">varias</small>' : ''}
       ${p.si ? `<small class="sm-resumen-marca">si ${esc(p.si.join(' / '))}</small>` : ''}
-    </span>`).join('');
+    </span>`).join('') + pendiente;
 }
 
 /** Tocar el resumen abre el armador, igual que el botón. */
@@ -494,8 +504,20 @@ async function armarSubmenu() {
   if (nuevo === null) return;                 // se arrepintió, no se toca nada
 
   $('prod-opciones').value = nuevo;
+  submenuSinGuardar = true;
   pintarResumenSubmenu();
-  avisar(nuevo ? 'Submenú listo — dale «guardar» para que quede' : 'Submenú quitado');
+
+  // El aviso NOMBRA el botón que falta tocar, y dice lo mismo tanto si se
+  // armó el submenú como si se quitó.
+  //
+  // Antes, quitarlo contestaba «Submenú quitado», que suena a hecho y
+  // cerrado. No lo estaba: cerrar la ventana no guarda el producto. Pasó de
+  // verdad con las Sabritas — se quitó el submenú, la pantalla lo dejó de
+  // enseñar, y en la base seguía puesto.
+  const boton = $('boton-guardar-producto').textContent.trim();
+  avisar(nuevo
+    ? `Submenú armado — falta darle a «${boton}» para que quede`
+    : `Submenú quitado — falta darle a «${boton}» para que quede`);
 }
 
 function pintarFiltro() {
@@ -603,6 +625,7 @@ async function guardarProducto(e) {
 
 function limpiarFormulario() {
   editando = null;
+  submenuSinGuardar = false;
   $('prod-nombre').value = '';
   $('prod-precio').value = '';
   $('prod-opciones').value = '';
@@ -613,6 +636,7 @@ function limpiarFormulario() {
 
 function cargarEnFormulario(p) {
   editando = p.id;
+  submenuSinGuardar = false;   // se abre limpio: lo que hay es lo que está guardado
 
   // pintarFormulario() vuelve a escribir la lista de familias, y al hacerlo
   // el desplegable se va a la primera opción. Si se pone la familia ANTES,

@@ -926,6 +926,17 @@ textarea.campo { font-family: var(--letra); resize: vertical; line-height: 1.5; 
 
 .sm-abrir { align-self: flex-start; }
 
+/* «Falta guardar»: se queda puesto hasta que el producto se guarde de verdad. */
+.sm-resumen-pendiente {
+  display: inline-flex; align-items: center;
+  background: var(--aviso-fondo);
+  border: 1px solid var(--aviso-linea);
+  color: var(--aviso);
+  border-radius: 99px;
+  padding: 7px 14px;
+  font-size: .85rem; font-weight: 700;
+}
+
 /* ── Arranque: plantillas y copiar de otro producto ────────────────────── */
 .sm-arranque {
   background: var(--fondo);
