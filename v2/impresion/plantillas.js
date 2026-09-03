@@ -30,6 +30,18 @@ function ahora() {
   };
 }
 
+/**
+ * «2026-09-02 21:34:07» → «02/09/2026 21:34».
+ * Hace falta para las copias: si el cliente vuelve mañana por su
+ * comprobante, la fecha que importa es la del cobro, no la del papel.
+ */
+function momentoLegible(momento) {
+  const [dia, hora = ''] = String(momento).split(/[ T]/);
+  const [anio, mes, num] = dia.split('-');
+  if (!anio || !mes || !num) return String(momento);
+  return `${num}/${mes}/${anio} ${hora.slice(0, 5)}`.trim();
+}
+
 /** El encabezado que llevan todos: logo, nombre del negocio y fecha. */
 function encabezado(negocio, subtitulo = null, raster = null) {
   const { fecha, hora } = ahora();
@@ -129,10 +141,20 @@ export function cuenta({ negocio, cuenta: c, pie, logoRaster = null }) {
 
 /* ── TICKET (ya pagó) ──────────────────────────────────────────────────── */
 
-export function ticket({ negocio, ticket: t, cuenta: c, pie, logoRaster = null }) {
-  const doc = [...encabezado(negocio, null, logoRaster)];
+export function ticket({ negocio, ticket: t, cuenta: c, pie, logoRaster = null, copia = false }) {
+  // La copia se marca desde arriba, antes que nada. Dos papeles idénticos con
+  // el mismo folio son un agujero en la caja: el día que se cuadre a mano,
+  // uno de los dos se contaría de más. Y si el ticket está anulado eso pesa
+  // todavía más que la copia: ese cobro se deshizo, no es comprobante de nada.
+  const marca = t.anulado ? 'TICKET ANULADO' : copia ? 'COPIA' : null;
+  const doc = [...encabezado(negocio, marca, logoRaster)];
 
   doc.push(dosColumnas(`Ticket ${t.folio}`, soloImprimible(t.nombre), { negrita: true }));
+
+  // En una copia, la fecha del encabezado es la de HOY —la del papel—, no la
+  // del cobro. Si el cliente vuelve al día siguiente, la que vale es ésta.
+  if (copia && t.momento) doc.push(texto(`Cobrado el ${momentoLegible(t.momento)}`));
+
   if (t.cerradoPor) doc.push(texto(`Le atendió: ${soloImprimible(t.cerradoPor)}`));
   doc.push(separador());
 
@@ -157,6 +179,9 @@ export function ticket({ negocio, ticket: t, cuenta: c, pie, logoRaster = null }
   }
 
   doc.push(salto());
+  if (copia) {
+    doc.push(texto(`Copia del ticket ${t.folio}. No es un cobro nuevo.`, { alinear: 'centro' }));
+  }
   doc.push(texto(soloImprimible(pie ?? '¡Gracias por su visita!'), { alinear: 'centro' }));
   doc.push(cortar());
   return doc;

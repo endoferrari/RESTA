@@ -243,6 +243,19 @@
       </div>
     </div>
 
+    <!-- Los últimos tickets ──────────────────────────────────────────────
+         Aquí se viene cuando un cliente pide su comprobante después de que
+         se cerró la ventana del cobro. Se llena SOLO al entrar, con lo de
+         hoy: buscar un ticket para reimprimirlo no puede costar teclear una
+         fecha. Los días de atrás se consultan en el bloque de abajo.
+
+         Va fuera de «turno abierto» a propósito: el cliente que vuelve por su
+         comprobante puede llegar antes de que se abra la caja. -->
+    <div class="tarjeta bloque-corte" id="corte-ultimos">
+      <div class="titulo-bloque">Últimos tickets</div>
+      <div id="corte-ultimos-lista"></div>
+    </div>
+
     <!-- Ventas de un día ─────────────────────────────────────────────────
          Aparte del corte del turno, y siempre visible: las ventas que se
          importan de la v1 no pertenecen a ningún turno —la v1 no sabía de
@@ -473,6 +486,23 @@
             Si lo apagas, «Mandar a barra» sigue funcionando y RESTA sigue
             sabiendo qué se está preparando — sólo que no sale papel. El ticket
             del cobro, la cuenta del cliente y el corte no se tocan.
+          </span>
+        </span>
+      </label>
+
+      <!-- El interruptor del COMPROBANTE del cobro. Casi nadie se lleva el
+           ticket y el rollo cuesta dinero. Al que sí lo pide se le imprime
+           con el botón, y ese papel sale marcado COPIA. -->
+      <label class="casilla-linea">
+        <input type="checkbox" id="impresora-ticket">
+        <span>
+          Imprimir el comprobante al cobrar.
+          <span class="sutil">
+            Si lo apagas, la cuenta se cierra igual y su ticket queda guardado
+            con su folio — lo único que no pasa es que salga papel. Al cliente
+            que lo pida se le imprime con el botón <b>🧾 Comprobante</b>, que
+            sale en la ventana de «cuenta cerrada» y en Corte → Ver un día. El
+            cajón de dinero se sigue abriendo solo al cobrar en efectivo.
           </span>
         </span>
       </label>

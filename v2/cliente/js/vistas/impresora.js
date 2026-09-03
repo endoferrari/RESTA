@@ -132,6 +132,7 @@ export function pintarImpresora() {
   $('impresora-pie').value = c.pie ?? '';
   $('impresora-activa').checked = !!c.activa;
   $('impresora-comanda').checked = !!c.comanda;
+  $('impresora-ticket').checked = !!c.ticket;
 
   for (const boton of $('impresora-ancho').querySelectorAll('[data-ancho]')) {
     boton.classList.toggle('activo', Number(boton.dataset.ancho) === c.anchoMm);
@@ -188,13 +189,22 @@ async function guardar(e) {
       pie: $('impresora-pie').value,
       activa: $('impresora-activa').checked,
       comanda: $('impresora-comanda').checked,
+      ticket: $('impresora-ticket').checked,
     });
     datos.configuracion = r.configuracion;
     datos.estado = r.estado;
     pintarImpresora();
-    avisar(r.configuracion.comanda
-      ? 'Impresora guardada'
-      : 'Guardado. La comanda de barra ya no sale en papel.');
+    // El aviso dice qué quedó apagado. Que el papel deje de salir sin que
+    // nadie lo diga es la forma más rápida de que en la caja crean que la
+    // impresora se descompuso.
+    const apagados = [
+      r.configuracion.comanda ? null : 'la comanda de barra',
+      r.configuracion.ticket ? null : 'el comprobante del cobro',
+    ].filter(Boolean);
+
+    avisar(apagados.length
+      ? `Guardado. Ya no sale en papel: ${apagados.join(' ni ')}.`
+      : 'Impresora guardada');
   } catch (err) {
     avisar(err.message, true);
   }

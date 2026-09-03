@@ -15,6 +15,7 @@
 import { api } from '../api.js';
 import { estado, puede } from '../estado.js';
 import { $, esc, avisar, confirmar, pedirTexto, ventana } from '../ui.js';
+import { pedirComprobante } from '../comprobante.js';
 import { formatear } from '/nucleo/dinero.js';
 
 let alVolver = null;
@@ -178,9 +179,15 @@ async function cerrarPorCortesia() {
       titulo: `Cuenta cerrada · ticket ${r.ticket.folio}`,
       cuerpo: `<p class="texto-ventana" style="text-align:center">
                  <b>${esc(r.cuenta.nombre)}</b> se cerró de cortesía.<br>
-                 <span class="sutil">No entró dinero. El almacén ya se ajustó.</span>
+                 <span class="sutil" id="estado-comprobante">No entró dinero. El almacén ya se ajustó.</span>
                </p>`,
-      botones: [{ texto: 'Listo', valor: true, clase: 'btn-ambar' }],
+      botones: [
+        {
+          texto: '🧾 Comprobante',
+          valor: (fondo) => { pedirComprobante(r.ticket.folio, fondo); return undefined; },
+        },
+        { texto: 'Listo', valor: true, clase: 'btn-ambar' },
+      ],
     });
 
     alCerrarCuenta?.();
@@ -631,22 +638,36 @@ async function cobrar() {
         // Se dice qué pasó con el papel de verdad: si la impresora está
         // apagada en los ajustes, o si el ticket quedó en la cola esperando,
         // quien cobró tiene que enterarse ahí mismo.
+        //
+        // Y si el comprobante está en «sólo si lo piden», este renglón es el
+        // que le dice a la caja qué botón tocar cuando el cliente lo pida.
         const papel = r.impresion?.impreso
           ? `Ticket ${r.ticket.folio} · va en camino a la impresora.`
-          : `Ticket ${r.ticket.folio} guardado. ${esc(r.impresion?.motivo ?? 'No se imprimió.')}`;
+          : `Ticket ${r.ticket.folio} guardado. ${esc(r.impresion?.motivo ?? 'No se imprimió.')} ` +
+            'Si el cliente lo pide, toca «Comprobante».';
 
         partes.push(`
           <p class="texto-ventana" style="text-align:center">
             <b>${esc(r.cuenta.nombre)}</b> quedó pagada ·
             total <b>${formatear(r.ticket.totales.total)}</b><br>
-            <span style="color:var(--tinta-suave);font-size:.88rem">${papel}</span>
+            <span id="estado-comprobante"
+                  style="color:var(--tinta-suave);font-size:.88rem">${papel}</span>
           </p>`);
       }
 
       await ventana({
         titulo: r.ticket ? `Cuenta cerrada · ticket ${r.ticket.folio}` : 'Cobrado',
         cuerpo: partes.join(''),
-        botones: [{ texto: 'Listo', valor: true, clase: 'btn-ambar' }],
+        // El botón del comprobante NO cierra la ventana: si el papel sale
+        // mordido —o la impresora estaba dormida— se toca otra vez sin tener
+        // que ir a buscar el ticket a ninguna parte.
+        botones: [
+          ...(r.ticket ? [{
+            texto: '🧾 Comprobante',
+            valor: (fondo) => { pedirComprobante(r.ticket.folio, fondo); return undefined; },
+          }] : []),
+          { texto: 'Listo', valor: true, clase: 'btn-ambar' },
+        ],
       });
     }
 

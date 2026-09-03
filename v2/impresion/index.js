@@ -41,6 +41,13 @@ export function configuracion() {
     // el pedido al cantinero y ya. El ticket del cobro, la cuenta que pide
     // el cliente y el corte siguen saliendo normales.
     comanda:   leerAjuste('impresora.comanda', '1') === '1',
+    // Y este otro es el del COMPROBANTE DEL COBRO. Apagado, la cuenta se
+    // cierra igual y su ticket queda guardado con su folio: lo único que no
+    // pasa es que salga papel. Casi nadie se lleva el ticket, y ese rollo
+    // cuesta dinero. Al que sí lo pida se le imprime con un botón —en la
+    // misma ventana de «cuenta cerrada», o después desde la lista del día—
+    // y ese papel sale marcado COPIA.
+    ticket:    leerAjuste('impresora.ticket', '1') === '1',
     // Los puntos del logo, dibujados una vez por el navegador y guardados.
     // Si no hay, el ticket sale sin logo y ya.
     logoRaster: leerLogo(),
@@ -121,6 +128,7 @@ export function guardarConfiguracion(nueva = {}) {
   if (nueva.pie !== undefined)       escribirAjuste('ticket.pie', String(nueva.pie));
   if (nueva.activa !== undefined)    escribirAjuste('impresora.activa', nueva.activa ? '1' : '0');
   if (nueva.comanda !== undefined)   escribirAjuste('impresora.comanda', nueva.comanda ? '1' : '0');
+  if (nueva.ticket !== undefined)    escribirAjuste('impresora.ticket', nueva.ticket ? '1' : '0');
 
   return configuracion();
 }
@@ -184,16 +192,41 @@ export function imprimirCuenta({ cuenta }) {
 /**
  * El comprobante de que ya pagó.
  * Si hubo efectivo, se abre el cajón de dinero al imprimirlo.
+ *
+ * `copia` es para cuando el cliente lo pide después: ese papel sale marcado,
+ * para que dos tickets con el mismo folio no se puedan contar dos veces al
+ * cuadrar la caja. Y `forzar` es lo que hace que la copia salga AUNQUE el
+ * comprobante esté apagado — que es justo el caso para el que se hizo: no se
+ * imprime de rutina, se imprime al que lo pide.
  */
-export function imprimirTicket({ ticket, cuenta }) {
+export function imprimirTicket({ ticket, cuenta, copia = false, forzar = false }) {
   const config = configuracion();
   const huboEfectivo = (ticket.pagos ?? []).some((p) => p.metodo === 'efectivo');
 
+  if (!config.ticket && !forzar) {
+    // El papel no sale, pero el cajón SÍ se tiene que abrir: quien cobró en
+    // efectivo necesita el cajón para dar el cambio, y hasta hoy eso pasaba
+    // de rebote, pegado al ticket. Es un pulso solo, sin papel: un documento
+    // vacío no alimenta el rollo ni lo corta.
+    if (huboEfectivo) mandar([], 'cajon', `cajón (ticket ${ticket.folio})`, { abrirCajon: true });
+
+    return {
+      impreso: false,
+      cajon: huboEfectivo,
+      motivo: 'El comprobante está en «sólo si lo piden».',
+    };
+  }
+
   return mandar(
-    plantillaTicket({ negocio: config.negocio, ticket, cuenta, pie: config.pie, logoRaster: config.logoRaster }),
+    plantillaTicket({
+      negocio: config.negocio, ticket, cuenta,
+      pie: config.pie, logoRaster: config.logoRaster, copia,
+    }),
     'ticket',
-    `ticket ${ticket.folio}`,
-    { abrirCajon: huboEfectivo },
+    copia ? `copia del ticket ${ticket.folio}` : `ticket ${ticket.folio}`,
+    // Una copia NO abre el cajón: el cliente ya pagó y ya se le dio su
+    // cambio. Abrirlo de nuevo es enseñarle el dinero a quien pase por ahí.
+    { abrirCajon: huboEfectivo && !copia },
   );
 }
 

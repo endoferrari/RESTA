@@ -16,6 +16,7 @@
 import { api } from '../api.js';
 import { estado } from '../estado.js';
 import { $, esc, avisar, confirmar, ventana } from '../ui.js';
+import { pedirComprobante } from '../comprobante.js';
 import { formatear } from '/nucleo/dinero.js';
 
 let alVolver = null;
@@ -33,6 +34,13 @@ export function iniciarCorte(cuandoVuelva, cuandoAbraLaCaja) {
   $('boton-imprimir-corte').addEventListener('click', imprimir);
   $('corte-teclado').addEventListener('click', alTocarTecla);
   $('boton-ver-dia').addEventListener('click', verDia);
+
+  // Las listas de tickets se vuelven a pintar enteras cada vez, así que el
+  // toque se escucha en la pantalla y no en cada botón.
+  $('pantalla-corte').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-comprobante]');
+    if (b) pedirComprobante(Number(b.dataset.comprobante));
+  });
 }
 
 /* ── Cargar ────────────────────────────────────────────────────────────── */
@@ -50,6 +58,11 @@ export async function cargarCorte() {
     // El día de hoy queda puesto, que es lo que se consulta el 90% de las veces.
     const campo = $('corte-fecha-dia');
     if (campo && !campo.value) campo.value = new Date().toLocaleDateString('sv-SE');
+
+    // Y los tickets de hoy se traen sin que nadie los pida. Esta pantalla se
+    // recarga sola cada vez que se cobra una mesa (lo hace app.js), así que
+    // la lista está al día sin tener que tocar nada.
+    await cargarUltimos();
   } catch (e) {
     if (e.codigo !== 401 && e.codigo !== 403) avisar(e.message, true);
   }
@@ -358,6 +371,79 @@ async function imprimir() {
   }
 }
 
+/* ── Los últimos tickets ───────────────────────────────────────────────── */
+
+/**
+ * Los tickets de hoy, para volver a sacar un comprobante.
+ *
+ * Es la salida del comprobante apagado: de rutina no sale papel, y al cliente
+ * que lo pide se le imprime desde aquí. Por eso NO se pide fecha ni se toca
+ * ningún botón para verlos: quien viene a esta pantalla ya tiene a alguien
+ * esperando enfrente.
+ */
+const ULTIMOS_DE_ENTRADA = 8;
+let verTodosLosTickets = false;
+let ticketsDeHoy = [];
+
+async function cargarUltimos() {
+  const hoy = new Date().toLocaleDateString('sv-SE');
+  try {
+    const r = await api.ventasDelDia(hoy);
+    // Al revés que en el corte: aquí lo que se busca es lo de hace un rato,
+    // no el primer ticket de la noche.
+    ticketsDeHoy = [...r.dia.tickets].reverse();
+  } catch {
+    ticketsDeHoy = [];         // sin conexión ya hay una barra roja avisando
+  }
+  pintarUltimos();
+}
+
+function pintarUltimos() {
+  const caja = $('corte-ultimos-lista');
+  if (!caja) return;
+
+  if (!ticketsDeHoy.length) {
+    caja.innerHTML = '<p class="sutil">Todavía no se ha cobrado ninguna cuenta hoy.</p>';
+    return;
+  }
+
+  const seVen = verTodosLosTickets ? ticketsDeHoy : ticketsDeHoy.slice(0, ULTIMOS_DE_ENTRADA);
+
+  caja.innerHTML = `
+    <p class="sutil">
+      Toca «Ticket» para darle su comprobante a un cliente. Sale marcado <b>COPIA</b>.
+    </p>
+
+    ${seVen.map((x) => `
+      <div class="fila-total sutil">
+        <span>${String(x.folio).padStart(4, '0')} · ${esc(x.nombre)}
+          <span class="sutil">· ${horaDe(x.momento)}</span></span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <span class="dinero">${formatear(x.total)}</span>
+          <button class="btn btn-chico" data-comprobante="${x.folio}"
+                  title="Imprimir el comprobante">🧾 Ticket</button>
+        </span>
+      </div>`).join('')}
+
+    ${ticketsDeHoy.length > ULTIMOS_DE_ENTRADA ? `
+      <button class="btn btn-chico" id="boton-ver-todos-tickets" style="margin-top:10px">
+        ${verTodosLosTickets
+          ? '▲ Ver sólo los últimos 8'
+          : `▼ Ver los ${ticketsDeHoy.length} de hoy`}
+      </button>` : ''}`;
+
+  $('boton-ver-todos-tickets')?.addEventListener('click', () => {
+    verTodosLosTickets = !verTodosLosTickets;
+    pintarUltimos();
+  });
+}
+
+/** «2026-09-02 21:34:07» → «21:34». La hora es lo que ubica un ticket. */
+function horaDe(momento) {
+  const hora = String(momento ?? '').split(/[ T]/)[1] ?? '';
+  return hora.slice(0, 5);
+}
+
 /* ── Ventas de un día ──────────────────────────────────────────────────── */
 
 /**
@@ -421,11 +507,16 @@ function pintarDia(d) {
     ${metodos}
 
     <div class="titulo-bloque">Los tickets</div>
+    <p class="sutil">Toca «Ticket» para volver a sacar un comprobante de ese día.</p>
     ${d.tickets.map((x) => `
       <div class="fila-total sutil">
         <span>${String(x.folio).padStart(4, '0')} · ${esc(x.nombre)}
           ${x.importado ? '<span class="sutil">· v1</span>' : ''}</span>
-        <span class="dinero">${formatear(x.total)}</span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <span class="dinero">${formatear(x.total)}</span>
+          <button class="btn btn-chico" data-comprobante="${x.folio}"
+                  title="Volver a imprimir el comprobante">🧾 Ticket</button>
+        </span>
       </div>`).join('')}
 
     ${importadas ? `<p class="sutil">${importadas} de esos tickets vienen importados de la

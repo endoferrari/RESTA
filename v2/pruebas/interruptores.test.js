@@ -9,8 +9,14 @@
  *    lista de «qué comprar» ya sepa cuánto se vende un sábado en vez de tener
  *    que aprenderlo desde cero.
  *
- * 2. LA COMANDA PUEDE NO SALIR EN PAPEL, y sólo la comanda: el ticket del
- *    cobro tiene que seguir imprimiéndose pase lo que pase.
+ * 2. LA COMANDA PUEDE NO SALIR EN PAPEL, y sólo la comanda: apagarla no
+ *    puede dejar sin comprobante al cliente.
+ *
+ * 3. EL COMPROBANTE DEL COBRO TAMBIÉN SE PUEDE APAGAR, y entonces el papel
+ *    sólo sale para quien lo pide. Lo que NO se puede perder por ahorrar
+ *    papel es el cajón de dinero —hay que dar el cambio— ni la copia, que
+ *    tiene que salir marcada para que dos papeles con el mismo folio no se
+ *    cuenten dos veces al cuadrar la caja.
  *
  * Y el ARQUEO, que es la puerta de entrada al inventario: anotar una cantidad
  * da de alta el producto, para no tener que marcar cuarenta casillas antes de
@@ -31,6 +37,7 @@ let almacenActivo, estadoDelAlmacen, cambiarAlmacenActivo, arqueoInicial,
     existenciaDe, existencias, paraElArqueo, movimientosDe;
 let configuracion, guardarConfiguracion, imprimirComanda, imprimirTicket,
     estadoImpresion, vaciar;
+let plantillaTicket, aTexto;
 let listarProductos;
 let ADMIN;
 let cerveza, papas, michelada;
@@ -45,6 +52,8 @@ before(async () => {
     configuracion, guardarConfiguracion, imprimirComanda, imprimirTicket,
     estadoImpresion, vaciar,
   } = await import('../impresion/index.js'));
+  ({ ticket: plantillaTicket } = await import('../impresion/plantillas.js'));
+  ({ aTexto } = await import('../impresion/documento.js'));
   ({ listarProductos } = await import('../datos/repos/productos.js'));
   const { crearUsuario } = await import('../datos/repos/usuarios.js');
 
@@ -210,4 +219,99 @@ test('y la impresora entera se puede apagar aparte', () => {
   assert.match(r.motivo, /apagada/);
 
   guardarConfiguracion({ activa: true });
+});
+
+/* ── El comprobante del cobro ──────────────────────────────────────────── */
+
+/** El papel que se encoló, para comprobar qué salió y qué no. */
+const enLaCola = (nombre) => estadoImpresion().cola.some((t) => t.nombre === nombre);
+
+test('de fábrica el comprobante SÍ sale al cobrar', () => {
+  guardarConfiguracion({ activa: true, comanda: true });
+  assert.equal(configuracion().ticket, true,
+    'nadie se queda sin ticket por instalar RESTA: se apaga a propósito o no se apaga');
+});
+
+test('apagado el comprobante, no sale papel pero el cajón sí se abre', () => {
+  vaciar();
+  guardarConfiguracion({ ticket: false });
+
+  const r = imprimirTicket({
+    ticket: { folio: 20, pagos: [{ metodo: 'efectivo', monto: 9000 }], totales: CUENTA.totales },
+    cuenta: CUENTA,
+  });
+
+  assert.equal(r.impreso, false);
+  assert.match(r.motivo, /sólo si lo piden/);
+  assert.equal(enLaCola('ticket'), false, 'no se gasta papel');
+  // Esto es lo que no se puede perder por ahorrar rollo: quien cobra en
+  // efectivo necesita el cajón abierto para dar el cambio.
+  assert.equal(r.cajon, true);
+  vaciar();
+});
+
+test('si pagó con tarjeta y el comprobante está apagado, no se manda nada', () => {
+  vaciar();
+
+  const r = imprimirTicket({
+    ticket: { folio: 21, pagos: [{ metodo: 'tarjeta', monto: 9000 }], totales: CUENTA.totales },
+    cuenta: CUENTA,
+  });
+
+  assert.equal(r.impreso, false);
+  assert.equal(r.cajon, false, 'no hay cambio que dar: el cajón se queda cerrado');
+  assert.equal(estadoImpresion().pendientes, 0);
+});
+
+test('el comprobante que pide el cliente sale AUNQUE esté apagado', () => {
+  vaciar();
+
+  const r = imprimirTicket({
+    ticket: { folio: 22, pagos: [{ metodo: 'efectivo', monto: 9000 }], totales: CUENTA.totales },
+    cuenta: CUENTA, copia: true, forzar: true,
+  });
+
+  assert.equal(r.impreso, true,
+    'si respetara el interruptor, el botón no haría nada justo cuando hace falta');
+
+  vaciar();
+  guardarConfiguracion({ ticket: true });
+});
+
+/** Un ticket de mentiras para mirar el papel sin tocar la base. */
+const TICKET_FALSO = {
+  folio: 23, nombre: 'Mesa 4', momento: '2026-08-30 21:34:07',
+  cerradoPor: 'Ana', pagos: [{ metodo: 'efectivo', monto: 9000 }],
+  totales: { consumo: 9000, cortesias: 0, descuento: 0, subtotal: 9000, propina: 0, total: 9000 },
+};
+
+test('la copia sale marcada, y con la fecha del cobro y no la de hoy', () => {
+  const papel = aTexto(plantillaTicket({
+    negocio: 'ONCE', pie: 'Gracias', ticket: TICKET_FALSO, cuenta: CUENTA, copia: true,
+  }));
+
+  assert.match(papel, /COPIA/,
+    'sin la marca, dos papeles con el mismo folio se cuentan dos veces al cuadrar');
+  assert.ok(papel.includes('30/08/2026 21:34'),
+    'si el cliente vuelve al día siguiente, la fecha que vale es la del cobro');
+  assert.match(papel, /No es un cobro nuevo/);
+});
+
+test('el ticket normal NO lleva esa marca', () => {
+  const papel = aTexto(plantillaTicket({
+    negocio: 'ONCE', pie: 'Gracias', ticket: TICKET_FALSO, cuenta: CUENTA,
+  }));
+
+  assert.doesNotMatch(papel, /COPIA/);
+  assert.doesNotMatch(papel, /No es un cobro nuevo/);
+});
+
+test('un ticket anulado se marca ANULADO, que pesa más que la copia', () => {
+  const papel = aTexto(plantillaTicket({
+    negocio: 'ONCE', pie: 'Gracias', copia: true, cuenta: CUENTA,
+    ticket: { ...TICKET_FALSO, folio: 24, anulado: true },
+  }));
+
+  // Ese cobro se deshizo: el papel no puede parecer un comprobante bueno.
+  assert.match(papel, /ANULADO/);
 });

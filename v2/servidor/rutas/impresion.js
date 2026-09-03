@@ -107,7 +107,14 @@ export function registrarRutasImpresion(app) {
 
   /**
    * Reimprimir un ticket ya cobrado.
-   * Pasa seguido: el cliente pide otra copia, o el papel salió mordido.
+   *
+   * Es la salida del comprobante apagado: de rutina no sale papel, y al que
+   * lo pide se le imprime aquí. Por eso va con `forzar` — si respetara el
+   * interruptor, el botón no haría nada justo cuando hace falta.
+   *
+   * Y va con `copia`, que marca el papel. Sin esa marca habría dos tickets
+   * idénticos con el mismo folio circulando por el bar, y al cuadrar la caja
+   * a mano uno de los dos se contaría de más.
    */
   app.post('/api/tickets/:folio/reimprimir', async (peticion) => {
     const usuario = exigir(peticion, 'cuenta.imprimir');
@@ -117,7 +124,7 @@ export function registrarRutasImpresion(app) {
     if (!ticket) throw alto('Ese ticket no existe.', 404);
 
     const cuenta = buscarCuenta(ticket.cuentaId);
-    const r = imprimirTicket({ ticket, cuenta });
+    const r = imprimirTicket({ ticket, cuenta, copia: true, forzar: true });
 
     anotarEvento({
       tipo: 'ticket.reimprimir', referencia: ticket.cuentaId, usuario,
