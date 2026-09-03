@@ -297,6 +297,17 @@
   .total-flotante { display: flex; }
 }
 
+/* Una tablet acostada (entre 900 y 1200 px) es el caso justo: hay dos
+   columnas, pero al ticket le sobra tan poco ancho que con los ＋/− puestos
+   «Coca-Cola» se parte por el guion. Ahí la cuenta se lleva un poco del lado
+   de los productos. Los productos aguantan ser más angostos —siguen siendo
+   botones grandes con su nombre debajo—; un renglón partido a la mitad, no.
+   Sólo en la pantalla de la cuenta: en la de cobro, la columna de al lado es
+   el teclado del dinero y ése no puede encoger. */
+@media (min-width: 901px) and (max-width: 1200px) {
+  #pantalla-cuenta .dos-columnas { grid-template-columns: 1.05fr 1fr; }
+}
+
 .ticket {
   background: var(--tarjeta);
   border: 1px solid var(--linea);
@@ -312,8 +323,8 @@
 }
 
 .linea {
-  display: flex; gap: 10px; align-items: flex-start;
-  padding: 15px 14px;      /* se toca con el dedo para quitar o marcar */
+  display: flex; gap: 8px; align-items: center;
+  padding: 10px 12px;      /* se toca con el dedo para quitar o marcar */
   min-height: 56px;
   border-bottom: 1px dashed var(--linea);
   cursor: pointer;
@@ -322,9 +333,31 @@
 .linea:last-child { border-bottom: 0; }
 .linea-cant {
   font-weight: 800; color: var(--verde-medio);
-  min-width: 26px; text-align: center;
+  min-width: 22px; text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* El − y el ＋ del renglón.
+   Van pegados a la cantidad, no junto al importe: lo que cambian es ella, y
+   con el dedo encima del dinero uno duda de si va a cobrar algo.
+   36px es lo que mide una yema; más chicos, en una tablet se falla el toque
+   y se acaba abriendo la ventana de quitar sin querer. */
+.pasos { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.paso {
+  width: 36px; height: 36px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--linea); border-radius: 10px;
+  background: var(--tarjeta); color: var(--verde-oscuro);
+  font-size: 1.2rem; font-weight: 800; line-height: 1;
+  cursor: pointer;
+  /* Pedir otras tres es tocar ＋ tres veces seguidas. Sin esto el navegador
+     lo lee como doble toque y hace zoom a la pantalla a media noche. */
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+.paso:hover { background: var(--verde-claro); border-color: var(--verde-medio); }
+.paso:active { transform: scale(.9); }
+
 .linea-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .linea-nombre { font-weight: 600; font-size: .92rem; }
 .linea-detalle { font-size: .8rem; color: var(--tinta-suave); }

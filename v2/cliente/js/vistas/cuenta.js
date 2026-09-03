@@ -97,6 +97,29 @@ function pintarProductos() {
     </button>`).join('');
 }
 
+/**
+ * La cantidad del renglón, con un − y un ＋ a los lados.
+ *
+ * Es lo que pasa toda la noche: la mesa pide otra igual. Sin estos botones
+ * había que volver a buscar el producto en la rejilla y, si tenía submenú,
+ * volver a contestar «derecho o puesto», para repetir algo que el cliente ya
+ * había pedido exactamente igual.
+ *
+ * Un renglón ya cobrado no lleva botones: ni se le suma ni se le quita.
+ */
+function pasosDeLinea(l) {
+  if (l.pagado) return `<span class="linea-cant">${l.cant}</span>`;
+
+  return `
+    <span class="pasos">
+      <button type="button" class="paso" data-paso="menos"
+              aria-label="Quitar uno de ${esc(l.nombre)}">−</button>
+      <span class="linea-cant">${l.cant}</span>
+      <button type="button" class="paso" data-paso="mas"
+              aria-label="Otro ${esc(l.nombre)}">＋</button>
+    </span>`;
+}
+
 function pintarTicket() {
   const c = estado.cuenta;
 
@@ -106,7 +129,7 @@ function pintarTicket() {
   } else {
     $('ticket-lineas').innerHTML = c.items.map((l) => `
       <div class="linea ${l.porComandar > 0 ? 'linea-nueva' : ''}" data-linea="${l.id}">
-        <span class="linea-cant">${l.cant}</span>
+        ${pasosDeLinea(l)}
         <span class="linea-texto">
           <span class="linea-nombre">${esc(l.icono)} ${esc(l.nombre)}</span>
           ${l.detalle ? `<span class="linea-detalle">${esc(l.detalle)}</span>` : ''}
@@ -350,7 +373,22 @@ function preguntarOpciones(p) {
   });
 }
 
-/* ── Quitar un renglón ─────────────────────────────────────────────────── */
+/* ── Sumar y quitar ────────────────────────────────────────────────────── */
+
+/**
+ * Los ＋ y − se atienden de uno en uno, en el orden en que se tocaron.
+ *
+ * Sin esto, tocar ＋ tres veces seguidas manda tres peticiones a la vez: la
+ * segunda y la tercera salen con la versión vieja de la cuenta y el servidor
+ * las rechaza con «esta cuenta cambió mientras la tenías abierta». Se vería
+ * como una falla de la tablet, cuando el único que la estaba tocando era uno
+ * mismo. Puestas en fila, cada una sale ya sabiendo lo que hizo la anterior.
+ */
+let filaDePasos = Promise.resolve();
+
+function enFila(tarea) {
+  filaDePasos = filaDePasos.then(tarea).catch(() => {});
+}
 
 async function alTocarLinea(e) {
   const b = e.target.closest('[data-linea]');
@@ -359,12 +397,18 @@ async function alTocarLinea(e) {
   const linea = estado.cuenta.items.find((l) => l.id === Number(b.dataset.linea));
   if (!linea) return;
 
-  if (linea.pagado) return avisar('Ese renglón ya se cobró.', true);
-
-  // Lo que ya salió a barra no lo quita un mesero: se está preparando.
-  if (estado.usuario.rol === 'mesero' && linea.comandadaCant > 0) {
-    return avisar(`«${linea.nombre}» ya salió a barra. Pídele a la caja que lo quite.`, true);
+  // Los ＋/− viven DENTRO del renglón. Sin esta salida, tocarlos abriría
+  // además la ventana de quitar, encima de lo que se acaba de hacer.
+  const paso = e.target.closest('[data-paso]');
+  if (paso) {
+    enFila(paso.dataset.paso === 'mas'
+      ? () => sumarUno(linea)
+      : () => quitarUno(linea.id));
+    return;
   }
+
+  if (linea.pagado) return avisar('Ese renglón ya se cobró.', true);
+  if (!loPuedeQuitar(linea)) return;
 
   const cuantas = linea.cant === 1
     ? 1
@@ -372,12 +416,8 @@ async function alTocarLinea(e) {
   if (!cuantas) return;
 
   let motivo = null;
-  if (linea.comandadaCant > 0) {
-    motivo = await pedirTexto(
-      'Ya salió a barra o cocina',
-      `¿Por qué se quita «${linea.nombre}»?`,
-      { sugerencias: RAZONES_CANCELACION },
-    );
+  if (tocaLoYaMandado(linea, cuantas)) {
+    motivo = await pedirMotivoDeBaja(linea);
     if (!motivo) return;
   } else {
     const seguro = await confirmar(
@@ -388,13 +428,114 @@ async function alTocarLinea(e) {
     if (!seguro) return;
   }
 
+  if (await mandarQuitar(linea, cuantas, motivo)) avisar('Renglón quitado');
+}
+
+/**
+ * El ＋ del renglón: otro igual, con el mismo detalle.
+ *
+ * No pasa por el submenú a propósito. «Otro igual» ya trae contestado
+ * «puesto, con Coca, sin hielo»; volver a preguntarlo es justo el trabajo que
+ * este botón viene a quitar. Quien quiera uno distinto lo pide desde la
+ * rejilla de productos, como siempre.
+ */
+async function sumarUno(linea) {
+  try {
+    const r = await api.anotar(
+      estado.cuenta.id, linea.productoId, linea.detalle ?? '', 1);
+    estado.cuenta = r.cuenta;
+    pintarCuenta();
+    // Un renglón regalado no se copia regalado: la cortesía se dio a ESE
+    // trago, no al producto. Se dice en el aviso para que la caja no se
+    // encuentre la sorpresa hasta el momento de cobrar.
+    avisar(linea.cortesia
+      ? `${conIcono(linea)}${linea.nombre} · uno más (éste sí se cobra)`
+      : `${conIcono(linea)}${linea.nombre} · uno más`);
+  } catch (err) {
+    avisar(err.message, true);
+  }
+}
+
+/**
+ * El − del renglón: uno menos, sin preguntar «¿seguro?».
+ *
+ * Sin confirmación a propósito: el ＋ está pegado al lado y devuelve al
+ * instante lo que se quitó de más. Preguntar por cada unidad convertiría el
+ * atajo en dos toques, que es justo lo que se quería evitar.
+ *
+ * Lo que YA salió a barra sigue pidiendo motivo, como siempre: ahí no se
+ * está corrigiendo un dedazo, se está anulando algo que la barra prepara.
+ */
+async function quitarUno(lineaId) {
+  // La cuenta pudo cambiar mientras esta orden esperaba su turno en la fila.
+  const linea = estado.cuenta?.items.find((l) => l.id === lineaId);
+  // Ese renglón ya se acabó (el − anterior se llevó la última). No hay nada
+  // que quitar ni nada que explicarle a nadie.
+  if (!linea) return;
+
+  if (linea.pagado) return avisar('Ese renglón ya se cobró.', true);
+  if (!loPuedeQuitar(linea)) return;
+
+  let motivo = null;
+  if (tocaLoYaMandado(linea, 1)) {
+    motivo = await pedirMotivoDeBaja(linea);
+    if (!motivo) return;
+  }
+
+  const quedan = linea.cant - 1;
+  if (await mandarQuitar(linea, 1, motivo)) {
+    avisar(quedan === 0
+      ? `${conIcono(linea)}${linea.nombre} · fuera de la cuenta`
+      : `${conIcono(linea)}${linea.nombre} · quedan ${quedan}`);
+  }
+}
+
+/**
+ * ¿Quitar esas piezas alcanza a algo que la barra ya está preparando?
+ *
+ * El servidor quita primero lo que NO ha salido, así que un renglón con
+ * «2 sin mandar» aguanta dos bajas sin tocar la comanda. Sólo a partir de ahí
+ * se está anulando trabajo hecho, y entonces sí hace falta el motivo.
+ *
+ * Antes bastaba con que el renglón tuviera algo mandado para preguntar. Con
+ * el − eso se volvió un estorbo diario: el mesero manda la comanda, el cliente
+ * pide otra, toca ＋ y se arrepiente — y le salía una ventana pidiendo razones
+ * por una bebida que nadie llegó a preparar.
+ */
+const tocaLoYaMandado = (linea, cuantas) => cuantas > linea.porComandar;
+
+/** El emoji del producto, con su espacio, o nada si ese producto no tiene. */
+const conIcono = (l) => (l.icono ? `${l.icono} ` : '');
+
+/**
+ * Avisa y devuelve false si este renglón no lo puede quitar quien está en la
+ * tablet. Lo que ya salió a barra no lo quita un mesero: si lo pudiera
+ * borrar solo, la barra prepararía algo que nadie va a pagar y nadie se
+ * enteraría. El servidor lo rechaza igual; esto sólo lo explica antes.
+ */
+function loPuedeQuitar(linea) {
+  if (estado.usuario.rol === 'mesero' && linea.comandadaCant > 0) {
+    avisar(`«${linea.nombre}» ya salió a barra. Pídele a la caja que lo quite.`, true);
+    return false;
+  }
+  return true;
+}
+
+const pedirMotivoDeBaja = (linea) => pedirTexto(
+  'Ya salió a barra o cocina',
+  `¿Por qué se quita «${linea.nombre}»?`,
+  { sugerencias: RAZONES_CANCELACION },
+);
+
+/** Manda el quitar y repinta. Devuelve si se pudo. */
+async function mandarQuitar(linea, cuantas, motivo) {
   try {
     const r = await api.quitar(estado.cuenta.id, linea.id, {
       cant: cuantas, motivo, version: estado.cuenta.version,
     });
     estado.cuenta = r.cuenta;
     pintarCuenta();
-    avisar('Renglón quitado');
+    return true;
   } catch (err) {
     // Si otro mesero cambió la cuenta mientras tanto, el servidor manda la
     // cuenta como está ahora y la pantalla se corrige sola.
@@ -403,6 +544,7 @@ async function alTocarLinea(e) {
       pintarCuenta();
     }
     avisar(err.message, true);
+    return false;
   }
 }
 
