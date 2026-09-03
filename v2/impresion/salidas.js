@@ -21,7 +21,7 @@
  */
 
 import { createConnection } from 'node:net';
-import { writeFile, appendFile, mkdir } from 'node:fs/promises';
+import { writeFile, appendFile, mkdir, unlink as borrar } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -206,11 +206,11 @@ Write-Output "OK"
 /* ── Puerto COM (Bluetooth clásico) ────────────────────────────────────── */
 
 /**
- * Escribe directo al puerto serie.
+ * Manda el ticket por un puerto serie.
  *
- * En Windows, un puerto COM se puede abrir como si fuera un archivo. Antes
- * hay que configurarle la velocidad con `mode`, porque si no queda a 1200
- * baudios y el ticket tarda una eternidad o sale cortado.
+ * Intenta primero el puerto apuntado en la configuración. Si ése no contesta,
+ * le pregunta a Windows en cuál quedó la impresora —el número cambia solo al
+ * reemparejar— y lo dice de vuelta en `corregido`, para que quede apuntado.
  *
  * ⚠️ Esto sólo funciona con Bluetooth CLÁSICO (SPP). Si la impresora es BLE,
  * Windows ni siquiera le crea un puerto COM y no hay nada que hacer por
@@ -228,22 +228,210 @@ async function aPuertoCom({ bytes, puerto, velocidad = 9600 }) {
   }
 
   try {
-    await ejecutar('cmd.exe', [
-      '/c', `mode ${nombre}: BAUD=${velocidad} PARITY=n DATA=8 STOP=1 xon=off odsr=off octs=off dtr=on rts=on idsr=off`,
-    ], { timeout: 10_000 });
-  } catch {
-    throw new Error(
-      `No encontré el puerto ${nombre}. Si la impresora es Bluetooth, revisa que esté ` +
-      'emparejada y que sea Bluetooth clásico (SPP), no BLE.'
-    );
+    await escribirEnPuerto(nombre, bytes, velocidad);
+    return { destino: nombre, corregido: null };
+  } catch (falloOriginal) {
+    // El puerto apuntado no contestó. Antes se culpaba a la impresora —que
+    // suele estar perfecta— cuando lo único que pasó es que Windows le cambió
+    // el número. Así que se busca el verdadero antes de rendirse.
+    const real = await puertoDeLaImpresoraBluetooth();
+
+    if (!real) {
+      throw new Error(
+        `No pude imprimir en ${nombre} (${falloOriginal.message}) y tampoco ` +
+        'encontré otro puerto de impresora Bluetooth. Revisa que esté ' +
+        'emparejada y que sea Bluetooth clásico (SPP), no BLE.'
+      );
+    }
+
+    // Si el puerto apuntado YA era el correcto, el número no es el problema.
+    // Reintentar sería repetir el mismo fallo y tapar el motivo de verdad.
+    if (real === nombre) {
+      throw new Error(
+        `${nombre} sí es el puerto de la impresora, pero no contesta: ` +
+        `${falloOriginal.message}. ¿Está prendida y a la vista?`
+      );
+    }
+
+    try {
+      await escribirEnPuerto(real, bytes, velocidad);
+      return { destino: real, corregido: real };
+    } catch (e) {
+      throw new Error(
+        `La impresora está en ${real}, no en ${nombre}, pero tampoco ahí ` +
+        `contesta: ${e.message}. ¿Está prendida y a la vista?`
+      );
+    }
   }
+}
+
+/**
+ * Manda los bytes a un puerto COM concreto.
+ *
+ * ⚠️ NO se puede hacer con `writeFile('\\\\.\\COM4')`, aunque en Windows un
+ * puerto COM sí se abra como archivo. Un puerto serie exige abrirse en
+ * EXCLUSIVA (sin compartir con nadie), y Node siempre lo abre compartido:
+ * Windows rechaza la apertura y Node lo traduce a un `UNKNOWN: unknown
+ * error` que no dice nada. No es un permiso que falte ni un ajuste: Node no
+ * puede escribir en un puerto COM de Windows, y punto.
+ *
+ * Tampoco sirve `mode COM4:` para comprobar que el puerto existe: en un
+ * puerto Bluetooth virtual falla SIEMPRE —dice «El dispositivo COM4 no está
+ * disponible en este momento»— porque la velocidad de un enlace de radio no
+ * se puede fijar. Comprobado en la laptop del bar el 2-sep-2026: `mode`
+ * fallaba en 100 ms mientras el puerto se abría perfecto en 64 ms.
+ *
+ * Esas dos cosas juntas eran el motivo de que NINGÚN ticket saliera por
+ * Bluetooth: RESTA se rendía sin llegar a tocar el puerto y culpaba a la
+ * impresora, que estaba encendida y lista.
+ *
+ * Así que se hace por PowerShell, con el `SerialPort` de .NET, que sí abre
+ * en exclusiva. Cuesta cerca de un segundo por ticket. Es el precio de que
+ * salga el papel.
+ */
+async function escribirEnPuerto(nombre, bytes, velocidad) {
+  const marca = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const archivoBytes = join(tmpdir(), `resta-com-${marca}.bin`);
+  const archivoGuion = join(tmpdir(), `resta-com-${marca}.ps1`);
+
+  // Los bytes van por archivo, no por la línea de comandos: un ticket con
+  // logo pasa de los 11 KB y Windows corta los comandos largos.
+  const guion = `
+$ErrorActionPreference = 'Stop'
+$bytes = [System.IO.File]::ReadAllBytes(${JSON.stringify(archivoBytes)})
+$sp = New-Object System.IO.Ports.SerialPort ${JSON.stringify(nombre)}, ${Number(velocidad) || 9600}, 'None', 8, 'One'
+$sp.WriteTimeout = 20000
+
+# Se reintenta ABRIR, nunca escribir.
+#
+# Dos motivos, los dos normales: la radio Bluetooth estaba dormida y tarda en
+# levantar el enlace, o el ticket anterior acaba de soltar el puerto y Windows
+# todavía no lo da por libre («Se ha denegado el acceso al puerto»). Pasa al
+# cobrar, que manda comanda y ticket casi juntos.
+#
+# Reintentar la ESCRITURA sería otra cosa: si el primer intento ya metió
+# bytes, saldrían dos tickets y la caja cuadraría mal. Por eso el reintento
+# rodea sólo a Open(), que ocurre antes de mandar nada.
+$limite = [DateTime]::UtcNow.AddSeconds(12)
+while ($true) {
+  try { $sp.Open(); break }
+  catch {
+    if ([DateTime]::UtcNow -ge $limite) { throw }
+    Start-Sleep -Milliseconds 200
+  }
+}
+
+try {
+  $sp.Write($bytes, 0, $bytes.Length)
+  $sp.BaseStream.Flush()
+
+  # Cerrar de golpe corta el ticket: .NET da por escrito lo que todavía está
+  # en la cola de salida de la radio. Se espera a que se vacíe de verdad,
+  # mirándola, en vez de dormir un rato fijo a ver si alcanza.
+  $limiteVaciado = [DateTime]::UtcNow.AddSeconds(20)
+  while ($sp.BytesToWrite -gt 0 -and [DateTime]::UtcNow -lt $limiteVaciado) {
+    Start-Sleep -Milliseconds 50
+  }
+  Start-Sleep -Milliseconds 250
+} finally {
+  $sp.Close()
+}
+Write-Output "OK"
+`;
+
+  await writeFile(archivoBytes, bytes);
+  // El «﻿» del principio no es basura: sin esa marca, PowerShell 5.1 lee
+  // el archivo como si fuera de Windows-1252 y destroza los acentos de los
+  // comentarios. Con ella sabe que es UTF-8.
+  await writeFile(archivoGuion, `﻿${guion}`, 'utf8');
 
   try {
-    // En Windows, «\\.\COM3» se abre como archivo y se le escribe.
-    await writeFile(`\\\\.\\${nombre}`, bytes);
-    return { destino: nombre };
+    await ejecutar('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File', archivoGuion,
+    ], { timeout: 45_000 });
   } catch (e) {
-    throw new Error(`No pude escribir en ${nombre}: ${e.message}. ¿La impresora está prendida?`);
+    // El mensaje de PowerShell trae media pantalla de rastro. Se queda la
+    // primera línea, que es la que dice algo.
+    throw new Error(String(e.stderr || e.message).split('\n')[0].trim() || 'no contestó');
+  } finally {
+    await borrar(archivoBytes).catch(() => {});
+    await borrar(archivoGuion).catch(() => {});
+  }
+}
+
+/**
+ * De todos los puertos Bluetooth, ¿cuál es el de la impresora?
+ *
+ * El puerto ENTRANTE trae la dirección `000000000000` y no lleva a ninguna
+ * parte, pero se llama igual que el bueno —«Serie estándar sobre el vínculo
+ * Bluetooth»— y engaña. El bueno es el que trae la dirección real del
+ * aparato. Se descarta por la dirección, no por el número.
+ *
+ * Función pura y aparte para poder probarla sin Windows enfrente.
+ */
+export function elegirPuertoBluetooth(puertos) {
+  // La dirección va justo antes del último guión bajo del identificador:
+  //   ...&0&000000000000_00000024   ← entrante, no sirve
+  //   ...&0&6632419C81FD_C00000000  ← la impresora
+  const utiles = (puertos ?? []).filter(
+    (p) => p?.puerto && p?.id && !/[&_]0{12}_/.test(p.id),
+  );
+  if (utiles.length === 0) return null;
+
+  // Si hubiera más de uno, gana el de número más bajo: es el que Windows
+  // asignó primero, y en el bar nunca ha habido dos impresoras a la vez.
+  utiles.sort((a, b) => Number(a.puerto.slice(3)) - Number(b.puerto.slice(3)));
+  return utiles[0].puerto;
+}
+
+/**
+ * Le pregunta a Windows en qué puerto COM quedó la impresora Bluetooth.
+ *
+ * Hace falta porque **el número no es fijo: cambia al reemparejar**. En la
+ * laptop del bar era COM3 el 25-ago-2026 y amaneció en COM4 el 2-sep-2026,
+ * con el entrante ocupando el número que antes era el bueno. Tener el número
+ * escrito a mano en la configuración es una bomba de tiempo.
+ *
+ * Devuelve null si no hay ninguno; nunca lanza, porque esto se llama cuando
+ * algo ya salió mal y no se debe tapar el error de origen.
+ */
+export async function puertoDeLaImpresoraBluetooth() {
+  if (!esWindows) return null;
+
+  // Ojo con los saltos de línea: al unir con espacios, PowerShell se queda sin
+  // separador entre `.PortName` y el `if` de la línea siguiente y truena. Por
+  // eso van los punto y coma explícitos.
+  const guion = [
+    "Get-PnpDevice -Class Ports -ErrorAction SilentlyContinue |",
+    "Where-Object { $_.InstanceId -like '*BTHENUM*' } |",
+    "ForEach-Object {",
+    "$p = (Get-ItemProperty ('HKLM:\\SYSTEM\\CurrentControlSet\\Enum\\' + $_.InstanceId +",
+    "'\\Device Parameters') -Name PortName -ErrorAction SilentlyContinue).PortName;",
+    "if ($p) { $p + '|' + $_.InstanceId }",
+    "}",
+  ].join(' ');
+
+  try {
+    const { stdout } = await ejecutar(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', guion],
+      { timeout: 20_000 },
+    );
+
+    const puertos = String(stdout)
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [puerto, id] = l.split('|');
+        return { puerto: (puerto ?? '').toUpperCase(), id: id ?? '' };
+      })
+      .filter((p) => /^COM\d+$/.test(p.puerto));
+
+    return elegirPuertoBluetooth(puertos);
+  } catch {
+    return null;
   }
 }
 

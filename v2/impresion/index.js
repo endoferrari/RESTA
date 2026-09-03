@@ -14,7 +14,7 @@ import {
   comanda, cuenta as plantillaCuenta, ticket as plantillaTicket,
   corte as plantillaCorte, prueba,
 } from './plantillas.js';
-import { encolar, configurarSalida } from './cola.js';
+import { encolar, configurarSalida, alCorregirPuerto } from './cola.js';
 import { MODOS } from './salidas.js';
 import { puntosDelLogo } from './escpos.js';
 
@@ -27,8 +27,8 @@ export function configuracion() {
     modo:      leerAjuste('impresora.modo', 'simulada'),
     host:      leerAjuste('impresora.host', ''),
     puerto:    Number(leerAjuste('impresora.puerto', '9100')),
-    impresora: leerAjuste('impresora.nombre', 'POSPrinter POS80'),
-    com:       leerAjuste('impresora.com', 'COM3'),
+    impresora: leerAjuste('impresora.nombre', 'POS-80'),
+    com:       leerAjuste('impresora.com', 'COM4'),
     velocidad: Number(leerAjuste('impresora.velocidad', '9600')),
     anchoMm:   Number(leerAjuste('ticket.ancho_mm', '80')),
     negocio:   leerAjuste('negocio.nombre', 'RESTA'),
@@ -129,6 +129,11 @@ export function guardarConfiguracion(nueva = {}) {
 // se encoló. Así, corregir la IP de la impresora destraba lo que estaba
 // esperando en vez de dejarlo intentando contra la impresora equivocada.
 configurarSalida(configuracion);
+
+// Si Windows le cambió el número de puerto a la impresora, se apunta el nuevo
+// en cuanto sale el primer ticket. Así la pantalla de Configuración enseña la
+// verdad y el siguiente ticket ya sale derecho, sin volver a buscar.
+alCorregirPuerto((puerto) => escribirAjuste('impresora.com', puerto));
 
 /** Encola un documento con la configuración de este momento. */
 function mandar(documento, nombre, descripcion, { abrirCajon = false } = {}) {

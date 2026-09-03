@@ -57,6 +57,7 @@ let trabajando = false;
 let temporizador = null;
 let alCambiar = null;          // para avisarle a las pantallas
 let leerConfiguracion = null;  // de dónde salen los datos de la impresora
+let alCorregir = null;         // para apuntar el puerto si Windows se lo cambió
 
 /** Cómo está la impresión ahora mismo. */
 const estado = {
@@ -99,6 +100,20 @@ export function alCambiarEstado(fn) {
  */
 export function configurarSalida(fn) {
   leerConfiguracion = fn;
+}
+
+/**
+ * Qué hacer cuando la impresora resultó estar en OTRO puerto del apuntado.
+ *
+ * Windows le cambia el número de puerto COM a la impresora Bluetooth cada vez
+ * que se vuelve a emparejar. `salidas.js` ya lo detecta y manda el ticket por
+ * el bueno, así que el papel sale igual — pero si el número nuevo no se
+ * apunta, CADA ticket vuelve a pagar la búsqueda y la pantalla de
+ * Configuración sigue enseñando el puerto viejo. La caja acaba desconfiando
+ * de lo que lee, que es peor que el error original.
+ */
+export function alCorregirPuerto(fn) {
+  alCorregir = fn;
 }
 
 function marcar(luz, mensaje, extra = {}) {
@@ -187,6 +202,13 @@ async function procesar() {
         // este intento ya sale por la buena.
         configuracion: leerConfiguracion ? leerConfiguracion() : { modo: 'simulada' },
       });
+
+      // Si el ticket salió por un puerto distinto al apuntado, se apunta el
+      // bueno. Que un fallo aquí no tumbe nada: el papel YA salió, que era lo
+      // que importaba.
+      if (r?.corregido) {
+        try { alCorregir?.(r.corregido); } catch { /* apuntar es de lujo; imprimir no */ }
+      }
 
       cola.shift();
       marcar(

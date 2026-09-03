@@ -26,6 +26,7 @@ import {
 } from '../impresion/documento.js';
 import { aBytes, byteCP850, soloImprimible, rasterABytes, puntosDelLogo } from '../impresion/escpos.js';
 import { comanda, cuenta, ticket, prueba } from '../impresion/plantillas.js';
+import { elegirPuertoBluetooth } from '../impresion/salidas.js';
 
 /* ── El ancho del papel ────────────────────────────────────────────────── */
 
@@ -318,4 +319,46 @@ test('un logo con menos puntos de los que dice se rechaza al guardarlo', async (
     cerrarBase();
     rmSync(carpeta, { recursive: true, force: true });
   }
+});
+
+/* ── Cuál puerto COM es el de la impresora ─────────────────────────────── */
+
+/*
+ * El número de puerto NO es fijo: cambia cada vez que se reempareja. En la
+ * laptop del bar era COM3 el 25-ago-2026 y amaneció en COM4 el 2-sep-2026,
+ * con el puerto ENTRANTE —el que no lleva a ninguna parte— ocupando el número
+ * que antes era el bueno. Por eso se escoge por dirección Bluetooth y jamás
+ * por número.
+ */
+
+// Copiados literales de la laptop del bar. Van con String.raw porque llevan
+// contrabarras: escritos como texto normal, «\7» sería un escape octal y
+// JavaScript se niega a compilar el archivo.
+const ID_ENTRANTE = String.raw`BTHENUM\{00001101-0000-1000-8000-00805F9B34FB}_LOCALMFG&0000\7&29CE4050&0&000000000000_00000024`;
+const ID_IMPRESORA = String.raw`BTHENUM\{00001101-0000-1000-8000-00805F9B34FB}_LOCALMFG&005D\7&29CE4050&0&6632419C81FD_C00000000`;
+
+test('escoge el puerto de la impresora y descarta el Bluetooth entrante', () => {
+  assert.equal(elegirPuertoBluetooth([
+    { puerto: 'COM3', id: ID_ENTRANTE },
+    { puerto: 'COM4', id: ID_IMPRESORA },
+  ]), 'COM4');
+});
+
+test('el número no manda: si se invierten, escoge igual el de la impresora', () => {
+  // Esto es exactamente lo que pasó el 2-sep-2026 al reemparejar.
+  assert.equal(elegirPuertoBluetooth([
+    { puerto: 'COM3', id: ID_IMPRESORA },
+    { puerto: 'COM4', id: ID_ENTRANTE },
+  ]), 'COM3');
+});
+
+test('si sólo está el puerto entrante, no ofrece ninguno', () => {
+  // Vale más decir «no hay» que mandar el ticket a un puerto que se traga
+  // los bytes en silencio y deja a la caja esperando papel que nunca sale.
+  assert.equal(elegirPuertoBluetooth([{ puerto: 'COM3', id: ID_ENTRANTE }]), null);
+});
+
+test('sin puertos, devuelve null sin tronar', () => {
+  assert.equal(elegirPuertoBluetooth([]), null);
+  assert.equal(elegirPuertoBluetooth(undefined), null);
 });

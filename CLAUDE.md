@@ -203,15 +203,84 @@ v2/
 ## Contexto de la instalación real
 
 - Negocio: **ONCE Social Lounge**
-- Impresora en producción (comprobado el 25-ago-2026 en la laptop del bar):
+- Impresora en producción (recomprobado el 2-sep-2026 en la laptop del bar):
   se llama **`POS-80`** en Windows —no `POSPrinter POS80`, que era el nombre
-  viejo y sigue puesto de fábrica en `impresion/index.js`— y está en el
-  puerto **`COM3`**.
+  viejo— y está en el puerto **`COM4`**.
+- ⚠️ **El número de puerto COM NO es fijo: cambia al reemparejar.** El
+  25-ago-2026 la impresora estaba en `COM3` y el entrante en `COM4`; el
+  2-sep-2026, después de volver a emparejarla, quedó **al revés**. Nunca
+  confiar en el número: hay que preguntarle a Windows cuál puerto está atado
+  a la dirección de la impresora. El que sirve es el que trae
+  `..._LOCALMFG&005D\..._6632419C81FD_...` en su `InstanceId`; el que trae
+  `..._000000000000_...` es el puerto Bluetooth *entrante* y no lleva a
+  ninguna parte. Se averigua con:
+  `Get-PnpDevice -Class Ports | ForEach-Object { "$($_.FriendlyName) -> $($_.InstanceId)" }`
 - ✅ **La impresora es Bluetooth CLÁSICO (SPP), no BLE.** Ya no es una duda:
-  `COM3` es `Serie estándar sobre el vínculo Bluetooth`, atado al aparato
-  `BTHENUM\DEV_6632419C81FD` («Bluetooth Printer»). Windows sí puede
-  imprimir en ella. (`COM4` es el puerto Bluetooth *entrante*, sin aparato
-  —dirección `000000000000`—: no lleva a ninguna parte.)
+  el puerto bueno es `Serie estándar sobre el vínculo Bluetooth`, atado al
+  aparato `BTHENUM\DEV_6632419C81FD` («Bluetooth Printer»), dirección
+  `66:32:41:9C:81:FD`. Windows sí puede imprimir en ella.
+- ⚠️ **El emparejamiento se puede caer solo.** El 2-sep-2026 la impresora
+  aparecía «sin emparejar» aunque su llave seguía en el registro, no existía
+  ningún puerto COM, y la impresora `POS-80` de Windows estaba en
+  `PendingDeletion` con una página de prueba de 6 MB atorada en la cola. Se
+  arregló así, en este orden: (1) parar la cola de impresión, borrar
+  `C:\Windows\System32\spool\PRINTERS\FP*.SHD` y `.SPL`, arrancarla otra vez;
+  (2) volver a emparejar la impresora; (3) recrear la impresora de Windows
+  apuntando al puerto COM nuevo. Síntoma para reconocerlo: `Get-Printer`
+  dice `Error, PendingDeletion` y `Get-PnpDevice -Class Ports` no devuelve
+  nada.
+- ⚠️ **La causa de que el emparejamiento se caiga sola es el «Inicio rápido»
+  de Windows** (`HiberbootEnabled`, encontrado encendido el 2-sep-2026). Con
+  él, «Apagar» no apaga: Windows congela el estado del Bluetooth y lo
+  descongela al prender. Pero la impresora sí se apagó de verdad, así que
+  Windows despierta creyendo cosas que ya no son ciertas y la vinculación se
+  rompe. Se apaga con `v2/instalacion/5-IMPRESORA-CLAVADA-EN-COM4.ps1`, que
+  además **clava el puerto en COM4 buscando a la impresora por su dirección
+  Bluetooth**, mueve a quien esté sentado ahí, y reserva el número para que
+  ningún aparato nuevo lo pida. Se deshace con `-Deshacer`; se mira sin
+  tocar nada con `-SoloVer`.
+- ⚠️ **La v1 y la v2 se pelean por la impresora.** La v1 imprime por el
+  **spooler** de Windows (`C:\RESTA\agente-impresion.ps1`, que escucha en el
+  puerto HTTP 9100); la v2 escribe **directo al puerto COM**. Son dos caminos
+  al mismo aparato: mientras el trabajo de uno está en vuelo, el puerto está
+  ocupado para el otro. Además el agente de la v1 arranca **dos veces** —hay
+  dos accesos directos, «ONCE Agente Impresion.lnk» y «RESTA Impresion.lnk»,
+  al mismo `.vbs`— y el segundo siempre muere sin poder tomar el 9100. Nada
+  de esto se toca mientras la v1 siga en producción; el día que se apague la
+  v1, hay que quitar los dos accesos directos.
+- ⚠️ En la base de producción, `impresora.nombre` sigue diciendo
+  `POSPrinter POS80`, que ya no existe. Hoy da igual porque el modo es
+  `com` y ese ajuste sólo se usa en modo `spooler` — pero el día que alguien
+  cambie a spooler, no va a imprimir. El nombre bueno es `POS-80`.
+- 🛑 **El modo `com` NUNCA había funcionado.** Comprobado en la laptop del bar
+  el 2-sep-2026: cada ticket moría en 2 s con «El puerto de la impresora es
+  COM4, pero no se deja abrir», mientras el puerto se abría perfecto en 64 ms
+  desde Windows. La impresora estaba encendida, emparejada y lista. Eran dos
+  fallos encadenados, y los dos culpaban a la impresora:
+
+  1. **Node NO puede escribir en un puerto COM de Windows.** Un puerto serie
+     exige abrirse en EXCLUSIVA y libuv siempre abre compartiendo, así que
+     `writeFile('\\\\.\\COM4')` —y `open()` con cualquier bandera— falla con
+     un `UNKNOWN: unknown error` que no dice nada. No es un permiso ni un
+     ajuste: no se puede, y punto. **Se hace por PowerShell, con el
+     `SerialPort` de .NET.** Cuesta ~1 s por ticket, y ése es el precio.
+  2. **`mode COM4:` falla SIEMPRE en un puerto Bluetooth virtual** («El
+     dispositivo COM4 no está disponible en este momento»), porque la
+     velocidad de un enlace de radio no se puede fijar. Usarlo como prueba de
+     que el puerto existe era lo que hacía que RESTA se rindiera sin llegar a
+     tocarlo. Ya no se usa en la ruta Bluetooth.
+
+  Tres detalles del arreglo que **no se deben quitar**:
+  · Se espera a que `BytesToWrite` llegue a 0 antes de cerrar. Cerrar de golpe
+    corta el ticket: .NET da por escrito lo que aún está en la cola de la
+    radio, y lo último del papel es justo el comando de cortar.
+  · Se reintenta **sólo `Open()`, nunca `Write()`**. Al cobrar salen comanda y
+    ticket casi juntos y el segundo se encuentra el puerto todavía tomado
+    («Se ha denegado el acceso al puerto»); reintentar la escritura sacaría el
+    ticket dos veces y descuadraría la caja.
+  · Si el puerto apuntado no contesta, se busca el verdadero por dirección
+    Bluetooth y **se apunta el número nuevo** (`impresora.com`), para no pagar
+    la búsqueda en cada ticket ni enseñar un puerto falso en Configuración.
 - ⚠️ **La antena Bluetooth es USB y Windows tiene permiso para dormirla.**
   Es la causa de que el primer ticket después de un rato tranquilo marque
   error y salga al minuto. Se arregla corriendo, una vez y como
