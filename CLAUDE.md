@@ -245,6 +245,16 @@ v2/
   Bluetooth**, mueve a quien esté sentado ahí, y reserva el número para que
   ningún aparato nuevo lo pida. Se deshace con `-Deshacer`; se mira sin
   tocar nada con `-SoloVer`.
+- ⚠️ **CADA actualización vuelve a poner el arranque automático.** El
+  `customInstall` de `escritorio/instalador.nsh` escribe la clave
+  `HKLMSoftwareMicrosoftWindowsCurrentVersionRunRESTA` y recrea el
+  acceso directo «RESTA» del escritorio — **también al actualizar**, no sólo
+  en la primera instalación. Comprobado el 2-sep-2026 al instalar la 2.0.15
+  encima de la 2.0.14. Mientras la v1 siga siendo la caja hay que volver a
+  correr `v2/instalacion/1-PREPARAR-V2-AISLADA.bat` como administrador
+  **después de cada actualización**; si no, la v2 arranca sola al prender la
+  laptop y compite por la impresora con la v1. Se comprueba con:
+  `Get-ItemProperty 'HKLM:SoftwareMicrosoftWindowsCurrentVersionRun' -Name RESTA`
 - ⚠️ **La v1 y la v2 se pelean por la impresora.** La v1 imprime por el
   **spooler** de Windows (`C:\RESTA\agente-impresion.ps1`, que escucha en el
   puerto HTTP 9100); la v2 escribe **directo al puerto COM**. Son dos caminos
