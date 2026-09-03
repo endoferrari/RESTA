@@ -248,10 +248,18 @@ v2/
   al mismo `.vbs`— y el segundo siempre muere sin poder tomar el 9100. Nada
   de esto se toca mientras la v1 siga en producción; el día que se apague la
   v1, hay que quitar los dos accesos directos.
-- ⚠️ En la base de producción, `impresora.nombre` sigue diciendo
-  `POSPrinter POS80`, que ya no existe. Hoy da igual porque el modo es
-  `com` y ese ajuste sólo se usa en modo `spooler` — pero el día que alguien
-  cambie a spooler, no va a imprimir. El nombre bueno es `POS-80`.
+- ⚠️ **En la laptop del bar los datos de la v2 NO están en `C:\RESTA`, sino en
+  `C:\RESTA-V2`.** Los aparta ahí `1-PREPARAR-V2-AISLADA.bat`, con la variable
+  de entorno `RESTA_DATOS` del usuario, para que la v2 no toque nada de la v1
+  mientras la vieja siga siendo la caja. La base buena —42 cuentas y 34
+  tickets reales al 2-sep-2026— es `C:\RESTA-V2\resta.db`. En `C:\RESTA` quedó
+  una `resta.db` de 4 KB abandonada, de antes del aislamiento: **leer esa da
+  respuestas falsas**. Antes de mirar ajustes de producción, comprobar primero
+  `[Environment]::GetEnvironmentVariable('RESTA_DATOS','User')`.
+- Ajustes reales de la impresora al 2-sep-2026 (en `C:\RESTA-V2\resta.db`):
+  `impresora.modo = com`, `impresora.com = COM4`, `impresora.nombre = POS-80`,
+  `impresora.activa = 1`, `impresora.comanda = 0` (la comanda de barra está
+  apagada a propósito; el ticket y la cuenta sí salen).
 - 🛑 **El modo `com` NUNCA había funcionado.** Comprobado en la laptop del bar
   el 2-sep-2026: cada ticket moría en 2 s con «El puerto de la impresora es
   COM4, pero no se deja abrir», mientras el puerto se abría perfecto en 64 ms
