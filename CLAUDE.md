@@ -59,6 +59,15 @@ puntos en el NAVEGADOR con canvas —Node no puede dibujar— una sola vez desde
 `cliente/js/logo-once.js`, se guarda en `ajustes.ticket_logo_raster` y de ahí
 va en los bytes de la térmica como `GS v 0`: 72 bytes de ancho × 161 de alto.
 
+⚠️ **Pero va en TIRAS de 24 filas, no de un golpe** (arreglado el 2-sep-2026,
+`FILAS_POR_BANDA` en `impresion/escpos.js`). En un solo `GS v 0` de 161 filas
+la POS-80 sale con **puras rayas**: los 11.592 bytes no le caben en la memoria
+de imagen, tira lo que sobra y lo que imprime queda descuadrado. **No avisa de
+nada** —ni RESTA ni la impresora— el ticket sale entero y sólo el logo está
+roto. En tiras de 1.728 bytes le cabe cada una, y en el papel se ven pegadas
+porque entre tira y tira la impresora no avanza. Comprobado imprimiendo las
+dos formas una debajo de la otra.
+
 ✅ **La fase 7 ya está armada a medias:** existen `escritorio/principal.js`,
 `escritorio/instalador.nsh`, los iconos, el script `npm run empaquetar` y
 `.github/workflows/compilar-windows.yml`. Lo que falta es que el `.exe` se
@@ -118,7 +127,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 411/411)
+npm test             # las pruebas (deben pasar 426/426)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -199,6 +208,7 @@ v2/
 | Copia marcada | Todo comprobante reimpreso sale con **COPIA** en el encabezado, la fecha del cobro (no la del papel) y el renglón «no es un cobro nuevo». Sin esa marca habría dos tickets con el mismo folio sueltos por el bar, y al cuadrar la caja a mano uno de los dos se contaría de más. Un ticket anulado se marca **TICKET ANULADO**, que pesa más que la copia. |
 | Actualizarse | RESTA **se baja su propio instalador** y lo abre. Nunca por el navegador: en la laptop del bar Windows perdió con qué abrir un enlace y el botón viejo murió en silencio. Antes de ejecutarlo comprueba que venga de las publicaciones de RESTA, que pese lo que GitHub dijo y que la huella sha256 coincida. |
 | Submenús | Se arman **tocando**, en `cliente/js/vistas/submenu-editor.js`: las respuestas son etiquetas y la condición «sólo si antes eligió…» se marca de una lista con las respuestas que ya existen, así no se puede escribir mal. Trae plantillas (copa, cerveza, digestivo) y **copiar el submenú de otro producto**. El formato guardado NO cambió: sigue siendo el texto de siempre, y el modo texto sigue ahí para quien lo prefiera. |
+| El logo, en tiras | El logo va a la impresora partido en **tiras de 24 filas** (`FILAS_POR_BANDA`), un `GS v 0` por tira. Entero de un golpe no le cabe en la memoria de imagen a la POS-80 y sale a rayas, sin ningún error: el ticket sale completo y sólo el dibujo está roto. Si algún día el logo vuelve a salir a rayas, lo primero que hay que mirar es que nadie haya «simplificado» esto a un solo bloque. |
 | Impresora dormida | Que el primer intento falle **no es una avería**: es la antena Bluetooth despertando. La cola reintenta a los 0,8 s (antes 5 s) y el foquito se queda **ámbar** los primeros 3 intentos. Pintar de rojo lo normal enseña a la caja a ignorar el foquito, y el día que de verdad falte papel nadie le hace caso. |
 | Repetir un producto | Cada renglón de la cuenta trae **− y ＋** pegados a su cantidad. El ＋ anota otro igual **con el mismo detalle, sin volver a abrir el submenú**: «otra igual» ya trae contestado «puesto, con Coca». El − quita uno **sin preguntar «¿seguro?»** —el ＋ está al lado y lo devuelve—, y los toques se atienden en fila, uno tras otro, para que tocar ＋ tres veces seguidas no choque contra la versión de la cuenta. |
 | Motivo al quitar | Se pide **sólo si lo que se quita alcanza a algo que ya salió a barra** (`cuantas > porComandar`), no por el mero hecho de que el renglón tenga algo mandado. El servidor descuenta primero lo que no ha salido, así que un renglón con «2 sin mandar» aguanta dos bajas sin estorbar a nadie. |

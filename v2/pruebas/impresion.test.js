@@ -24,7 +24,9 @@ import {
   columnas, partirEnRenglones, alinearDosColumnas, centrar, aTexto,
   texto, titulo, dosColumnas, separador, salto, cortar,
 } from '../impresion/documento.js';
-import { aBytes, byteCP850, soloImprimible, rasterABytes, puntosDelLogo } from '../impresion/escpos.js';
+import {
+  aBytes, byteCP850, soloImprimible, rasterABytes, puntosDelLogo, FILAS_POR_BANDA,
+} from '../impresion/escpos.js';
 import { comanda, cuenta, ticket, prueba } from '../impresion/plantillas.js';
 import { elegirPuertoBluetooth } from '../impresion/salidas.js';
 
@@ -288,6 +290,51 @@ test('el logo NO sale en blanco: los puntos negros llegan a la impresora', () =>
 
   // Lo que fallaba: que los puntos salieran todos en cero
   assert.ok(salida.slice(8, 10).some((b) => b !== 0), 'el logo salió en blanco');
+});
+
+/* El otro fallo del logo, y este no salía en blanco: salía a RAYAS.
+   El logo entero —161 filas— en un solo comando de imagen no le cabe en la
+   memoria a la POS-80: se le llena, tira lo que sobra y lo que imprime queda
+   descuadrado. Comprobado en el papel el 2-sep-2026. En tiras sale bien. */
+test('el logo se manda en tiras, no de un golpe: si no, sale a rayas', () => {
+  // El logo de verdad: 72 bytes de ancho por 161 filas de alto.
+  // Cada fila se marca con un número distinto para poder seguirle la pista.
+  const ancho = 72;
+  const alto = 161;
+  const puntos = Buffer.alloc(ancho * alto);
+  for (let y = 0; y < alto; y++) puntos.fill((y % 250) + 1, y * ancho, (y + 1) * ancho);
+
+  const salida = rasterABytes({ bytes: puntos.toString('base64'), anchoEnBytes: ancho, alto });
+
+  // Se recorre el resultado tira por tira, comprobando cada cabecera.
+  let i = 0;
+  let filasVistas = 0;
+  let tiras = 0;
+
+  while (i < salida.length - 1) {
+    assert.deepEqual(
+      [...salida.slice(i, i + 5)], [0x1D, 0x76, 0x30, 0x00, ancho],
+      `la tira ${tiras} no empieza con GS v 0 de ${ancho} bytes de ancho`,
+    );
+    const filas = salida[i + 6] | (salida[i + 7] << 8);
+    assert.ok(filas > 0 && filas <= FILAS_POR_BANDA, `una tira trae ${filas} filas`);
+
+    // Los puntos de esta tira son los mismos, y en el mismo orden, que traía
+    // el logo. Si se descuadraran aquí, el papel saldría a rayas.
+    assert.deepEqual(
+      [...salida.slice(i + 8, i + 8 + filas * ancho)],
+      [...puntos.slice(filasVistas * ancho, (filasVistas + filas) * ancho)],
+      `la tira ${tiras} trae los puntos cambiados de sitio`,
+    );
+
+    filasVistas += filas;
+    tiras += 1;
+    i += 8 + filas * ancho;
+  }
+
+  assert.equal(filasVistas, alto, 'se perdieron filas del logo por el camino');
+  assert.ok(tiras > 1, 'el logo salió en una sola tira: eso es lo que lo rompía');
+  assert.equal(salida[salida.length - 1], 0x0A, 'falta el salto de línea del final');
 });
 
 test('un logo con menos puntos de los que dice se rechaza al guardarlo', async () => {

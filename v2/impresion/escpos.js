@@ -194,18 +194,50 @@ export function puntosDelLogo(bytes) {
 }
 
 /**
- * Los bytes de una imagen en blanco y negro (GS v 0).
+ * Cuántas filas de puntos lleva cada comando de imagen.
+ *
+ * NO es un capricho ni una optimización: es la diferencia entre que salga el
+ * logo o que salgan puras rayas. Comprobado en el papel de la laptop del bar
+ * el 2-sep-2026, con la POS-80 por Bluetooth.
+ *
+ * El logo son 161 filas de 72 bytes: 11.592 bytes de puntos. Mandados en UN
+ * solo `GS v 0`, la impresora tiene que guardárselos enteros en su memoria de
+ * imagen antes de empezar a imprimir, y esa memoria no le alcanza: se le
+ * llena, tira lo que sobra, y lo que sí imprime queda descuadrado. En el
+ * papel eso son rayas. Sin error, sin aviso, ni en RESTA ni en la impresora:
+ * el ticket sale «bien» y el logo sale roto.
+ *
+ * Partido en tiras de 24 filas —1.728 bytes cada una— cada tira le cabe de
+ * sobra: la imprime y suelta la memoria antes de que llegue la siguiente. En
+ * el papel se ven pegadas, como un solo dibujo, porque entre tira y tira la
+ * impresora no avanza el papel.
+ *
+ * Se probaron las dos formas en el papel, una debajo de la otra: el bloque de
+ * golpe salió a rayas, en tiras salió el logo. Por eso 24 y no 161.
+ */
+export const FILAS_POR_BANDA = 24;
+
+/**
+ * Los bytes de una imagen en blanco y negro (GS v 0), mandada en tiras.
  * Recibe los puntos como los manda la pantalla (texto base64) o ya sueltos.
  */
-export function rasterABytes({ bytes, anchoEnBytes, alto }) {
+export function rasterABytes({ bytes, anchoEnBytes, alto, filasPorBanda = FILAS_POR_BANDA }) {
   const puntos = puntosDelLogo(bytes);
   const cinta = new Cinta();
-  cinta.meter(
-    GS, 0x76, 0x30, 0x00,
-    anchoEnBytes & 0xFF, (anchoEnBytes >> 8) & 0xFF,
-    alto & 0xFF, (alto >> 8) & 0xFF,
-  );
-  for (const b of puntos) cinta.meter(b);
+
+  for (let y = 0; y < alto; y += filasPorBanda) {
+    const filas = Math.min(filasPorBanda, alto - y);
+
+    cinta.meter(
+      GS, 0x76, 0x30, 0x00,
+      anchoEnBytes & 0xFF, (anchoEnBytes >> 8) & 0xFF,
+      filas & 0xFF, (filas >> 8) & 0xFF,
+    );
+
+    const desde = y * anchoEnBytes;
+    for (let i = 0; i < filas * anchoEnBytes; i++) cinta.meter(puntos[desde + i]);
+  }
+
   cinta.meter(0x0A);
   return cinta.terminar();
 }
