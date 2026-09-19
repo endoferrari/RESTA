@@ -1,6 +1,6 @@
 {
   "name": "resta",
-  "version": "2.0.16",
+  "version": "2.0.17",
   "description": "RESTA â€” Punto de venta para bar restaurante. ONCE Social Lounge.",
   "author": "endoferrari",
   "license": "UNLICENSED",
@@ -13,7 +13,7 @@
   "scripts": {
     "servidor": "node servidor/index.js",
     "dev": "electron .",
-    "test": "node --test \"pruebas/*.test.js\"",
+    "test": "node pruebas/correr.js",
     "empaquetar": "electron-builder --win --publish never"
   },
   "dependencies": {

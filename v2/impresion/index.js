@@ -95,6 +95,23 @@ export function guardarLogo(raster) {
     );
   }
 
+
+  // Un dibujo de verdad tiene claros y oscuros. Si los 11.592 bytes son
+  // TODOS iguales no es un logo: es un relleno, y en el papel sale como
+  // rayas verticales parejas.
+  //
+  // Esto no es hipotético. El 2-sep-2026 una prueba guardó un relleno de
+  // 0x0F en la base del bar, y el ticket salió a rayas durante DIECISÉIS
+  // días sin que nada lo dijera: el logo se imprimía perfecto, sólo que lo
+  // que estaba guardado no era el logo. Se culpó a la impresora dos veces.
+  //
+  // Cuesta un recorrido de la lista y cierra esa puerta para siempre.
+  if (new Set(puntos).size < 2) {
+    throw new Error(
+      'Ese logo llegó en blanco (todos los puntos iguales), así que saldría ' +
+      'como rayas. Vuelve a mandarlo desde la pantalla.',
+    );
+  }
   escribirAjuste('ticket.logo_raster', JSON.stringify({ bytes, anchoEnBytes, alto }));
   return { guardado: true, alto, anchoEnBytes, puntos: puntos.length };
 }

@@ -28,7 +28,7 @@ import {
   aBytes, byteCP850, soloImprimible, rasterABytes, puntosDelLogo, FILAS_POR_BANDA,
 } from '../impresion/escpos.js';
 import { comanda, cuenta, ticket, prueba } from '../impresion/plantillas.js';
-import { elegirPuertoBluetooth } from '../impresion/salidas.js';
+import { elegirPuertoBluetooth, esPuertoEntrante, decidirPuerto } from '../impresion/salidas.js';
 
 /* ── El ancho del papel ────────────────────────────────────────────────── */
 
@@ -337,17 +337,31 @@ test('el logo se manda en tiras, no de un golpe: si no, sale a rayas', () => {
   assert.equal(salida[salida.length - 1], 0x0A, 'falta el salto de línea del final');
 });
 
-test('un logo con menos puntos de los que dice se rechaza al guardarlo', async () => {
+test('un logo incompleto, o que sea un relleno parejo, se rechaza al guardarlo', async () => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir: carpetaTemporal } = await import('node:os');
   const { join: unir } = await import('node:path');
 
   const carpeta = mkdtempSync(unir(carpetaTemporal(), 'resta-logo-'));
-  process.env.RESTA_DATOS = carpeta;
 
   const { abrirBase, cerrarBase } = await import('../datos/conexion.js');
   const { guardarLogo } = await import('../impresion/index.js');
-  abrirBase({ silencioso: true });
+
+  // La ruta se le DICE a la base, no se deja al aire.
+  //
+  // Aquí antes decía `process.env.RESTA_DATOS = carpeta` y luego
+  // `abrirBase({ silencioso: true })`, dando por hecho que con eso la prueba
+  // trabajaba en su carpeta temporal. Era mentira, y salió caro: este archivo
+  // importa `impresion/salidas.js` arriba del todo, que arrastra
+  // `datos/rutas-datos.js`, y ESE módulo lee `RESTA_DATOS` en cuanto se carga
+  // —o sea, antes de que esta línea se ejecute—. La ruta ya estaba decidida.
+  //
+  // En Linux daba igual: sin RESTA_DATOS apunta a `datos-dev/`. Pero en la
+  // laptop del bar esa variable vale `C:\RESTA-V2`, así que `npm test`
+  // escribía en la BASE DE PRODUCCIÓN y el logo de abajo —11.592 bytes de
+  // 0x0F, que en el papel son rayas— machacaba el logo real de ONCE. Pasó dos
+  // veces el 2-sep-2026, y las dos se culpó a la impresora.
+  abrirBase({ ruta: unir(carpeta, 'resta.db'), silencioso: true });
 
   try {
     // Dice 72×161 pero sólo trae 4 puntos: antes se guardaba tan campante
@@ -357,9 +371,23 @@ test('un logo con menos puntos de los que dice se rechaza al guardarlo', async (
       /incompleto/,
     );
 
-    // Y uno bien formado sí pasa
-    const buenos = Buffer.alloc(72 * 161, 0x0F).toString('base64');
-    const r = guardarLogo({ bytes: buenos, anchoEnBytes: 72, alto: 161 });
+    // Un relleno de un solo valor tampoco pasa, aunque venga completo.
+    //
+    // Ojo con esta prueba: la que había aquí usaba justo eso —11.592 bytes
+    // de 0x0F— como ejemplo de «logo bien formado», y ése es el relleno que
+    // acabó guardado en la base del bar el 2-sep-2026. El ticket salió a
+    // rayas dieciséis días, hasta el 18-sep. Un dibujo de verdad tiene
+    // claros y oscuros; uno de un solo valor son rayas parejas.
+    const relleno = Buffer.alloc(72 * 161, 0x0F).toString('base64');
+    assert.throws(
+      () => guardarLogo({ bytes: relleno, anchoEnBytes: 72, alto: 161 }),
+      /en blanco/,
+    );
+
+    // Y uno con claros y oscuros sí pasa
+    const dibujo = Buffer.alloc(72 * 161);
+    for (let i = 0; i < dibujo.length; i++) dibujo[i] = i % 7 === 0 ? 0xFF : 0x00;
+    const r = guardarLogo({ bytes: dibujo.toString('base64'), anchoEnBytes: 72, alto: 161 });
     assert.equal(r.guardado, true);
     assert.equal(r.puntos, 72 * 161);
   } finally {
@@ -409,3 +437,61 @@ test('sin puertos, devuelve null sin tronar', () => {
   assert.equal(elegirPuertoBluetooth([]), null);
   assert.equal(elegirPuertoBluetooth(undefined), null);
 });
+/* ── Mandar al puerto bueno ANTES de fallar ────────────────────────────── */
+
+/*
+ * El agujero que costó la noche del 18-sep-2026: el puerto ENTRANTE a veces
+ * NO da error. Abre, se traga los 12 KB del ticket y contesta que todo bien.
+ * RESTA marcaba el foquito en verde, vaciaba su cola y el papel nunca salía.
+ *
+ * Por eso ya no se pregunta por el puerto bueno DESPUÉS de fallar, sino
+ * ANTES de escribir: el fallo que hay que cazar es justo el que no falla.
+ */
+
+test('reconoce el puerto Bluetooth entrante por sus doce ceros', () => {
+  assert.equal(esPuertoEntrante(ID_ENTRANTE), true);
+  assert.equal(esPuertoEntrante(ID_IMPRESORA), false);
+  assert.equal(esPuertoEntrante(undefined), false);
+});
+
+test('manda por el puerto de la impresora aunque la configuración diga otro', () => {
+  // Esto es exactamente lo que pasó: la configuración decía COM4 y la
+  // impresora llevaba horas en COM3.
+  const plan = decidirPuerto([
+    { puerto: 'COM4', id: ID_ENTRANTE },
+    { puerto: 'COM3', id: ID_IMPRESORA },
+  ], 'COM4');
+
+  assert.equal(plan.usar, 'COM3');
+  assert.equal(plan.corregido, 'COM3');   // y se apunta, para no buscarlo cada vez
+});
+
+test('si la configuración ya está bien, no anda corrigiendo nada', () => {
+  const plan = decidirPuerto([
+    { puerto: 'COM4', id: ID_ENTRANTE },
+    { puerto: 'COM3', id: ID_IMPRESORA },
+  ], 'COM3');
+
+  assert.equal(plan.usar, 'COM3');
+  assert.equal(plan.corregido, null);
+});
+
+test('si lo único que hay es el buzón de entrada, se niega a imprimir', () => {
+  // Mandar ahí es tirar el ticket a la basura sin que nada se queje. Vale
+  // más un foquito rojo con motivo que un verde que miente.
+  const plan = decidirPuerto([{ puerto: 'COM4', id: ID_ENTRANTE }], 'COM4');
+
+  assert.equal(plan.usar, null);
+  assert.match(plan.aviso, /buz[óo]n de entrada/i);
+});
+
+test('si Windows no contesta nada, se intenta con el puerto apuntado', () => {
+  // Que Windows no conteste no es motivo para dejar de imprimir: se prueba
+  // el apuntado y, si está mal, el error se ve enseguida.
+  const plan = decidirPuerto([], 'COM3');
+
+  assert.equal(plan.usar, 'COM3');
+  assert.equal(plan.corregido, null);
+  assert.equal(plan.aviso, null);
+});
+

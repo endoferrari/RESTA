@@ -1,3 +1,8 @@
 node_modules/
 *.log
 .DS_Store
+
+# Lo que el script 5 guarda para poder deshacerse. Es el estado de ESA
+# laptop, no del proyecto: si se sube, el -Deshacer de otra máquina
+# restauraría ajustes que nunca tuvo.
+v2/instalacion/como-estaba-antes.json

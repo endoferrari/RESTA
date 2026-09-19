@@ -68,6 +68,19 @@ roto. En tiras de 1.728 bytes le cabe cada una, y en el papel se ven pegadas
 porque entre tira y tira la impresora no avanza. Comprobado imprimiendo las
 dos formas una debajo de la otra.
 
+⚠️ **Y hay un SEGUNDO motivo de que salga a rayas, que se ve igualito: que
+lo guardado no sea un logo.** El 2-sep-2026 una prueba escribió en la base
+del bar un relleno de 11.592 bytes de `0x0F` —`00001111`, o sea rayas
+verticales de 4 puntos— y ahí se quedó **dieciséis días**. El código de
+impresión estaba perfecto: imprimía con toda fidelidad lo que le habían
+dado. Se culpó a la impresora tres veces.
+
+Antes de tocar `escpos.js`, **mirar QUÉ hay guardado**: si
+`new Set(bytes).size` vale 1, no es un logo, es un relleno — y se arregla
+volviéndolo a mandar desde la pantalla, no tocando código. Ahora
+`guardarLogo()` rechaza un raster de un solo valor, y la prueba que fabricaba
+ese relleno ya no lo da por bueno.
+
 ✅ **La fase 7 ya está armada a medias:** existen `escritorio/principal.js`,
 `escritorio/instalador.nsh`, los iconos, el script `npm run empaquetar` y
 `.github/workflows/compilar-windows.yml`. Lo que falta es que el `.exe` se
@@ -209,6 +222,10 @@ v2/
 | Actualizarse | RESTA **se baja su propio instalador** y lo abre. Nunca por el navegador: en la laptop del bar Windows perdió con qué abrir un enlace y el botón viejo murió en silencio. Antes de ejecutarlo comprueba que venga de las publicaciones de RESTA, que pese lo que GitHub dijo y que la huella sha256 coincida. |
 | Submenús | Se arman **tocando**, en `cliente/js/vistas/submenu-editor.js`: las respuestas son etiquetas y la condición «sólo si antes eligió…» se marca de una lista con las respuestas que ya existen, así no se puede escribir mal. Trae plantillas (copa, cerveza, digestivo) y **copiar el submenú de otro producto**. El formato guardado NO cambió: sigue siendo el texto de siempre, y el modo texto sigue ahí para quien lo prefiera. |
 | El logo, en tiras | El logo va a la impresora partido en **tiras de 24 filas** (`FILAS_POR_BANDA`), un `GS v 0` por tira. Entero de un golpe no le cabe en la memoria de imagen a la POS-80 y sale a rayas, sin ningún error: el ticket sale completo y sólo el dibujo está roto. Si algún día el logo vuelve a salir a rayas, lo primero que hay que mirar es que nadie haya «simplificado» esto a un solo bloque. |
+| El puerto se pregunta ANTES, no después | `salidas.js` le pregunta a Windows por cuál puerto anda la impresora **antes de escribir**, y manda por ése aunque la configuración diga otro. Antes sólo preguntaba DESPUÉS de fallar, y ahí estaba el agujero: el puerto ENTRANTE del Bluetooth **a veces no falla** —abre, se traga los 12 KB del ticket y contesta que todo bien—, así que RESTA marcaba verde y el papel nunca salía. La respuesta de Windows se guarda (cuesta ~1 s) y se tira en cuanto algo falla. |
+| El spooler miente | El modo `windows` **acepta el trabajo aunque el puerto de la impresora esté muerto**: lo guarda en su cola y contesta «OK». RESTA daba eso por impreso. Ahora, antes de entregarle los bytes, comprueba que el puerto de la impresora de Windows sea el de verdad, y si no, se niega con el número bueno en el mensaje. La comprobación va **antes** de mandar, nunca después: revisar después obligaría a reintentar, y reintentar lo que el spooler ya tiene saca el ticket dos veces. |
+| Contrabarras en los guiones | Los guiones de PowerShell que van dentro de un **template literal** de JavaScript (los de comilla invertida) necesitan las contrabarras **dobladas**: `\\d`, `HKLM:\\SYSTEM\\...`. En un template literal, `\d` se convierte en `d` y `\SYSTEM` en `SYSTEM`, así que la ruta del registro sale rota y la consulta no devuelve nada — sin error, sin aviso, sólo una lista vacía. Pasó el 18-sep-2026 y costó tres intentos darse cuenta. Los guiones armados con cadenas normales unidas con `join` ya llevan las dobles y no se tocan. |
+| `ForEach-Object` no deja variables | En PowerShell, `ForEach-Object` corre su bloque en un **ámbito hijo**: un `$x = ...` de adentro crea otra variable y la de afuera se queda en `$null`. El valor se saca de la **salida** del pipeline (`... | Select-Object -First 1`), nunca asignando. Una guardia escrita con asignación pasa de largo siempre y parece que funciona. |
 | Impresora dormida | Que el primer intento falle **no es una avería**: es la antena Bluetooth despertando. La cola reintenta a los 0,8 s (antes 5 s) y el foquito se queda **ámbar** los primeros 3 intentos. Pintar de rojo lo normal enseña a la caja a ignorar el foquito, y el día que de verdad falte papel nadie le hace caso. |
 | Repetir un producto | Cada renglón de la cuenta trae **− y ＋** pegados a su cantidad. El ＋ anota otro igual **con el mismo detalle, sin volver a abrir el submenú**: «otra igual» ya trae contestado «puesto, con Coca». El − quita uno **sin preguntar «¿seguro?»** —el ＋ está al lado y lo devuelve—, y los toques se atienden en fila, uno tras otro, para que tocar ＋ tres veces seguidas no choque contra la versión de la cuenta. |
 | Motivo al quitar | Se pide **sólo si lo que se quita alcanza a algo que ya salió a barra** (`cuantas > porComandar`), no por el mero hecho de que el renglón tenga algo mandado. El servidor descuenta primero lo que no ha salido, así que un renglón con «2 sin mandar» aguanta dos bajas sin estorbar a nadie. |
@@ -222,6 +239,23 @@ v2/
 - Impresora en producción (recomprobado el 2-sep-2026 en la laptop del bar):
   se llama **`POS-80`** en Windows —no `POSPrinter POS80`, que era el nombre
   viejo— y está en el puerto **`COM4`**.
+- ✅ **El 18-sep-2026 se corrió por fin `5-IMPRESORA-CLAVADA-EN-COM4.ps1`** en
+  la laptop del bar. Quedó: el «Inicio rápido» **apagado**
+  (`HiberbootEnabled = 0`), la impresora clavada en **`COM4`** buscada por su
+  dirección Bluetooth, y el puerto entrante desterrado a **`COM20`**. ⚠️ El
+  puerto nuevo **no responde hasta reiniciar la laptop**: abre, pero la
+  escritura se queda colgada («La escritura superó el tiempo de espera»).
+  Mientras tanto el número viejo sigue sirviendo. No es una avería, es el
+  reinicio que el script pide.
+- 🔁 **Y volvió a cambiar: el 18-sep-2026 la impresora amaneció en `COM3`**, con
+  el puerto entrante en `COM4` — otra vez al revés que el 2-sep. La impresora
+  `POS-80` de Windows se quedó apuntando a `COM4` (`PrinterStatus = Error`) y
+  RESTA estaba en modo `windows`: cinco tickets aceptados por el spooler, cinco
+  tickets atorados, **cero avisos**. Se dejó en modo `com` con `COM3`, que es el
+  único modo que se busca el puerto solo. **Eso significa que el «Inicio rápido»
+  estaba encendido otra vez** (`HiberbootEnabled = 1`): lo vuelve a poner
+  Windows Update, así que hay que revisarlo cada vez que la impresora falle sin
+  motivo. El ahorro de energía de la antena sí seguía apagado.
 - ⚠️ **El número de puerto COM NO es fijo: cambia al reemparejar.** El
   25-ago-2026 la impresora estaba en `COM3` y el entrante en `COM4`; el
   2-sep-2026, después de volver a emparejarla, quedó **al revés**. Nunca
