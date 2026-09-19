@@ -140,7 +140,7 @@ tablas).
 ```bash
 cd v2
 npm install          # una sola vez
-npm test             # las pruebas (deben pasar 426/426)
+npm test             # las pruebas (deben pasar 432/432)
 npm run servidor     # levanta RESTA en http://localhost:8080
 npm run dev          # lo mismo, en la ventana de escritorio
 ```
@@ -226,6 +226,7 @@ v2/
 | El spooler miente | El modo `windows` **acepta el trabajo aunque el puerto de la impresora esté muerto**: lo guarda en su cola y contesta «OK». RESTA daba eso por impreso. Ahora, antes de entregarle los bytes, comprueba que el puerto de la impresora de Windows sea el de verdad, y si no, se niega con el número bueno en el mensaje. La comprobación va **antes** de mandar, nunca después: revisar después obligaría a reintentar, y reintentar lo que el spooler ya tiene saca el ticket dos veces. |
 | Contrabarras en los guiones | Los guiones de PowerShell que van dentro de un **template literal** de JavaScript (los de comilla invertida) necesitan las contrabarras **dobladas**: `\\d`, `HKLM:\\SYSTEM\\...`. En un template literal, `\d` se convierte en `d` y `\SYSTEM` en `SYSTEM`, así que la ruta del registro sale rota y la consulta no devuelve nada — sin error, sin aviso, sólo una lista vacía. Pasó el 18-sep-2026 y costó tres intentos darse cuenta. Los guiones armados con cadenas normales unidas con `join` ya llevan las dobles y no se tocan. |
 | `ForEach-Object` no deja variables | En PowerShell, `ForEach-Object` corre su bloque en un **ámbito hijo**: un `$x = ...` de adentro crea otra variable y la de afuera se queda en `$null`. El valor se saca de la **salida** del pipeline (`... | Select-Object -First 1`), nunca asignando. Una guardia escrita con asignación pasa de largo siempre y parece que funciona. |
+| El spooler se queda con el NOMBRE del puerto | Los nombres `COM1`, `COM4`… no son puertos: son **etiquetas con un solo dueño**. El spooler reparte etiquetas igual que el Bluetooth, y gana el que llegue primero. Una impresora de Windows con puerto `COM4:` hace que `COM4` apunte a `DeviceNamedPipeSpoolerCOM4`, y el puerto serie de verdad se queda **sin nombre**: RESTA pide COM4, Windows le da el tubo del spooler y .NET contesta «eso no es un puerto serie», con la impresora encendida y perfecta. Se mira con `QueryDosDevice`, NUNCA con el Administrador de dispositivos, donde todo se ve bien. Lo libera `v2/instalacion/6-LIBERAR-EL-PUERTO-COM4.ps1`. |
 | Impresora dormida | Que el primer intento falle **no es una avería**: es la antena Bluetooth despertando. La cola reintenta a los 0,8 s (antes 5 s) y el foquito se queda **ámbar** los primeros 3 intentos. Pintar de rojo lo normal enseña a la caja a ignorar el foquito, y el día que de verdad falte papel nadie le hace caso. |
 | Repetir un producto | Cada renglón de la cuenta trae **− y ＋** pegados a su cantidad. El ＋ anota otro igual **con el mismo detalle, sin volver a abrir el submenú**: «otra igual» ya trae contestado «puesto, con Coca». El − quita uno **sin preguntar «¿seguro?»** —el ＋ está al lado y lo devuelve—, y los toques se atienden en fila, uno tras otro, para que tocar ＋ tres veces seguidas no choque contra la versión de la cuenta. |
 | Motivo al quitar | Se pide **sólo si lo que se quita alcanza a algo que ya salió a barra** (`cuantas > porComandar`), no por el mero hecho de que el renglón tenga algo mandado. El servidor descuenta primero lo que no ha salido, así que un renglón con «2 sin mandar» aguanta dos bajas sin estorbar a nadie. |
@@ -239,6 +240,25 @@ v2/
 - Impresora en producción (recomprobado el 2-sep-2026 en la laptop del bar):
   se llama **`POS-80`** en Windows —no `POSPrinter POS80`, que era el nombre
   viejo— y está en el puerto **`COM4`**.
+- 🛑 **Clavar la impresora en COM4 la dejó MUDA, y el motivo no se ve por
+  ningún lado.** El 18-sep-2026, después del script 5 y del reinicio: la
+  impresora encendida, emparejada, su puerto bien puesto en el registro
+  (`SERIALCOMM` decía `DeviceBthModem0 -> COM4`)… y RESTA seguía diciendo
+  que COM4 «no se resuelve en un puerto serie válido». La causa: **el spooler
+  tenía secuestrada la etiqueta COM4** por las dos impresoras de Windows
+  duplicadas (`POS-80` y `POS 80`), las dos con puerto `COM4:`. Mientras la
+  impresora estuvo en COM3 no se notaba, porque COM3 no chocaba con nadie.
+  Se arregla con `6-LIBERAR-EL-PUERTO-COM4.ps1`. **Antes de culpar a la
+  impresora, mirar a qué apunta la etiqueta:**
+  `QueryDosDevice('COM4')` — si contesta `DeviceNamedPipeSpoolerCOM4`,
+  el aparato no tiene nada que ver.
+- ⚠️ **NO instalar el driver POS-80 de `C:POS Printer Driver V11.3.0.3`.**
+  RESTA escribe **directo al puerto COM** y no usa driver de impresora para
+  nada. Instalarlo crea otra impresora de Windows apuntando a COM4 y vuelve a
+  provocar exactamente el secuestro de arriba. El «El controlador no está
+  disponible» que enseña la pantalla de Bluetooth es del perfil de impresora
+  Bluetooth y es **cosmético**: el camino que usa RESTA (SPP / puerto serie)
+  no lo necesita.
 - ✅ **El 18-sep-2026 se corrió por fin `5-IMPRESORA-CLAVADA-EN-COM4.ps1`** en
   la laptop del bar. Quedó: el «Inicio rápido» **apagado**
   (`HiberbootEnabled = 0`), la impresora clavada en **`COM4`** buscada por su
@@ -306,8 +326,19 @@ v2/
   ocupado para el otro. Además el agente de la v1 arranca **dos veces** —hay
   dos accesos directos, «ONCE Agente Impresion.lnk» y «RESTA Impresion.lnk»,
   al mismo `.vbs`— y el segundo siempre muere sin poder tomar el 9100. Nada
-  de esto se toca mientras la v1 siga en producción; el día que se apague la
-  v1, hay que quitar los dos accesos directos.
+  de esto se tocó mientras la v1 fue la caja.
+- ✅ **El 18-sep-2026 la v2 pasó a ser la caja y la v1 dejó de imprimir.** Se
+  movieron sus dos accesos directos del arranque —«ONCE Agente Impresion.lnk»
+  y «RESTA Impresion.lnk»— a `C:RESTAaccesos-directos-quitados` (movidos,
+  no borrados: se devuelven en un minuto) y se paró el agente. El puerto 9100
+  quedó libre y ya no hay dos programas peleando por la impresora. La v1 sigue
+  instalada y se puede abrir en Chrome para consultar lo viejo; lo único que
+  no hace es imprimir.
+- ⚠️ **Las ventas de la v1 viven en el `localStorage` de Chrome, y**
+  **`C:RESTARespaldos` está VACÍA** (comprobado el 18-sep-2026). Si algún día
+  se desinstala la v1 o se borra el perfil de Chrome, ese historial se pierde
+  y no hay copia en ningún archivo. Antes de tocar nada de eso, sacar el
+  respaldo desde la propia v1.
 - ⚠️ **En la laptop del bar los datos de la v2 NO están en `C:\RESTA`, sino en
   `C:\RESTA-V2`.** Los aparta ahí `1-PREPARAR-V2-AISLADA.bat`, con la variable
   de entorno `RESTA_DATOS` del usuario, para que la v2 no toque nada de la v1
@@ -354,6 +385,12 @@ v2/
   error y salga al minuto. Se arregla corriendo, una vez y como
   administrador, `v2/instalacion/3-BLUETOOTH-SIEMPRE-DESPIERTO.ps1`
   (se deshace con `-Deshacer`). No toca la impresora ni el emparejamiento.
+- ⚠️ **En la laptop del bar hay Norton 360**, y analiza entero el instalador de
+  108 MB antes de soltarlo: por eso «Buscar actualización» parece quedarse
+  colgado un buen rato y luego funciona. Se calla excluyendo
+  `C:Program FilesRESTA` y `C:RESTA-V2` en **las dos** listas de Norton:
+  la de exploraciones y la de «Auto-Protect, SONAR y Download Intelligence».
+  La segunda es la que quita la espera al descargar.
 - La v1.3.0 guarda todo en `localStorage` de Chrome + `C:\RESTA\Respaldos`.
   Esa fragilidad es el motivo principal de la v2.
 
