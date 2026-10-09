@@ -288,7 +288,20 @@
 
     <div class="dos-columnas">
       <!-- izquierda: qué anotar -->
-      <div class="columna-productos">
+      <div class="columna-productos" id="columna-productos-cuenta">
+        <!-- El buscador: teclear «coca» y verla, sin recorrer seis familias.
+             Busca en TODA la carta, no sólo en la familia abierta. -->
+        <div class="buscador" id="buscador-cuenta">
+          <span class="lupa" aria-hidden="true">🔍</span>
+          <input type="search" id="buscar-producto"
+                 placeholder="Buscar producto… (coca, agua, nachos)"
+                 autocomplete="off" autocorrect="off" autocapitalize="off"
+                 spellcheck="false" enterkeyhint="search"
+                 aria-label="Buscar producto">
+          <button type="button" class="limpiar" id="limpiar-busqueda"
+                  aria-label="Borrar búsqueda">✕</button>
+        </div>
+        <div class="resumen-busqueda" id="resumen-busqueda"></div>
         <div class="familias-bar" id="familias-cuenta"></div>
         <div class="rejilla-productos" id="productos-cuenta"></div>
       </div>

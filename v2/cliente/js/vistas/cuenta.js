@@ -29,12 +29,33 @@ const RAZONES_CANCELACION = [
   'Se fueron sin pagar',
 ];
 
+/* Lo tecleado en el buscador. Vive aquí y no en el DOM para que sobreviva a
+   los repintados: la cuenta se vuelve a pintar con cada cambio que llega del
+   servidor, y perder la búsqueda a media palabra sería desesperante. */
+let busqueda = '';
+
+/* De qué cuenta es la búsqueda. Al abrir OTRA mesa se borra: lo que se
+   buscaba para la 4 no tiene por qué seguir puesto en la 7. */
+let cuentaDeLaBusqueda = null;
+
 export function iniciarCuenta(cuandoVuelva) {
   alVolver = cuandoVuelva;
 
   $('familias-cuenta').addEventListener('click', alTocarFamilia);
   $('productos-cuenta').addEventListener('click', alTocarProducto);
   $('ticket-lineas').addEventListener('click', alTocarLinea);
+
+  $('buscar-producto').addEventListener('input', (e) => {
+    busqueda = e.target.value;
+    pintarProductos();
+  });
+  $('buscar-producto').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') limpiarBusqueda();
+    // En la tablet, Enter («Buscar» en el teclado de pantalla) esconde el
+    // teclado para que se vean los productos encontrados.
+    if (e.key === 'Enter') e.target.blur();
+  });
+  $('limpiar-busqueda').addEventListener('click', limpiarBusqueda);
 
   // La pastilla del total (pantallas angostas) baja hasta la cuenta completa.
   $('total-flotante').addEventListener('click', () =>
@@ -57,6 +78,12 @@ export function pintarCuenta() {
   $('sub-cuenta').textContent =
     `abrió ${c.abiertaPor ?? '—'} · ${c.creada?.slice(11, 16) ?? ''}`;
 
+  if (cuentaDeLaBusqueda !== c.id) {
+    cuentaDeLaBusqueda = c.id;
+    busqueda = '';
+    $('buscar-producto').value = '';
+  }
+
   pintarFamilias();
   pintarProductos();
   pintarTicket();
@@ -70,7 +97,106 @@ function pintarFamilias() {
     </button>`).join('');
 }
 
+/**
+ * El texto «aplanado» para buscar: sin acentos, sin mayúsculas, y con todo
+ * lo que no sea letra o número convertido en espacio.
+ *
+ * Se hace letra por letra, SIN cambiar el largo del texto, para que la
+ * posición donde se encontró sirva para subrayar en el nombre original.
+ * Así «cafe» encuentra «Café latte» y «coca cola» encuentra «Coca-Cola».
+ */
+function aplanar(texto) {
+  let r = '';
+  for (const ch of String(texto)) {
+    const base = ch.normalize('NFD')[0].toLowerCase();
+    r += /[a-z0-9]/.test(base) ? base : ' ';
+  }
+  return r;
+}
+
+function limpiarBusqueda() {
+  busqueda = '';
+  $('buscar-producto').value = '';
+  pintarProductos();
+}
+
+/**
+ * En la tablet, el teclado de pantalla se queda abierto tapando media
+ * rejilla hasta que uno toca fuera del campo. Al tocar un producto o una
+ * familia ya se encontró lo que se buscaba: el teclado sobra.
+ */
+function esconderTeclado() {
+  if (document.activeElement === $('buscar-producto')) $('buscar-producto').blur();
+}
+
+/**
+ * Lo que coincide con la búsqueda, en toda la carta.
+ * Primero los que EMPIEZAN con lo tecleado (o alguna de sus palabras),
+ * después los que lo traen en medio: con «cola» sale Coca-Cola antes que
+ * cualquier «...chocolate».
+ */
+function productosQueCoinciden(q) {
+  const todos = estado.menu.productos.filter((p) => aplanar(p.nombre).includes(q));
+  const alPrincipio = todos.filter((p) => {
+    const n = aplanar(p.nombre);
+    return n.startsWith(q) || n.includes(' ' + q);
+  });
+  return [...alPrincipio, ...todos.filter((p) => !alPrincipio.includes(p))];
+}
+
+function mosaico(p, i, q) {
+  let nombre = esc(p.nombre);
+  let familia = '';
+
+  if (q) {
+    // Se subraya lo tecleado dentro del nombre, y se dice de qué familia es:
+    // si hay un «Agua» en Refrescos y otra en Tienda, sin eso se confunden.
+    const ix = aplanar(p.nombre).indexOf(q);
+    if (ix >= 0) {
+      nombre = esc(p.nombre.slice(0, ix))
+        + `<mark>${esc(p.nombre.slice(ix, ix + q.length))}</mark>`
+        + esc(p.nombre.slice(ix + q.length));
+    }
+    const f = estado.menu.familias.find((x) => x.clave === p.familia);
+    familia = `<span class="fam">${esc(f?.emoji ?? '')} ${esc(f?.nombre ?? p.familia)}</span>`;
+  }
+
+  return `
+    <button class="prod-tile c${(i % 8) + 1}" data-producto="${p.id}">
+      ${p.opciones ? '<span class="tiene-submenu">⚙️</span>' : ''}
+      <span class="ic">${esc(p.icono || '🍽️')}</span>
+      <span class="nm">${nombre}</span>
+      <span class="pr dinero">${formatear(p.precio)}</span>
+      ${familia}
+    </button>`;
+}
+
 function pintarProductos() {
+  const q = aplanar(busqueda).trim();
+  $('columna-productos-cuenta').classList.toggle('buscando', q.length > 0);
+  $('buscador-cuenta').classList.toggle('con-texto', busqueda.trim().length > 0);
+
+  if (q) {
+    const lista = productosQueCoinciden(q);
+    const familias = new Set(lista.map((p) => p.familia));
+    const dicho = esc(busqueda.trim());
+
+    $('resumen-busqueda').innerHTML = lista.length
+      ? `<b>${lista.length}</b> ${lista.length === 1 ? 'producto' : 'productos'} con «${dicho}»`
+        + (familias.size > 1 ? ` · en ${familias.size} familias` : '')
+      : `Nada con «${dicho}»`;
+
+    $('productos-cuenta').innerHTML = lista.length
+      ? lista.map((p, i) => mosaico(p, i, q)).join('')
+      : `<div class="vacio sin-resultados">
+           <div class="vacio-icono">🔍</div>
+           <div class="vacio-titulo">No hay ningún producto con «${dicho}»</div>
+           <div class="vacio-nota">Revisa cómo está escrito, o búscalo por familia.</div>
+           <button type="button" class="btn" data-limpiar-busqueda>Borrar búsqueda</button>
+         </div>`;
+    return;
+  }
+
   const dela = estado.menu.productos.filter((p) => p.familia === estado.familiaActiva);
 
   // Una familia recién creada no tiene nada. Se dice, en vez de dejar el
@@ -88,13 +214,7 @@ function pintarProductos() {
     return;
   }
 
-  $('productos-cuenta').innerHTML = dela.map((p, i) => `
-    <button class="prod-tile c${(i % 8) + 1}" data-producto="${p.id}">
-      ${p.opciones ? '<span class="tiene-submenu">⚙️</span>' : ''}
-      <span class="ic">${esc(p.icono || '🍽️')}</span>
-      <span class="nm">${esc(p.nombre)}</span>
-      <span class="pr dinero">${formatear(p.precio)}</span>
-    </button>`).join('');
+  $('productos-cuenta').innerHTML = dela.map((p, i) => mosaico(p, i, '')).join('');
 }
 
 /**
@@ -112,10 +232,10 @@ function pasosDeLinea(l) {
 
   return `
     <span class="pasos">
-      <button type="button" class="paso" data-paso="menos"
+      <button type="button" class="paso paso-menos" data-paso="menos"
               aria-label="Quitar uno de ${esc(l.nombre)}">−</button>
       <span class="linea-cant">${l.cant}</span>
-      <button type="button" class="paso" data-paso="mas"
+      <button type="button" class="paso paso-mas" data-paso="mas"
               aria-label="Otro ${esc(l.nombre)}">＋</button>
     </span>`;
 }
@@ -186,14 +306,18 @@ function pintarBotones() {
 function alTocarFamilia(e) {
   const b = e.target.closest('[data-familia]');
   if (!b) return;
+  esconderTeclado();
   estado.familiaActiva = b.dataset.familia;
   pintarFamilias();
   pintarProductos();
 }
 
 async function alTocarProducto(e) {
+  if (e.target.closest('[data-limpiar-busqueda]')) return limpiarBusqueda();
+
   const b = e.target.closest('[data-producto]');
   if (!b) return;
+  esconderTeclado();
 
   const p = producto(b.dataset.producto);
   if (!p) return;

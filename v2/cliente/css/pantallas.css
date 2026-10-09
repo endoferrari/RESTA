@@ -340,23 +340,103 @@
 /* El − y el ＋ del renglón.
    Van pegados a la cantidad, no junto al importe: lo que cambian es ella, y
    con el dedo encima del dinero uno duda de si va a cobrar algo.
-   36px es lo que mide una yema; más chicos, en una tablet se falla el toque
-   y se acaba abriendo la ventana de quitar sin querer. */
-.pasos { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+   Empezaron en 36px —lo que mide una yema— y Rosendo los pidió más grandes
+   y de color (8-oct-2026): 46px, el − rojo y el ＋ verde, para que desde
+   lejos se distinga cuál suma y cuál quita sin leer el símbolo. */
+.pasos { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 .paso {
-  width: 36px; height: 36px; flex: 0 0 auto;
+  width: 46px; height: 46px; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--linea); border-radius: 10px;
-  background: var(--tarjeta); color: var(--verde-oscuro);
-  font-size: 1.2rem; font-weight: 800; line-height: 1;
+  border: 2px solid var(--linea); border-radius: 12px;
+  background: var(--tarjeta); color: #fff;
+  font-size: 1.5rem; font-weight: 800; line-height: 1;
   cursor: pointer;
   /* Pedir otras tres es tocar ＋ tres veces seguidas. Sin esto el navegador
      lo lee como doble toque y hace zoom a la pantalla a media noche. */
   touch-action: manipulation;
   -webkit-user-select: none; user-select: none;
 }
-.paso:hover { background: var(--verde-claro); border-color: var(--verde-medio); }
+.paso-menos { background: var(--peligro); border-color: var(--peligro); }
+.paso-mas   { background: var(--exito);   border-color: var(--exito); }
+.paso:hover { filter: brightness(.9); }
 .paso:active { transform: scale(.9); }
+.linea-cant { min-width: 30px; font-size: 1.15rem; }
+/* Con los botones de 46px el renglón crece un poco: caben seis a la vista
+   en vez de siete. Es el precio de no fallar el toque. */
+.linea { min-height: 64px; }
+
+/* ── El buscador de productos ──────────────────────────────────────────
+   Encima de las familias. Teclear «coca» y verla, en vez de recorrer seis
+   pestañas. Busca en TODA la carta, no sólo en la familia abierta. */
+.buscador {
+  position: relative;
+  display: flex; align-items: center;
+  margin-bottom: 14px;
+}
+.buscador .lupa {
+  position: absolute; left: 18px;
+  font-size: 1.15rem; pointer-events: none; opacity: .6;
+}
+.buscador input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 56px 0 50px;
+  border: 1.5px solid var(--linea);
+  border-radius: 99px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font-size: 1.08rem;
+  font-weight: 600;
+  box-shadow: var(--sombra);
+  -webkit-appearance: none; appearance: none;
+}
+.buscador input::placeholder { color: var(--tinta-suave); font-weight: 500; }
+.buscador input:focus {
+  outline: 0; border-color: var(--verde-medio);
+  box-shadow: 0 0 0 3px var(--verde-claro), var(--sombra);
+}
+/* La ✕ que pone el navegador es diminuta; se usa la propia, de dedo. */
+.buscador input::-webkit-search-cancel-button { display: none; }
+.buscador .limpiar {
+  position: absolute; right: 7px;
+  width: 42px; height: 42px;
+  border: 0; border-radius: 99px;
+  background: var(--verde-claro); color: var(--verde-oscuro);
+  font-size: 1rem; font-weight: 800;
+  display: none; align-items: center; justify-content: center;
+}
+.buscador.con-texto .limpiar { display: flex; }
+.buscador .limpiar:hover { background: var(--linea); }
+
+/* Mientras se busca, las familias se apagan: la rejilla ya no es «de una
+   familia», es «lo que coincide con lo tecleado». */
+.buscando .familias-bar { opacity: .4; pointer-events: none; }
+
+/* El renglón que dice cuántos salieron */
+.resumen-busqueda {
+  display: none;
+  align-items: center; gap: 8px;
+  margin: -6px 0 12px 6px;
+  font-size: .88rem; color: var(--tinta-suave); font-weight: 600;
+}
+.buscando .resumen-busqueda { display: flex; }
+.resumen-busqueda b { color: var(--tinta); }
+
+/* El mosaico encontrado dice de qué familia es, y lo tecleado va subrayado
+   con la misma tinta del mosaico. */
+.prod-tile .fam {
+  font-size: .68rem; font-weight: 700; opacity: .65;
+  margin-top: 2px; padding: 1px 8px; border-radius: 99px;
+  background: rgba(255, 255, 255, .55);
+}
+.prod-tile mark {
+  background: none; color: inherit;
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px;
+}
+
+/* Nada que enseñar: ocupa la rejilla entera */
+.sin-resultados { grid-column: 1 / -1; }
+.sin-resultados .btn { margin-top: 14px; }
 
 .linea-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .linea-nombre { font-weight: 600; font-size: .92rem; }
